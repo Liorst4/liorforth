@@ -79,6 +79,8 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
     ("-", binary_operator_native_word!(-)),
     ("*", binary_operator_native_word!(*)),
     ("/", binary_operator_native_word!(/)), // TODO: Handle divide error
+    ("and", binary_operator_native_word!(&)),
+    ("or", binary_operator_native_word!(|)),
 ];
 
 const DATA_SPACE_SIZE: usize = 10 * 1024;
