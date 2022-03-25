@@ -138,7 +138,7 @@ impl<'a> Environment<'a> {
 
     fn execute_from_name(&mut self, word: &str) {
         // TODO: Without copy?
-        let word_to_execute = *self.dictionary.get(word).unwrap();
+        let word_to_execute = *self.dictionary.get(&word.to_lowercase()).unwrap();
         self.execute(&word_to_execute);
     }
 
