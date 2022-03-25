@@ -24,6 +24,18 @@ struct Environment<'a> {
     dictionary: std::collections::HashMap<String, Word>,
 }
 
+macro_rules! binary_operator_native_word {
+    ($operator:tt) => {
+	Word::Native(|env| {
+	    // TODO: Allow under/overflow
+            let b = env.data_stack.pop().unwrap();
+            let a = env.data_stack.pop().unwrap();
+            let c = a $operator b;
+            env.data_stack.push(c);
+	})
+    }
+}
+
 const INITIAL_DICTIONAY: &[(&str, Word)] = &[
     (
         ".s",
@@ -63,42 +75,10 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
             println!("{}", x);
         }),
     ),
-    (
-        "+",
-        Word::Native(|env| {
-            let b = env.data_stack.pop().unwrap();
-            let a = env.data_stack.pop().unwrap();
-            let c = a + b;
-            env.data_stack.push(c);
-        }),
-    ),
-    (
-        "-",
-        Word::Native(|env| {
-            let b = env.data_stack.pop().unwrap();
-            let a = env.data_stack.pop().unwrap();
-            let c = a - b;
-            env.data_stack.push(c);
-        }),
-    ),
-    (
-        "*",
-        Word::Native(|env| {
-            let b = env.data_stack.pop().unwrap();
-            let a = env.data_stack.pop().unwrap();
-            let c = a * b;
-            env.data_stack.push(c);
-        }),
-    ),
-    (
-        "/",
-        Word::Native(|env| {
-            let b = env.data_stack.pop().unwrap();
-            let a = env.data_stack.pop().unwrap();
-            let c = a / b;
-            env.data_stack.push(c);
-        }),
-    ),
+    ("+", binary_operator_native_word!(+)),
+    ("-", binary_operator_native_word!(-)),
+    ("*", binary_operator_native_word!(*)),
+    ("/", binary_operator_native_word!(/)), // TODO: Handle divide error
 ];
 
 const DATA_SPACE_SIZE: usize = 10 * 1024;
