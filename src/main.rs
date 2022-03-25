@@ -36,6 +36,17 @@ macro_rules! binary_operator_native_word {
     }
 }
 
+macro_rules! unary_operator_native_word {
+    ($operator:tt) => {
+	Word::Native(|env| {
+	    // TODO: Allow under/overflow
+            let a = env.data_stack.pop().unwrap();
+	    let b = $operator a;
+            env.data_stack.push(b);
+	})
+    }
+}
+
 const INITIAL_DICTIONAY: &[(&str, Word)] = &[
     (
         ".s",
@@ -81,6 +92,8 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
     ("/", binary_operator_native_word!(/)), // TODO: Handle divide error
     ("and", binary_operator_native_word!(&)),
     ("or", binary_operator_native_word!(|)),
+    ("negate", unary_operator_native_word!(-)),
+    ("invert", unary_operator_native_word!(!)),
 ];
 
 const DATA_SPACE_SIZE: usize = 10 * 1024;
