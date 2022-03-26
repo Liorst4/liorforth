@@ -123,6 +123,16 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
             env.data_stack.push(b);
         }),
     ),
+    (
+        "over",
+        Word::Native(|env| {
+            let a = env.data_stack.pop().unwrap();
+            let b = env.data_stack.pop().unwrap();
+            env.data_stack.push(b);
+            env.data_stack.push(a);
+            env.data_stack.push(b);
+        }),
+    ),
     ("+", binary_operator_native_word!(+)),
     ("-", binary_operator_native_word!(-)),
     ("*", binary_operator_native_word!(*)),
