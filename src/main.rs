@@ -1,5 +1,19 @@
 type Cell = isize;
 
+fn bool_as_cell(b: bool) -> Cell {
+    if b {
+        return -1;
+    }
+    return 0;
+}
+
+fn cell_as_bool(c: Cell) -> bool {
+    if c == -1 {
+        return true;
+    }
+    return false;
+}
+
 type Byte = u8;
 
 #[derive(Clone, Copy)]
@@ -45,6 +59,18 @@ macro_rules! unary_operator_native_word {
             let a = env.data_stack.pop().unwrap();
 	    let b = $operator a;
             env.data_stack.push(b);
+	})
+    }
+}
+
+macro_rules! compare_operator_native_word {
+    ($operator:tt) => {
+	Word::Native(|env| {
+	    // TODO: Allow under/overflow
+            let b = env.data_stack.pop().unwrap();
+            let a = env.data_stack.pop().unwrap();
+            let c = a $operator b;
+            env.data_stack.push(bool_as_cell(c));
 	})
     }
 }
@@ -96,6 +122,9 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
     ("or", binary_operator_native_word!(|)),
     ("negate", unary_operator_native_word!(-)),
     ("invert", unary_operator_native_word!(!)),
+    ("=", compare_operator_native_word!(==)),
+    ("<", compare_operator_native_word!(<)),
+    (">", compare_operator_native_word!(>)),
 ];
 
 const DATA_SPACE_SIZE: usize = 10 * 1024;
