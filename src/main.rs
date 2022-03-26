@@ -152,6 +152,7 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
     ("=", compare_operator_native_word!(==)),
     ("<", compare_operator_native_word!(<)),
     (">", compare_operator_native_word!(>)),
+    ("bl", Word::Literal(' ' as Cell)),
 ];
 
 const DATA_SPACE_SIZE: usize = 10 * 1024;
