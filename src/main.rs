@@ -1,13 +1,13 @@
 type Cell = isize;
 
-fn bool_as_cell(b: bool) -> Cell {
+const fn bool_as_cell(b: bool) -> Cell {
     if b {
         return -1;
     }
     return 0;
 }
 
-fn cell_as_bool(c: Cell) -> bool {
+const fn cell_as_bool(c: Cell) -> bool {
     if c == -1 {
         return true;
     }
@@ -154,6 +154,8 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
     ("<", compare_operator_native_word!(<)),
     (">", compare_operator_native_word!(>)),
     ("bl", Word::Literal(' ' as Cell)),
+    ("true", Word::Literal(bool_as_cell(true))),
+    ("false", Word::Literal(bool_as_cell(false))),
 ];
 
 const DATA_SPACE_SIZE: usize = 10 * 1024;
