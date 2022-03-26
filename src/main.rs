@@ -165,6 +165,8 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
     ("or", binary_operator_native_word!(|)),
     ("xor", binary_operator_native_word!(^)),
     ("mod", binary_operator_native_word!(%)),
+    ("lshift", binary_operator_native_word!(<<)),
+    ("rshift", binary_operator_native_word!(>>)),
     ("negate", unary_operator_native_word!(-)),
     ("invert", unary_operator_native_word!(!)),
     ("=", compare_operator_native_word!(==)),
