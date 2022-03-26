@@ -133,6 +133,14 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
             env.data_stack.push(b);
         }),
     ),
+    (
+        "nip",
+        Word::Native(|env| {
+            let a = env.data_stack.pop().unwrap();
+            env.data_stack.pop().unwrap();
+            env.data_stack.push(a);
+        }),
+    ),
     ("+", binary_operator_native_word!(+)),
     ("-", binary_operator_native_word!(-)),
     ("*", binary_operator_native_word!(*)),
