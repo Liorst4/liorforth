@@ -22,6 +22,8 @@ struct Environment<'a> {
     input_buffer: Vec<Byte>,
 
     dictionary: std::collections::HashMap<String, Word>,
+
+    base: u32,
 }
 
 macro_rules! binary_operator_native_word {
@@ -109,6 +111,30 @@ impl<'a> Environment<'a> {
             dictionary: std::collections::HashMap::from_iter(
                 INITIAL_DICTIONAY.iter().map(|&(a, b)| (a.to_string(), b)),
             ),
+            base: 10,
+        };
+    }
+
+    fn parse_number(&self, word: &str) -> Option<Cell> {
+        if word.is_empty() {
+            return None;
+        }
+
+        let (base, has_base_indicator) = match word.chars().nth(0).unwrap() {
+            '#' => (10, true),
+            '$' => (16, true),
+            '%' => (2, true),
+            _ => (self.base, false),
+        };
+
+        let rest = match has_base_indicator {
+            true => word.split_at(1).1,
+            _ => word,
+        };
+
+        return match Cell::from_str_radix(rest, base) {
+            Ok(x) => Some(x),
+            _ => None,
         };
     }
 
@@ -120,13 +146,9 @@ impl<'a> Environment<'a> {
         self.input_buffer = line.as_bytes().to_vec();
         for word in line.split(' ') {
             // TODO: Pop word from input buffer
-
-            // TODO: Hex numbers
-	    // TODO: Negative numbers
-            if word.chars().all(|c| c.is_numeric()) {
-                self.data_stack.push(word.parse().unwrap())
-            } else {
-                self.execute_from_name(word);
+            match self.parse_number(word) {
+                Some(number) => self.data_stack.push(number),
+                _ => self.execute_from_name(word),
             }
         }
     }
