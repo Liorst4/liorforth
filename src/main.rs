@@ -147,6 +147,7 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
     ("/", binary_operator_native_word!(/)), // TODO: Handle divide error
     ("and", binary_operator_native_word!(&)),
     ("or", binary_operator_native_word!(|)),
+    ("xor", binary_operator_native_word!(^)),
     ("negate", unary_operator_native_word!(-)),
     ("invert", unary_operator_native_word!(!)),
     ("=", compare_operator_native_word!(==)),
