@@ -142,6 +142,17 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
         }),
     ),
     (
+        "rot",
+        Word::Native(|env| {
+            let a = env.data_stack.pop().unwrap();
+            let b = env.data_stack.pop().unwrap();
+            let c = env.data_stack.pop().unwrap();
+            env.data_stack.push(b);
+            env.data_stack.push(a);
+            env.data_stack.push(c);
+        }),
+    ),
+    (
         "min",
         Word::Native(|env| {
             let a = env.data_stack.pop().unwrap();
