@@ -141,6 +141,22 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
             env.data_stack.push(a);
         }),
     ),
+    (
+        "min",
+        Word::Native(|env| {
+            let a = env.data_stack.pop().unwrap();
+            let b = env.data_stack.pop().unwrap();
+            env.data_stack.push(std::cmp::min(a, b));
+        }),
+    ),
+    (
+        "max",
+        Word::Native(|env| {
+            let a = env.data_stack.pop().unwrap();
+            let b = env.data_stack.pop().unwrap();
+            env.data_stack.push(std::cmp::max(a, b));
+        }),
+    ),
     ("+", binary_operator_native_word!(+)),
     ("-", binary_operator_native_word!(-)),
     ("*", binary_operator_native_word!(*)),
