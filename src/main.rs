@@ -179,6 +179,17 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
         }),
     ),
     (
+        "/mod",
+        Word::Native(|env| {
+            let n2 = env.data_stack.pop().unwrap();
+            let n1 = env.data_stack.pop().unwrap();
+            let n3 = n1 % n2;
+            let n4 = n1 / n2;
+            env.data_stack.push(n3);
+            env.data_stack.push(n4);
+        }),
+    ),
+    (
         "*/",
         Word::Native(|env| {
             let n3 = env.data_stack.pop().unwrap();
