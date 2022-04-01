@@ -32,8 +32,7 @@ struct Environment<'a> {
     // TODO: Borrowed memory span
     data_space: Vec<Byte>,
 
-    // TODO: Actual pointer instead of index
-    data_space_pointer: usize,
+    data_space_pointer: *mut Byte,
 
     data_stack: Vec<Cell>,
     return_stack: Vec<&'a Word>,
@@ -217,6 +216,27 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
             env.data_stack.push(n5);
         }),
     ),
+    (
+        "here",
+        Word::Native(|env| {
+            let address_as_cell: Cell;
+
+            unsafe {
+                address_as_cell = std::mem::transmute(env.data_space_pointer);
+            }
+
+            env.data_stack.push(address_as_cell);
+        }),
+    ),
+    (
+        "allot",
+        Word::Native(|env| {
+            let n = env.data_stack.pop().unwrap();
+            unsafe {
+                env.data_space_pointer = env.data_space_pointer.add(n as usize);
+            }
+        }),
+    ),
     ("+", binary_operator_native_word!(wrapping_add)),
     ("-", binary_operator_native_word!(wrapping_sub)),
     ("*", binary_operator_native_word!(wrapping_mul)),
@@ -241,9 +261,12 @@ const DATA_SPACE_SIZE: usize = 10 * 1024;
 
 impl<'a> Environment<'a> {
     fn new() -> Environment<'a> {
+        let mut data_space = Vec::with_capacity(DATA_SPACE_SIZE);
+        let data_space_pointer = data_space.as_mut_ptr();
+
         return Environment {
-            data_space: Vec::with_capacity(DATA_SPACE_SIZE),
-            data_space_pointer: 0,
+            data_space,
+            data_space_pointer,
             data_stack: Vec::new(),
             return_stack: Vec::new(),
             input_buffer: Vec::new(),
