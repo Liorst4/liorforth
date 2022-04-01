@@ -1,3 +1,5 @@
+use std::ops::*;
+
 type Cell = isize;
 
 // TODO: Add static_assert to make sure that its bigger than Cell
@@ -44,21 +46,19 @@ struct Environment<'a> {
 }
 
 macro_rules! binary_operator_native_word {
-    ($operator:tt) => {
-	Word::Native(|env| {
-	    // TODO: Allow under/overflow
+    ($method:tt) => {
+        Word::Native(|env| {
             let b = env.data_stack.pop().unwrap();
             let a = env.data_stack.pop().unwrap();
-            let c = a $operator b;
+            let c = a.$method(b);
             env.data_stack.push(c);
-	})
-    }
+        })
+    };
 }
 
 macro_rules! unary_operator_native_word {
     ($operator:tt) => {
 	Word::Native(|env| {
-	    // TODO: Allow under/overflow
             let a = env.data_stack.pop().unwrap();
 	    let b = $operator a;
             env.data_stack.push(b);
@@ -69,7 +69,6 @@ macro_rules! unary_operator_native_word {
 macro_rules! compare_operator_native_word {
     ($operator:tt) => {
 	Word::Native(|env| {
-	    // TODO: Allow under/overflow
             let b = env.data_stack.pop().unwrap();
             let a = env.data_stack.pop().unwrap();
             let c = a $operator b;
@@ -218,16 +217,16 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
             env.data_stack.push(n5);
         }),
     ),
-    ("+", binary_operator_native_word!(+)),
-    ("-", binary_operator_native_word!(-)),
-    ("*", binary_operator_native_word!(*)),
-    ("/", binary_operator_native_word!(/)), // TODO: Handle divide error
-    ("and", binary_operator_native_word!(&)),
-    ("or", binary_operator_native_word!(|)),
-    ("xor", binary_operator_native_word!(^)),
-    ("mod", binary_operator_native_word!(%)),
-    ("lshift", binary_operator_native_word!(<<)),
-    ("rshift", binary_operator_native_word!(>>)),
+    ("+", binary_operator_native_word!(wrapping_add)),
+    ("-", binary_operator_native_word!(wrapping_sub)),
+    ("*", binary_operator_native_word!(wrapping_mul)),
+    ("/", binary_operator_native_word!(div)), // TODO: Handle divide error
+    ("and", binary_operator_native_word!(bitand)),
+    ("or", binary_operator_native_word!(bitor)),
+    ("xor", binary_operator_native_word!(bitxor)),
+    ("mod", binary_operator_native_word!(wrapping_rem)),
+    ("lshift", binary_operator_native_word!(shl)),
+    ("rshift", binary_operator_native_word!(shr)),
     ("negate", unary_operator_native_word!(-)),
     ("invert", unary_operator_native_word!(!)),
     ("=", compare_operator_native_word!(==)),
