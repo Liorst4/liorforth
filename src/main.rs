@@ -237,6 +237,31 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
             }
         }),
     ),
+    (
+        "@",
+        Word::Native(|env| {
+            let n = env.data_stack.pop().unwrap();
+            let address: *mut Cell;
+            let data: Cell;
+            unsafe {
+                address = std::mem::transmute(n);
+                data = *address;
+            }
+            env.data_stack.push(data);
+        }),
+    ),
+    (
+        "!",
+        Word::Native(|env| {
+            let n = env.data_stack.pop().unwrap();
+            let data = env.data_stack.pop().unwrap();
+            let address: *mut Cell;
+            unsafe {
+                address = std::mem::transmute(n);
+                *address = data;
+            }
+        }),
+    ),
     ("+", binary_operator_native_word!(wrapping_add)),
     ("-", binary_operator_native_word!(wrapping_sub)),
     ("*", binary_operator_native_word!(wrapping_mul)),
