@@ -1,5 +1,8 @@
 type Cell = isize;
 
+// TODO: Add static_assert to make sure that its bigger than Cell
+type DoubleCell = i128;
+
 const fn bool_as_cell(b: bool) -> Cell {
     if b {
         return -1;
@@ -173,6 +176,19 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
         Word::Native(|env| {
             let a = env.data_stack.pop().unwrap();
             env.data_stack.push(a.abs());
+        }),
+    ),
+    (
+        "*/",
+        Word::Native(|env| {
+            let n3 = env.data_stack.pop().unwrap();
+            let n2 = env.data_stack.pop().unwrap();
+            let n1 = env.data_stack.pop().unwrap();
+
+            let double_mul_result: DoubleCell = (n1 as DoubleCell) * (n2 as DoubleCell);
+            let double_div_result: DoubleCell = double_mul_result / (n3 as DoubleCell);
+            let result: Cell = double_div_result.try_into().unwrap();
+            env.data_stack.push(result);
         }),
     ),
     ("+", binary_operator_native_word!(+)),
