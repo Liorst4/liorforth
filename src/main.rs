@@ -202,6 +202,22 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
             env.data_stack.push(result);
         }),
     ),
+    (
+        "*/mod",
+        Word::Native(|env| {
+            let n3 = env.data_stack.pop().unwrap();
+            let n2 = env.data_stack.pop().unwrap();
+            let n1 = env.data_stack.pop().unwrap();
+
+            let double_mul_result: DoubleCell = (n1 as DoubleCell) * (n2 as DoubleCell);
+            let double_div_result: DoubleCell = double_mul_result / (n3 as DoubleCell);
+            let double_mod_result: DoubleCell = double_mul_result % (n3 as DoubleCell);
+            let n4: Cell = double_mod_result.try_into().unwrap();
+            let n5: Cell = double_div_result.try_into().unwrap();
+            env.data_stack.push(n4);
+            env.data_stack.push(n5);
+        }),
+    ),
     ("+", binary_operator_native_word!(+)),
     ("-", binary_operator_native_word!(-)),
     ("*", binary_operator_native_word!(*)),
