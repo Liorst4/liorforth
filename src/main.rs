@@ -168,6 +168,13 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
             env.data_stack.push(std::cmp::max(a, b));
         }),
     ),
+    (
+        "abs",
+        Word::Native(|env| {
+            let a = env.data_stack.pop().unwrap();
+            env.data_stack.push(a.abs());
+        }),
+    ),
     ("+", binary_operator_native_word!(+)),
     ("-", binary_operator_native_word!(-)),
     ("*", binary_operator_native_word!(*)),
