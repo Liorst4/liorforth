@@ -7,10 +7,10 @@ type Cell = isize;
 type DoubleCell = i128;
 
 const fn bool_as_cell(b: bool) -> Cell {
-    if b {
-        return -1;
+    match b {
+        true => -1,
+        _ => 0,
     }
-    return 0;
 }
 
 type Byte = u8;
