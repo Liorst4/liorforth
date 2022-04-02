@@ -13,13 +13,6 @@ const fn bool_as_cell(b: bool) -> Cell {
     return 0;
 }
 
-const fn cell_as_bool(c: Cell) -> bool {
-    if c == -1 {
-        return true;
-    }
-    return false;
-}
-
 type Byte = u8;
 
 #[derive(Clone, Copy)]
