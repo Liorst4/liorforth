@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::ops::*;
 
 type Cell = isize;
@@ -83,7 +84,6 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
             for i in env.data_stack.iter() {
                 print!("{} ", i);
             }
-            print!("{}", "\n");
         }),
     ),
     ("bye", Word::Native(|_env| std::process::exit(0))),
@@ -112,7 +112,7 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
         ".",
         Word::Native(|env| {
             let x = env.data_stack.pop().unwrap();
-            println!("{}", x);
+            print!("{} ", x);
         }),
     ),
     (
@@ -262,6 +262,12 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
             }
         }),
     ),
+    (
+        "cr",
+        Word::Native(|_env| {
+            println!("");
+        }),
+    ),
     ("+", binary_operator_native_word!(wrapping_add)),
     ("-", binary_operator_native_word!(wrapping_sub)),
     ("*", binary_operator_native_word!(wrapping_mul)),
@@ -366,5 +372,7 @@ fn main() {
         std::io::stdin().read_line(&mut line_buffer).unwrap();
         line_buffer.pop();
         environment.interpret_line(line_buffer);
+        println!(" ok. ");
+        std::io::stdout().flush().unwrap();
     }
 }
