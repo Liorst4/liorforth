@@ -268,6 +268,14 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
             println!("");
         }),
     ),
+    (
+        "emit",
+        Word::Native(|env| {
+            let n = env.data_stack.pop().unwrap();
+            let c = (n as u8) as char;
+            print!("{}", c);
+        }),
+    ),
     ("+", binary_operator_native_word!(wrapping_add)),
     ("-", binary_operator_native_word!(wrapping_sub)),
     ("*", binary_operator_native_word!(wrapping_mul)),
