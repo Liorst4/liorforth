@@ -35,7 +35,7 @@ struct Environment<'a> {
 
     dictionary: std::collections::HashMap<String, Word>,
 
-    base: u32,
+    base: Cell,
 }
 
 macro_rules! binary_operator_native_word {
@@ -75,6 +75,7 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
         ".s",
         Word::Native(|env| {
             for i in env.data_stack.iter() {
+                // TODO: Respect `env.base`
                 print!("{} ", i);
             }
         }),
@@ -105,6 +106,7 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
         ".",
         Word::Native(|env| {
             let x = env.data_stack.pop().unwrap();
+            // TODO: Respect `env.base`
             print!("{} ", x);
         }),
     ),
@@ -269,6 +271,13 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
             print!("{}", c);
         }),
     ),
+    (
+        "base",
+        Word::Native(|env| {
+            env.data_stack
+                .push(unsafe { std::mem::transmute(&env.base) });
+        }),
+    ),
     ("+", binary_operator_native_word!(wrapping_add)),
     ("-", binary_operator_native_word!(wrapping_sub)),
     ("*", binary_operator_native_word!(wrapping_mul)),
@@ -326,7 +335,7 @@ impl<'a> Environment<'a> {
             _ => word,
         };
 
-        return match Cell::from_str_radix(rest, base) {
+        return match Cell::from_str_radix(rest, base as u32) {
             Ok(x) => Some(x),
             _ => None,
         };
