@@ -75,8 +75,7 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
         ".s",
         Word::Native(|env| {
             for i in env.data_stack.iter() {
-                // TODO: Respect `env.base`
-                print!("{} ", i);
+                env.print_cell(*i);
             }
         }),
     ),
@@ -106,8 +105,7 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
         ".",
         Word::Native(|env| {
             let x = env.data_stack.pop().unwrap();
-            // TODO: Respect `env.base`
-            print!("{} ", x);
+            env.print_cell(x);
         }),
     ),
     (
@@ -371,6 +369,14 @@ impl<'a> Environment<'a> {
         match self.return_stack.pop() {
             Some(next_word) => self.execute(next_word),
             _ => {}
+        }
+    }
+
+    fn print_cell(&self, c: Cell) {
+        match self.base {
+            2 => print!("{:b} ", c),
+            16 => print!("{:x} ", c),
+            _ => print!("{} ", c),
         }
     }
 }
