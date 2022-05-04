@@ -296,6 +296,29 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
     ("false", Word::Literal(bool_as_cell(false))),
 ];
 
+fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
+    if word.is_empty() {
+        return None;
+    }
+
+    let (base, has_base_indicator) = match word.chars().nth(0).unwrap() {
+        '#' => (10, true),
+        '$' => (16, true),
+        '%' => (2, true),
+        _ => (default_base, false),
+    };
+
+    let rest = match has_base_indicator {
+        true => word.split_at(1).1,
+        _ => word,
+    };
+
+    return match Cell::from_str_radix(rest, base) {
+        Ok(x) => Some(x),
+        _ => None,
+    };
+}
+
 const DATA_SPACE_SIZE: usize = 10 * 1024;
 
 impl<'a> Environment<'a> {
@@ -316,29 +339,6 @@ impl<'a> Environment<'a> {
         };
     }
 
-    fn parse_number(&self, word: &str) -> Option<Cell> {
-        if word.is_empty() {
-            return None;
-        }
-
-        let (base, has_base_indicator) = match word.chars().nth(0).unwrap() {
-            '#' => (10, true),
-            '$' => (16, true),
-            '%' => (2, true),
-            _ => (self.base, false),
-        };
-
-        let rest = match has_base_indicator {
-            true => word.split_at(1).1,
-            _ => word,
-        };
-
-        return match Cell::from_str_radix(rest, base as u32) {
-            Ok(x) => Some(x),
-            _ => None,
-        };
-    }
-
     fn interpret_line(&mut self, line: String) {
         if line.len() == 0 {
             return;
@@ -347,7 +347,7 @@ impl<'a> Environment<'a> {
         self.input_buffer = line.as_bytes().to_vec();
         for word in line.split(' ') {
             // TODO: Pop word from input buffer
-            match self.parse_number(word) {
+            match parse_number(self.base as u32, word) {
                 Some(number) => self.data_stack.push(number),
                 _ => self.execute_from_name(word),
             }
