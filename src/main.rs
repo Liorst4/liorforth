@@ -22,11 +22,10 @@ enum Word {
     // TODO: Threaded
 }
 
-struct Environment<'a, 'b> {
-    data_space_pointer: std::slice::IterMut<'b, Byte>,
+struct Environment<'a> {
+    data_space_pointer: std::slice::IterMut<'a, Byte>,
 
     data_stack: Vec<Cell>,
-    return_stack: Vec<&'a Word>,
 
     input_buffer: Vec<Byte>,
 
@@ -320,12 +319,11 @@ fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
     };
 }
 
-impl<'a, 'b> Environment<'a, 'b> {
-    fn new(data_space: &'b mut [Byte]) -> Environment<'a, 'b> {
+impl<'a> Environment<'a> {
+    fn new(data_space: &'a mut [Byte]) -> Environment<'a> {
         return Environment {
             data_space_pointer: data_space.iter_mut(),
             data_stack: Vec::new(),
-            return_stack: Vec::new(),
             input_buffer: Vec::new(),
             dictionary: initial_dictionary(),
             base: 10,
@@ -357,11 +355,6 @@ impl<'a, 'b> Environment<'a, 'b> {
         match word {
             Word::Literal(l) => self.data_stack.push(*l),
             Word::Native(n) => n(self),
-        }
-
-        match self.return_stack.pop() {
-            Some(next_word) => self.execute(next_word),
-            _ => {}
         }
     }
 
