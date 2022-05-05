@@ -67,7 +67,7 @@ macro_rules! compare_operator_native_word {
     }
 }
 
-const INITIAL_DICTIONAY: &[(&str, Word)] = &[
+const PRIMITIVES: &[(&str, Word)] = &[
     (
         ".s",
         Word::Native(|env| {
@@ -291,6 +291,12 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
     ("false", Word::Literal(bool_as_cell(false))),
 ];
 
+fn initial_dictionary() -> std::collections::HashMap<String, Word> {
+    return std::collections::HashMap::from_iter(
+        PRIMITIVES.iter().map(|&(a, b)| (a.to_string(), b)),
+    );
+}
+
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
     if word.is_empty() {
         return None;
@@ -321,9 +327,7 @@ impl<'a, 'b> Environment<'a, 'b> {
             data_stack: Vec::new(),
             return_stack: Vec::new(),
             input_buffer: Vec::new(),
-            dictionary: std::collections::HashMap::from_iter(
-                INITIAL_DICTIONAY.iter().map(|&(a, b)| (a.to_string(), b)),
-            ),
+            dictionary: initial_dictionary(),
             base: 10,
         };
     }
