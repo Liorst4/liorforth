@@ -27,8 +27,6 @@ struct Environment<'a> {
 
     data_stack: Vec<Cell>,
 
-    input_buffer: Vec<Byte>,
-
     dictionary: std::collections::HashMap<String, Word>,
 
     base: Cell,
@@ -324,7 +322,6 @@ impl<'a> Environment<'a> {
         return Environment {
             data_space_pointer: data_space.iter_mut(),
             data_stack: Vec::new(),
-            input_buffer: Vec::new(),
             dictionary: initial_dictionary(),
             base: 10,
         };
@@ -335,7 +332,6 @@ impl<'a> Environment<'a> {
             return;
         }
 
-        self.input_buffer = line.as_bytes().to_vec();
         for word in line.split(' ') {
             // TODO: Pop word from input buffer
             match parse_number(self.base as u32, word) {
