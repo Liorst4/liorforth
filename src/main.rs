@@ -22,11 +22,8 @@ enum Word {
     // TODO: Threaded
 }
 
-struct Environment<'a> {
-    // TODO: Borrowed memory span
-    data_space: Vec<Byte>,
-
-    data_space_pointer: *mut Byte,
+struct Environment<'a, 'b> {
+    data_space_pointer: std::slice::IterMut<'b, Byte>,
 
     data_stack: Vec<Cell>,
     return_stack: Vec<&'a Word>,
@@ -212,21 +209,19 @@ const INITIAL_DICTIONAY: &[(&str, Word)] = &[
     (
         "here",
         Word::Native(|env| {
-            let address_as_cell: Cell;
-
-            unsafe {
-                address_as_cell = std::mem::transmute(env.data_space_pointer);
-            }
-
-            env.data_stack.push(address_as_cell);
+            let address: *const Byte = env.data_space_pointer.as_ref().as_ptr();
+            env.data_stack.push(unsafe { std::mem::transmute(address) });
         }),
     ),
     (
         "allot",
         Word::Native(|env| {
             let n = env.data_stack.pop().unwrap();
-            unsafe {
-                env.data_space_pointer = env.data_space_pointer.add(n as usize);
+            for _ in 0..n {
+                match env.data_space_pointer.next() {
+                    None => panic!("Not enough memory"),
+                    _ => {}
+                }
             }
         }),
     ),
@@ -319,16 +314,10 @@ fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
     };
 }
 
-const DATA_SPACE_SIZE: usize = 10 * 1024;
-
-impl<'a> Environment<'a> {
-    fn new() -> Environment<'a> {
-        let mut data_space = Vec::with_capacity(DATA_SPACE_SIZE);
-        let data_space_pointer = data_space.as_mut_ptr();
-
+impl<'a, 'b> Environment<'a, 'b> {
+    fn new(data_space: &'b mut [Byte]) -> Environment<'a, 'b> {
         return Environment {
-            data_space,
-            data_space_pointer,
+            data_space_pointer: data_space.iter_mut(),
             data_stack: Vec::new(),
             return_stack: Vec::new(),
             input_buffer: Vec::new(),
@@ -382,7 +371,9 @@ impl<'a> Environment<'a> {
 }
 
 fn main() {
-    let mut environment = Environment::new();
+    const DATA_SPACE_SIZE: usize = 10 * 1024;
+    let mut data_space: [Byte; DATA_SPACE_SIZE] = [0; DATA_SPACE_SIZE];
+    let mut environment = Environment::new(&mut data_space);
     loop {
         let mut line_buffer = String::new();
         std::io::stdin().read_line(&mut line_buffer).unwrap();
