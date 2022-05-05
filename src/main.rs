@@ -15,17 +15,18 @@ const fn bool_as_cell(b: bool) -> Cell {
 
 type Byte = u8;
 
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 enum Word {
     Literal(Cell),
     Native(fn(&mut Environment)),
-    // TODO: Threaded
+    Threaded(Vec<Word /* TODO: Use pointers to existing words when possible */>),
 }
 
 struct Environment<'a> {
     data_space_pointer: std::slice::IterMut<'a, Byte>,
 
     data_stack: Vec<Cell>,
+    return_stack: Vec<std::collections::VecDeque<Word>>,
 
     dictionary: std::collections::HashMap<String, Word>,
 
@@ -289,9 +290,20 @@ const PRIMITIVES: &[(&str, Word)] = &[
 ];
 
 fn initial_dictionary() -> std::collections::HashMap<String, Word> {
-    return std::collections::HashMap::from_iter(
-        PRIMITIVES.iter().map(|&(a, b)| (a.to_string(), b)),
+    let mut dict = std::collections::HashMap::from_iter(
+        PRIMITIVES.iter().map(|(a, b)| (a.to_string(), b.clone())),
     );
+
+    // To test threaded words
+    dict.insert(
+        "1+".to_string(),
+        Word::Threaded(vec![
+            Word::Literal(1),
+            dict.get(&"+".to_string()).unwrap().clone(),
+        ]),
+    );
+
+    return dict;
 }
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
@@ -322,6 +334,7 @@ impl<'a> Environment<'a> {
         return Environment {
             data_space_pointer: data_space.iter_mut(),
             data_stack: Vec::new(),
+            return_stack: Vec::new(),
             dictionary: initial_dictionary(),
             base: 10,
         };
@@ -342,15 +355,28 @@ impl<'a> Environment<'a> {
     }
 
     fn execute_from_name(&mut self, word: &str) {
-        // TODO: Without copy?
-        let word_to_execute = *self.dictionary.get(&word.to_lowercase()).unwrap();
-        self.execute(&word_to_execute);
+        let word_to_execute = self.dictionary.get(&word.to_lowercase()).unwrap().clone();
+        self.execute(word_to_execute);
     }
 
-    fn execute(&mut self, word: &Word) {
+    fn execute(&mut self, word: Word) {
         match word {
-            Word::Literal(l) => self.data_stack.push(*l),
+            Word::Literal(l) => self.data_stack.push(l),
             Word::Native(n) => n(self),
+            Word::Threaded(t) => {
+                // TODO: Is this horribly slow?
+                self.return_stack.push(t.try_into().unwrap())
+            }
+        }
+
+        while !self.return_stack.is_empty() {
+            if self.return_stack.last().unwrap().is_empty() {
+                self.return_stack.pop();
+                continue;
+            }
+
+            let next = self.return_stack.last_mut().unwrap().pop_front().unwrap();
+            self.execute(next);
         }
     }
 
