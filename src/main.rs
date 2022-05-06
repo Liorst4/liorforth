@@ -28,6 +28,9 @@ struct Environment<'a> {
     data_stack: Vec<Cell>,
     return_stack: Vec<std::collections::VecDeque<Word>>,
 
+    input_buffer: Vec<Byte>,
+    input_buffer_head: usize,
+
     dictionary: std::collections::HashMap<String, Word>,
 
     base: Cell,
@@ -335,9 +338,59 @@ impl<'a> Environment<'a> {
             data_space_pointer: data_space.iter_mut(),
             data_stack: Vec::new(),
             return_stack: Vec::new(),
+            input_buffer: Vec::new(),
+            input_buffer_head: 0,
             dictionary: initial_dictionary(),
             base: 10,
         };
+    }
+
+    fn read_byte_from_input_buffer(&mut self) -> Option<Byte> {
+        if self.input_buffer_head >= self.input_buffer.len() {
+            return None;
+        }
+
+        let c = self.input_buffer.get(self.input_buffer_head).unwrap();
+        self.input_buffer_head += 1;
+        return Some(*c);
+    }
+
+    fn parse(&mut self, ignore_leading_whitespace: bool, delimiter: char) -> Option<String> {
+        let mut result = String::new();
+
+        if ignore_leading_whitespace {
+            'find_first_char: loop {
+                match self.read_byte_from_input_buffer() {
+                    Some(c) => {
+                        let c = c as char;
+                        if c != ' ' {
+                            result.insert(0, c);
+                            break 'find_first_char;
+                        }
+                    }
+                    _ => break 'find_first_char,
+                }
+            }
+
+            if result.is_empty() {
+                return None;
+            }
+        }
+
+        'read_word: loop {
+            match self.read_byte_from_input_buffer() {
+                Some(c) => {
+                    let c = c as char;
+                    if c == delimiter {
+                        break 'read_word;
+                    }
+                    result.insert(result.len(), c);
+                }
+                _ => break 'read_word,
+            }
+        }
+
+        return Some(result);
     }
 
     fn interpret_line(&mut self, line: String) {
@@ -345,11 +398,16 @@ impl<'a> Environment<'a> {
             return;
         }
 
-        for word in line.split(' ') {
-            // TODO: Pop word from input buffer
-            match parse_number(self.base as u32, word) {
-                Some(number) => self.data_stack.push(number),
-                _ => self.execute_from_name(word),
+        self.input_buffer = line.into();
+        self.input_buffer_head = 0;
+
+        'empty_input_buffer: loop {
+            match self.parse(true, ' ') {
+                Some(current_word) => match parse_number(self.base as u32, &current_word) {
+                    Some(number) => self.data_stack.push(number),
+                    _ => self.execute_from_name(&current_word),
+                },
+                _ => break 'empty_input_buffer,
             }
         }
     }
