@@ -16,10 +16,16 @@ const fn bool_as_cell(b: bool) -> Cell {
 type Byte = u8;
 
 #[derive(Clone)]
+enum ThreadedWordEntry {
+    Literal(Cell),
+    AnotherWord(std::rc::Weak<DictionaryEntry>),
+}
+
+#[derive(Clone)]
 enum Word {
     Data(Cell), // TODO: Should represent variable, constant, value, etc...
     Native(fn(&mut Environment)),
-    Threaded(Vec<Word /* TODO: Use a mix of pointers to Dictionary entries and literals */>),
+    Threaded(Vec<ThreadedWordEntry>),
 }
 
 type Name = [Byte; 31];
@@ -29,13 +35,13 @@ struct DictionaryEntry {
     body: Word,
 }
 
-type Dictionary = std::collections::LinkedList<DictionaryEntry>;
+type Dictionary = std::collections::LinkedList<std::rc::Rc<DictionaryEntry>>;
 
 struct Environment<'a> {
     data_space_pointer: std::slice::IterMut<'a, Byte>,
 
     data_stack: Vec<Cell>,
-    return_stack: Vec<std::collections::VecDeque<Word>>,
+    return_stack: Vec<std::collections::VecDeque<ThreadedWordEntry>>,
 
     input_buffer: Vec<Byte>,
     input_buffer_head: usize,
@@ -322,28 +328,32 @@ fn name_from_str(s: &str) -> Option<Name> {
     return Some(result);
 }
 
-fn search_dictionary(dict: &Dictionary, name: &str) -> Option<Word> {
+fn search_dictionary(dict: &Dictionary, name: &str) -> Option<std::rc::Weak<DictionaryEntry>> {
     let name = name_from_str(name).unwrap();
     for item in dict {
         if item.name == name {
-            return Some(item.body.clone());
+            return Some(std::rc::Rc::downgrade(item));
         }
     }
     return None;
 }
 
 fn initial_dictionary() -> Dictionary {
-    let mut dict =
-        std::collections::LinkedList::from_iter(PRIMITIVES.iter().map(|(a, b)| DictionaryEntry {
+    let mut dict = std::collections::LinkedList::from_iter(PRIMITIVES.iter().map(|(a, b)| {
+        std::rc::Rc::new(DictionaryEntry {
             name: name_from_str(a).unwrap(),
             body: b.clone(),
-        }));
+        })
+    }));
 
     // To test threaded words
-    dict.push_front(DictionaryEntry {
+    dict.push_front(std::rc::Rc::new(DictionaryEntry {
         name: name_from_str("1+").unwrap(),
-        body: Word::Threaded(vec![Word::Data(1), search_dictionary(&dict, "+").unwrap()]),
-    });
+        body: Word::Threaded(vec![
+            ThreadedWordEntry::Literal(1),
+            ThreadedWordEntry::AnotherWord(search_dictionary(&dict, "+").unwrap()),
+        ]),
+    }));
 
     return dict;
 }
@@ -455,17 +465,18 @@ impl<'a> Environment<'a> {
         let word_to_execute = search_dictionary(&self.dictionary, &word.to_lowercase())
             .unwrap()
             .clone();
-        self.execute(word_to_execute);
+        self.execute(&word_to_execute.upgrade().unwrap().as_ref().body);
     }
 
-    fn execute(&mut self, word: Word) {
+    fn execute(&mut self, word: &Word) {
         match word {
-            Word::Data(l) => self.data_stack.push(l),
+            Word::Data(l) => self.data_stack.push(*l),
             Word::Native(n) => n(self),
-            Word::Threaded(t) => {
-                // TODO: Is this horribly slow?
-                self.return_stack.push(t.try_into().unwrap())
-            }
+            Word::Threaded(t) => self
+                .return_stack
+                .push(std::collections::VecDeque::from_iter(
+                    t.iter().map(|e| e.clone()),
+                )),
         }
 
         while !self.return_stack.is_empty() {
@@ -475,7 +486,15 @@ impl<'a> Environment<'a> {
             }
 
             let next = self.return_stack.last_mut().unwrap().pop_front().unwrap();
-            self.execute(next);
+            match next {
+                ThreadedWordEntry::Literal(l) => {
+                    let data = Word::Data(l);
+                    self.execute(&data);
+                }
+                ThreadedWordEntry::AnotherWord(w) => {
+                    self.execute(&w.upgrade().unwrap().as_ref().body)
+                }
+            }
         }
     }
 
