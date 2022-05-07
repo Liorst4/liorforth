@@ -22,8 +22,10 @@ enum Word {
     Threaded(Vec<Word /* TODO: Use a mix of pointers to Dictionary entries and literals */>),
 }
 
+type Name = [Byte; 31];
+
 struct DictionaryEntry {
-    name: String, // TODO: Limit to 31 characters
+    name: Name,
     body: Word,
 }
 
@@ -88,8 +90,15 @@ const PRIMITIVES: &[(&str, Word)] = &[
     (
         "words",
         Word::Native(|env| {
+            // TODO: Implement fmt::Display?
             for entry in env.dictionary.iter() {
-                println!("{}", entry.name);
+                for c in entry.name {
+                    if c == 0 {
+                        break;
+                    }
+                    print!("{}", c as char);
+                }
+                print!("\n");
             }
         }),
     ),
@@ -299,7 +308,22 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ("false", Word::Literal(bool_as_cell(false))),
 ];
 
+// TODO: Implement From?
+fn name_from_str(s: &str) -> Option<Name> {
+    let mut result: Name = Name::default();
+    if s.len() > result.len() {
+        return None;
+    }
+
+    for (i, c) in s.as_bytes().iter().enumerate() {
+        result[i] = *c;
+    }
+
+    return Some(result);
+}
+
 fn search_dictionary(dict: &Dictionary, name: &str) -> Option<Word> {
+    let name = name_from_str(name).unwrap();
     for item in dict {
         if item.name == name {
             return Some(item.body.clone());
@@ -311,13 +335,13 @@ fn search_dictionary(dict: &Dictionary, name: &str) -> Option<Word> {
 fn initial_dictionary() -> Dictionary {
     let mut dict =
         std::collections::LinkedList::from_iter(PRIMITIVES.iter().map(|(a, b)| DictionaryEntry {
-            name: a.to_string(),
+            name: name_from_str(a).unwrap(),
             body: b.clone(),
         }));
 
     // To test threaded words
     dict.push_front(DictionaryEntry {
-        name: "1+".to_string(),
+        name: name_from_str("1+").unwrap(),
         body: Word::Threaded(vec![
             Word::Literal(1),
             search_dictionary(&dict, "+").unwrap(),
