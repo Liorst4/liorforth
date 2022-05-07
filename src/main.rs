@@ -19,8 +19,15 @@ type Byte = u8;
 enum Word {
     Literal(Cell),
     Native(fn(&mut Environment)),
-    Threaded(Vec<Word /* TODO: Use pointers to existing words when possible */>),
+    Threaded(Vec<Word /* TODO: Use a mix of pointers to Dictionary entries and literals */>),
 }
+
+struct DictionaryEntry {
+    name: String, // TODO: Limit to 31 characters
+    body: Word,
+}
+
+type Dictionary = std::collections::LinkedList<DictionaryEntry>;
 
 struct Environment<'a> {
     data_space_pointer: std::slice::IterMut<'a, Byte>,
@@ -31,7 +38,7 @@ struct Environment<'a> {
     input_buffer: Vec<Byte>,
     input_buffer_head: usize,
 
-    dictionary: std::collections::HashMap<String, Word>,
+    dictionary: Dictionary,
 
     base: Cell,
 }
@@ -81,8 +88,8 @@ const PRIMITIVES: &[(&str, Word)] = &[
     (
         "words",
         Word::Native(|env| {
-            for (name, _) in env.dictionary.iter() {
-                println!("{}", name);
+            for entry in env.dictionary.iter() {
+                println!("{}", entry.name);
             }
         }),
     ),
@@ -292,19 +299,30 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ("false", Word::Literal(bool_as_cell(false))),
 ];
 
-fn initial_dictionary() -> std::collections::HashMap<String, Word> {
-    let mut dict = std::collections::HashMap::from_iter(
-        PRIMITIVES.iter().map(|(a, b)| (a.to_string(), b.clone())),
-    );
+fn search_dictionary(dict: &Dictionary, name: &str) -> Option<Word> {
+    for item in dict {
+        if item.name == name {
+            return Some(item.body.clone());
+        }
+    }
+    return None;
+}
+
+fn initial_dictionary() -> Dictionary {
+    let mut dict =
+        std::collections::LinkedList::from_iter(PRIMITIVES.iter().map(|(a, b)| DictionaryEntry {
+            name: a.to_string(),
+            body: b.clone(),
+        }));
 
     // To test threaded words
-    dict.insert(
-        "1+".to_string(),
-        Word::Threaded(vec![
+    dict.push_front(DictionaryEntry {
+        name: "1+".to_string(),
+        body: Word::Threaded(vec![
             Word::Literal(1),
-            dict.get(&"+".to_string()).unwrap().clone(),
+            search_dictionary(&dict, "+").unwrap(),
         ]),
-    );
+    });
 
     return dict;
 }
@@ -413,7 +431,9 @@ impl<'a> Environment<'a> {
     }
 
     fn execute_from_name(&mut self, word: &str) {
-        let word_to_execute = self.dictionary.get(&word.to_lowercase()).unwrap().clone();
+        let word_to_execute = search_dictionary(&self.dictionary, &word.to_lowercase())
+            .unwrap()
+            .clone();
         self.execute(word_to_execute);
     }
 
