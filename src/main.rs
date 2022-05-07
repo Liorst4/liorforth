@@ -17,7 +17,7 @@ type Byte = u8;
 
 #[derive(Clone)]
 enum Word {
-    Literal(Cell),
+    Data(Cell), // TODO: Should represent variable, constant, value, etc...
     Native(fn(&mut Environment)),
     Threaded(Vec<Word /* TODO: Use a mix of pointers to Dictionary entries and literals */>),
 }
@@ -303,9 +303,9 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ("=", compare_operator_native_word!(==)),
     ("<", compare_operator_native_word!(<)),
     (">", compare_operator_native_word!(>)),
-    ("bl", Word::Literal(' ' as Cell)),
-    ("true", Word::Literal(bool_as_cell(true))),
-    ("false", Word::Literal(bool_as_cell(false))),
+    ("bl", Word::Data(' ' as Cell)),
+    ("true", Word::Data(bool_as_cell(true))),
+    ("false", Word::Data(bool_as_cell(false))),
 ];
 
 // TODO: Implement From?
@@ -342,10 +342,7 @@ fn initial_dictionary() -> Dictionary {
     // To test threaded words
     dict.push_front(DictionaryEntry {
         name: name_from_str("1+").unwrap(),
-        body: Word::Threaded(vec![
-            Word::Literal(1),
-            search_dictionary(&dict, "+").unwrap(),
-        ]),
+        body: Word::Threaded(vec![Word::Data(1), search_dictionary(&dict, "+").unwrap()]),
     });
 
     return dict;
@@ -463,7 +460,7 @@ impl<'a> Environment<'a> {
 
     fn execute(&mut self, word: Word) {
         match word {
-            Word::Literal(l) => self.data_stack.push(l),
+            Word::Data(l) => self.data_stack.push(l),
             Word::Native(n) => n(self),
             Word::Threaded(t) => {
                 // TODO: Is this horribly slow?
