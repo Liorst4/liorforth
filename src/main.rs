@@ -18,7 +18,7 @@ type Byte = u8;
 #[derive(Clone)]
 enum ThreadedWordEntry {
     Literal(Cell),
-    AnotherWord(std::rc::Weak<DictionaryEntry>),
+    AnotherWord(*const DictionaryEntry),
 }
 
 #[derive(Clone)]
@@ -35,7 +35,7 @@ struct DictionaryEntry {
     body: Word,
 }
 
-type Dictionary = std::collections::LinkedList<std::rc::Rc<DictionaryEntry>>;
+type Dictionary = std::collections::LinkedList<DictionaryEntry>;
 
 struct Environment<'a> {
     data_space_pointer: std::slice::IterMut<'a, Byte>,
@@ -328,32 +328,31 @@ fn name_from_str(s: &str) -> Option<Name> {
     return Some(result);
 }
 
-fn search_dictionary(dict: &Dictionary, name: &str) -> Option<std::rc::Weak<DictionaryEntry>> {
+fn search_dictionary(dict: &Dictionary, name: &str) -> Option<*const DictionaryEntry> {
     let name = name_from_str(name).unwrap();
     for item in dict {
         if item.name == name {
-            return Some(std::rc::Rc::downgrade(item));
+            return Some(item.deref());
         }
     }
     return None;
 }
 
 fn initial_dictionary() -> Dictionary {
-    let mut dict = std::collections::LinkedList::from_iter(PRIMITIVES.iter().map(|(a, b)| {
-        std::rc::Rc::new(DictionaryEntry {
+    let mut dict =
+        std::collections::LinkedList::from_iter(PRIMITIVES.iter().map(|(a, b)| DictionaryEntry {
             name: name_from_str(a).unwrap(),
             body: b.clone(),
-        })
-    }));
+        }));
 
     // To test threaded words
-    dict.push_front(std::rc::Rc::new(DictionaryEntry {
+    dict.push_front(DictionaryEntry {
         name: name_from_str("1+").unwrap(),
         body: Word::Threaded(vec![
             ThreadedWordEntry::Literal(1),
             ThreadedWordEntry::AnotherWord(search_dictionary(&dict, "+").unwrap()),
         ]),
-    }));
+    });
 
     return dict;
 }
@@ -465,7 +464,7 @@ impl<'a> Environment<'a> {
         let word_to_execute = search_dictionary(&self.dictionary, &word.to_lowercase())
             .unwrap()
             .clone();
-        self.execute(&word_to_execute.upgrade().unwrap().as_ref().body);
+        self.execute(&unsafe { word_to_execute.as_ref() }.unwrap().body);
     }
 
     fn execute(&mut self, word: &Word) {
@@ -492,7 +491,7 @@ impl<'a> Environment<'a> {
                     self.execute(&data);
                 }
                 ThreadedWordEntry::AnotherWord(w) => {
-                    self.execute(&w.upgrade().unwrap().as_ref().body)
+                    self.execute(&unsafe { w.as_ref() }.unwrap().body)
                 }
             }
         }
