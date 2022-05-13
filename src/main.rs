@@ -393,58 +393,53 @@ impl<'a> Environment<'a> {
         };
     }
 
-    fn read_byte_from_input_buffer(&mut self) -> Option<Byte> {
-        if self.input_buffer_head >= self.input_buffer.len() {
-            return None;
-        }
-
-        let c = self.input_buffer.get(self.input_buffer_head).unwrap();
-        self.input_buffer_head += 1;
-        return Some(*c);
-    }
-
-    fn parse(&mut self, ignore_leading_whitespace: bool, delimiter: char) -> Option<String> {
-        let mut result = String::new();
-
-        if ignore_leading_whitespace {
+    fn next_token(
+        &mut self,
+        skip_leading_delimiters: bool,
+        delimiter: Byte,
+    ) -> (
+        usize, /* input buffer offset */
+        usize, /* token size */
+    ) {
+        if skip_leading_delimiters {
             'find_first_char: loop {
-                match self.read_byte_from_input_buffer() {
-                    Some(c) => {
-                        if c == 0 {
-                            break 'find_first_char;
-                        }
-                        let c = c as char;
-                        if c != ' ' {
-                            result.insert(0, c);
-                            break 'find_first_char;
-                        }
-                    }
-                    _ => break 'find_first_char,
+                if self.input_buffer_head >= self.input_buffer.len() {
+                    return (0, 0);
                 }
-            }
 
-            if result.is_empty() {
-                return None;
+                if *self.input_buffer.get(self.input_buffer_head).unwrap() == 0 {
+                    return (0, 0);
+                }
+
+                if *self.input_buffer.get(self.input_buffer_head).unwrap() != delimiter {
+                    break 'find_first_char;
+                }
+
+                self.input_buffer_head += 1;
             }
         }
 
-        'read_word: loop {
-            match self.read_byte_from_input_buffer() {
-                Some(c) => {
-                    if c == 0 {
-                        break 'read_word;
-                    }
-                    let c = c as char;
-                    if c == delimiter {
-                        break 'read_word;
-                    }
-                    result.insert(result.len(), c);
-                }
-                _ => break 'read_word,
+        let token_begin = self.input_buffer_head;
+        let token_size;
+
+        'read_token: loop {
+            if self.input_buffer_head >= self.input_buffer.len()
+                || *self.input_buffer.get(self.input_buffer_head).unwrap() == 0
+            {
+                token_size = self.input_buffer_head - token_begin;
+                break 'read_token;
             }
+
+            if *self.input_buffer.get(self.input_buffer_head).unwrap() == delimiter {
+                token_size = self.input_buffer_head - token_begin;
+                self.input_buffer_head += 1;
+                break 'read_token;
+            }
+
+            self.input_buffer_head += 1;
         }
 
-        return Some(result);
+        return (token_begin, token_size);
     }
 
     fn interpret_line(&mut self, line: String) {
@@ -459,12 +454,19 @@ impl<'a> Environment<'a> {
         }
 
         'empty_input_buffer: loop {
-            match self.parse(true, ' ') {
-                Some(current_word) => match parse_number(self.base as u32, &current_word) {
-                    Some(number) => self.data_stack.push(number),
-                    _ => self.execute_from_name(&current_word),
-                },
-                _ => break 'empty_input_buffer,
+            let (token_begin, token_size) = self.next_token(true, ' ' as Byte);
+
+            if token_size == 0 {
+                break 'empty_input_buffer;
+            }
+
+            let token: String =
+                String::from_utf8_lossy(&self.input_buffer[token_begin..token_begin + token_size])
+                    .to_string();
+
+            match parse_number(self.base as u32, &token) {
+                Some(number) => self.data_stack.push(number),
+                _ => self.execute_from_name(&token),
             }
         }
     }
