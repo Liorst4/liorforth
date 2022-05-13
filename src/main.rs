@@ -43,7 +43,7 @@ struct Environment<'a> {
     data_stack: Vec<Cell>,
     return_stack: Vec<std::collections::VecDeque<ThreadedWordEntry>>,
 
-    input_buffer: Vec<Byte>,
+    input_buffer: &'a mut [Byte],
     input_buffer_head: usize,
 
     dictionary: Dictionary,
@@ -381,12 +381,12 @@ fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
 }
 
 impl<'a> Environment<'a> {
-    fn new(data_space: &'a mut [Byte]) -> Environment<'a> {
+    fn new(data_space: &'a mut [Byte], input_buffer: &'a mut [Byte]) -> Environment<'a> {
         return Environment {
             data_space_pointer: data_space.iter_mut(),
             data_stack: Vec::new(),
             return_stack: Vec::new(),
-            input_buffer: Vec::new(),
+            input_buffer,
             input_buffer_head: 0,
             dictionary: initial_dictionary(),
             base: 10,
@@ -410,6 +410,9 @@ impl<'a> Environment<'a> {
             'find_first_char: loop {
                 match self.read_byte_from_input_buffer() {
                     Some(c) => {
+                        if c == 0 {
+                            break 'find_first_char;
+                        }
                         let c = c as char;
                         if c != ' ' {
                             result.insert(0, c);
@@ -428,6 +431,9 @@ impl<'a> Environment<'a> {
         'read_word: loop {
             match self.read_byte_from_input_buffer() {
                 Some(c) => {
+                    if c == 0 {
+                        break 'read_word;
+                    }
                     let c = c as char;
                     if c == delimiter {
                         break 'read_word;
@@ -446,8 +452,11 @@ impl<'a> Environment<'a> {
             return;
         }
 
-        self.input_buffer = line.into();
         self.input_buffer_head = 0;
+        self.input_buffer.fill(0);
+        for i in 0..line.as_bytes().len() {
+            self.input_buffer[i] = *line.as_bytes().get(i).unwrap();
+        }
 
         'empty_input_buffer: loop {
             match self.parse(true, ' ') {
@@ -509,7 +518,11 @@ impl<'a> Environment<'a> {
 fn main() {
     const DATA_SPACE_SIZE: usize = 10 * 1024;
     let mut data_space: [Byte; DATA_SPACE_SIZE] = [0; DATA_SPACE_SIZE];
-    let mut environment = Environment::new(&mut data_space);
+
+    const INPUT_BUFFER_SIZE: usize = 1024;
+    let mut input_buffer = [0; INPUT_BUFFER_SIZE];
+
+    let mut environment = Environment::new(&mut data_space, &mut input_buffer);
     loop {
         let mut line_buffer = String::new();
         std::io::stdin().read_line(&mut line_buffer).unwrap();
