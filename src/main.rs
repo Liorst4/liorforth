@@ -31,6 +31,7 @@ enum Word {
 
 type Name = [Byte; 31];
 
+// TODO: Compile only words
 struct DictionaryEntry {
     name: Name,
     body: Word,
@@ -55,6 +56,8 @@ struct Environment<'a> {
     dictionary: Dictionary,
 
     base: Cell,
+
+    entry_under_construction: Option<(Name, Vec<ThreadedWordEntry>)>,
 }
 
 macro_rules! binary_operator_native_word {
@@ -320,7 +323,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ("false", Word::Data(bool_as_cell(false))),
     (
         // Not a part of the core words, but its useful for debugging
-        // TODO: Replace with a threaded word once compilation is working
+        // TODO: Replace with a threaded word once compilation fully is working
         "dump",
         Word::Native(|env| {
             const ROW_SIZE: usize = 0x10;
@@ -342,6 +345,40 @@ const PRIMITIVES: &[(&str, Word)] = &[
             }
 
             println!("");
+        }),
+    ),
+    (
+        ":",
+        Word::Native(|env| {
+            if env.entry_under_construction.is_some() {
+                panic!("Can't double compile!");
+            }
+
+            let (token_offset, token_size) = env.next_token(true, ' ' as Byte);
+            let mut name: Name = Default::default();
+            name[0..token_size]
+                .copy_from_slice(&env.input_buffer[token_offset..(token_offset + token_size)]);
+            env.entry_under_construction = Some((name, Vec::new()));
+        }),
+    ),
+    (
+        ";",
+        Word::Native(|env| {
+            if env.entry_under_construction.is_none() {
+                panic!("Using ; without : !");
+            }
+
+            let (name, mut threaded) = env.entry_under_construction.clone().unwrap();
+            threaded.push(ThreadedWordEntry::LastEntry);
+
+            // TODO: Print a message if a word is re-defined
+
+            env.dictionary.push_front(DictionaryEntry {
+                name,
+                body: Word::Threaded(threaded),
+            });
+
+            env.entry_under_construction = None;
         }),
     ),
 ];
@@ -433,7 +470,12 @@ impl<'a> Environment<'a> {
             input_buffer_head: 0,
             dictionary: initial_dictionary(),
             base: 10,
+            entry_under_construction: None,
         };
+    }
+
+    fn compile_mode(&self) -> bool {
+        return self.entry_under_construction.is_some();
     }
 
     fn next_token(
@@ -507,18 +549,39 @@ impl<'a> Environment<'a> {
                 String::from_utf8_lossy(&self.input_buffer[token_begin..token_begin + token_size])
                     .to_string();
 
-            match parse_number(self.base as u32, &token) {
-                Some(number) => self.data_stack.push(number),
-                _ => self.execute_from_name(&token),
-            }
+            self.handle_token(&token);
         }
     }
 
-    fn execute_from_name(&mut self, word: &str) {
-        let dict_entry = search_dictionary(&self.dictionary, &word.to_lowercase()).unwrap();
-        let next_word = &unsafe { dict_entry.as_ref() }.unwrap().body;
-        self.return_stack.push(ReturnStackEntry::Word(next_word));
-        return self.execute();
+    fn handle_token(&mut self, token: &str) {
+        match parse_number(self.base as u32, &token) {
+            Some(number) => self.handle_number_token(number),
+            _ => self.hanle_text_token(token),
+        }
+    }
+
+    fn handle_number_token(&mut self, token: Cell) {
+        if self.compile_mode() {
+            let literal = ThreadedWordEntry::Literal(token);
+            let (_, threaded) = self.entry_under_construction.as_mut().unwrap();
+            threaded.push(literal);
+        } else {
+            self.data_stack.push(token);
+        }
+    }
+
+    fn hanle_text_token(&mut self, token: &str) {
+        let dict_entry = search_dictionary(&self.dictionary, &token.to_lowercase()).unwrap();
+        let dict_entry = unsafe { dict_entry.as_ref() }.unwrap();
+
+        if self.compile_mode() && dict_entry.name[0] != ';' as Byte {
+            let (_, threaded) = self.entry_under_construction.as_mut().unwrap();
+            threaded.push(ThreadedWordEntry::AnotherWord(dict_entry));
+        } else {
+            let next_word = &dict_entry.body;
+            self.return_stack.push(ReturnStackEntry::Word(next_word));
+            self.execute();
+        }
     }
 
     fn execute(&mut self) {
