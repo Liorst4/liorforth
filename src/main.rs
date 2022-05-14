@@ -408,34 +408,19 @@ fn search_dictionary(dict: &Dictionary, name: &str) -> Option<*const DictionaryE
 }
 
 fn initial_dictionary() -> Dictionary {
-    let mut dict =
-        std::collections::LinkedList::from_iter(PRIMITIVES.iter().map(|(a, b)| DictionaryEntry {
+    return std::collections::LinkedList::from_iter(PRIMITIVES.iter().map(|(a, b)| {
+        DictionaryEntry {
             name: name_from_str(a).unwrap(),
             body: b.clone(),
-        }));
-
-    // To test threaded words
-    dict.push_front(DictionaryEntry {
-        name: name_from_str("1+").unwrap(),
-        body: Word::Threaded(vec![
-            ThreadedWordEntry::Literal(1),
-            ThreadedWordEntry::AnotherWord(search_dictionary(&dict, "+").unwrap()),
-            ThreadedWordEntry::LastEntry,
-        ]),
-    });
-
-    dict.push_front(DictionaryEntry {
-        name: name_from_str("2+").unwrap(),
-        body: Word::Threaded(vec![
-            ThreadedWordEntry::Literal(1),
-            ThreadedWordEntry::AnotherWord(search_dictionary(&dict, "1+").unwrap()),
-            ThreadedWordEntry::AnotherWord(search_dictionary(&dict, "+").unwrap()),
-            ThreadedWordEntry::LastEntry,
-        ]),
-    });
-
-    return dict;
+        }
+    }));
 }
+
+const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
+			       : 1- 1 - ; \
+			       : 0< 0 < ; \
+			       : 0= 0 = ; \
+			       ";
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
     if word.is_empty() {
@@ -462,7 +447,7 @@ fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
 
 impl<'a> Environment<'a> {
     fn new(data_space: &'a mut [Byte], input_buffer: &'a mut [Byte]) -> Environment<'a> {
-        return Environment {
+        let mut env = Environment {
             data_space_pointer: data_space.iter_mut(),
             data_stack: Vec::new(),
             return_stack: Vec::new(),
@@ -472,6 +457,12 @@ impl<'a> Environment<'a> {
             base: 10,
             entry_under_construction: None,
         };
+
+        for line in CORE_WORDS_INIT.lines() {
+            env.interpret_line(line);
+        }
+
+        return env;
     }
 
     fn compile_mode(&self) -> bool {
@@ -527,7 +518,7 @@ impl<'a> Environment<'a> {
         return (token_begin, token_size);
     }
 
-    fn interpret_line(&mut self, line: String) {
+    fn interpret_line(&mut self, line: &str) {
         if line.len() == 0 {
             return;
         }
@@ -636,7 +627,7 @@ fn main() {
         let mut line_buffer = String::new();
         std::io::stdin().read_line(&mut line_buffer).unwrap();
         line_buffer.pop();
-        environment.interpret_line(line_buffer);
+        environment.interpret_line(&line_buffer);
         println!(" ok. ");
         std::io::stdout().flush().unwrap();
     }
