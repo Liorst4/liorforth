@@ -312,6 +312,32 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ("bl", Word::Data(' ' as Cell)),
     ("true", Word::Data(bool_as_cell(true))),
     ("false", Word::Data(bool_as_cell(false))),
+    (
+        // Not a part of the core words, but its useful for debugging
+        // TODO: Replace with a threaded word once compilation is working
+        "dump",
+        Word::Native(|env| {
+            const ROW_SIZE: usize = 0x10;
+            let byte_count: usize = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
+            let address: usize = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
+
+            for i in 0..byte_count {
+                if i % ROW_SIZE == 0 {
+                    print!("{:X}: ", address + i);
+                }
+
+                let ptr: *const Byte = unsafe { std::mem::transmute(address + i) };
+
+                print!("{:02X} ", unsafe { *ptr });
+
+                if i % ROW_SIZE == ROW_SIZE - 1 {
+                    println!("");
+                }
+            }
+
+            println!("");
+        }),
+    ),
 ];
 
 // TODO: Implement From?
