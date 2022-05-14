@@ -19,6 +19,7 @@ type Byte = u8;
 enum ThreadedWordEntry {
     Literal(Cell),
     AnotherWord(*const DictionaryEntry),
+    LastEntry,
 }
 
 #[derive(Clone)]
@@ -37,11 +38,16 @@ struct DictionaryEntry {
 
 type Dictionary = std::collections::LinkedList<DictionaryEntry>;
 
+enum ReturnStackEntry {
+    Word(*const Word),
+    ThreadedWordEntry(*const ThreadedWordEntry),
+}
+
 struct Environment<'a> {
     data_space_pointer: std::slice::IterMut<'a, Byte>,
 
     data_stack: Vec<Cell>,
-    return_stack: Vec<std::collections::VecDeque<ThreadedWordEntry>>,
+    return_stack: Vec<ReturnStackEntry>,
 
     input_buffer: &'a mut [Byte],
     input_buffer_head: usize,
@@ -377,6 +383,17 @@ fn initial_dictionary() -> Dictionary {
         body: Word::Threaded(vec![
             ThreadedWordEntry::Literal(1),
             ThreadedWordEntry::AnotherWord(search_dictionary(&dict, "+").unwrap()),
+            ThreadedWordEntry::LastEntry,
+        ]),
+    });
+
+    dict.push_front(DictionaryEntry {
+        name: name_from_str("2+").unwrap(),
+        body: Word::Threaded(vec![
+            ThreadedWordEntry::Literal(1),
+            ThreadedWordEntry::AnotherWord(search_dictionary(&dict, "1+").unwrap()),
+            ThreadedWordEntry::AnotherWord(search_dictionary(&dict, "+").unwrap()),
+            ThreadedWordEntry::LastEntry,
         ]),
     });
 
@@ -498,37 +515,38 @@ impl<'a> Environment<'a> {
     }
 
     fn execute_from_name(&mut self, word: &str) {
-        let word_to_execute = search_dictionary(&self.dictionary, &word.to_lowercase())
-            .unwrap()
-            .clone();
-        self.execute(&unsafe { word_to_execute.as_ref() }.unwrap().body);
+        let dict_entry = search_dictionary(&self.dictionary, &word.to_lowercase()).unwrap();
+        let next_word = &unsafe { dict_entry.as_ref() }.unwrap().body;
+        self.return_stack.push(ReturnStackEntry::Word(next_word));
+        return self.execute();
     }
 
-    fn execute(&mut self, word: &Word) {
-        match word {
-            Word::Data(l) => self.data_stack.push(*l),
-            Word::Native(n) => n(self),
-            Word::Threaded(t) => self
-                .return_stack
-                .push(std::collections::VecDeque::from_iter(
-                    t.iter().map(|e| e.clone()),
-                )),
-        }
-
+    fn execute(&mut self) {
         while !self.return_stack.is_empty() {
-            if self.return_stack.last().unwrap().is_empty() {
-                self.return_stack.pop();
-                continue;
-            }
-
-            let next = self.return_stack.last_mut().unwrap().pop_front().unwrap();
-            match next {
-                ThreadedWordEntry::Literal(l) => {
-                    let data = Word::Data(l);
-                    self.execute(&data);
-                }
-                ThreadedWordEntry::AnotherWord(w) => {
-                    self.execute(&unsafe { w.as_ref() }.unwrap().body)
+            match self.return_stack.pop().unwrap() {
+                ReturnStackEntry::Word(w) => match unsafe { w.as_ref() }.unwrap() {
+                    Word::Data(data) => self.data_stack.push(*data),
+                    Word::Native(func) => func(self),
+                    Word::Threaded(t) => self
+                        .return_stack
+                        .push(ReturnStackEntry::ThreadedWordEntry(t.as_ptr())),
+                },
+                ReturnStackEntry::ThreadedWordEntry(t) => {
+                    let next_entry = unsafe { t.add(1).as_ref() }.unwrap();
+                    match next_entry {
+                        ThreadedWordEntry::LastEntry => {}
+                        _ => self
+                            .return_stack
+                            .push(ReturnStackEntry::ThreadedWordEntry(next_entry)),
+                    };
+                    match unsafe { t.as_ref() }.unwrap() {
+                        ThreadedWordEntry::Literal(l) => self.data_stack.push(*l),
+                        ThreadedWordEntry::AnotherWord(w) => {
+                            self.return_stack
+                                .push(ReturnStackEntry::Word(&unsafe { w.as_ref() }.unwrap().body));
+                        }
+                        ThreadedWordEntry::LastEntry => {}
+                    };
                 }
             }
         }
