@@ -381,6 +381,14 @@ const PRIMITIVES: &[(&str, Word)] = &[
             env.entry_under_construction = None;
         }),
     ),
+    (
+        "cells",
+        Word::Native(|env| {
+            let n = env.data_stack.pop().unwrap();
+            let result = n * (std::mem::size_of::<Cell>() as isize);
+            env.data_stack.push(result);
+        }),
+    ),
 ];
 
 // TODO: Implement From?
