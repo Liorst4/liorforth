@@ -19,7 +19,7 @@ type Byte = u8;
 enum ThreadedWordEntry {
     Literal(Cell),
     AnotherWord(*const DictionaryEntry),
-    LastEntry,
+    LastEntry, // Pretty much "EXIT"
 }
 
 #[derive(Clone)]
@@ -579,39 +579,52 @@ impl<'a> Environment<'a> {
             threaded.push(ThreadedWordEntry::AnotherWord(dict_entry));
         } else {
             let next_word = &dict_entry.body;
-            self.return_stack.push(ReturnStackEntry::Word(next_word));
-            self.execute();
+            self.execute_word(next_word);
         }
     }
 
-    fn execute(&mut self) {
-        while !self.return_stack.is_empty() {
-            match self.return_stack.pop().unwrap() {
-                ReturnStackEntry::Word(w) => match unsafe { w.as_ref() }.unwrap() {
-                    Word::Data(data) => self.data_stack.push(*data),
-                    Word::Native(func) => func(self),
-                    Word::Threaded(t) => self
-                        .return_stack
-                        .push(ReturnStackEntry::ThreadedWordEntry(t.as_ptr())),
-                },
-                ReturnStackEntry::ThreadedWordEntry(t) => {
-                    let next_entry = unsafe { t.add(1).as_ref() }.unwrap();
-                    match next_entry {
-                        ThreadedWordEntry::LastEntry => {}
-                        _ => self
-                            .return_stack
-                            .push(ReturnStackEntry::ThreadedWordEntry(next_entry)),
-                    };
-                    match unsafe { t.as_ref() }.unwrap() {
-                        ThreadedWordEntry::Literal(l) => self.data_stack.push(*l),
-                        ThreadedWordEntry::AnotherWord(w) => {
+    fn execute_word(&mut self, word: &Word) {
+        match word {
+            Word::Data(d) => self.data_stack.push(*d),
+            Word::Native(f) => f(self),
+            Word::Threaded(t) => self.execute_threaded_word(t.first().unwrap()),
+        }
+    }
+
+    fn execute_threaded_word(&mut self, entry: &ThreadedWordEntry) {
+        let mut iter: *const ThreadedWordEntry = entry;
+        loop {
+            match unsafe { iter.as_ref() }.unwrap() {
+                ThreadedWordEntry::AnotherWord(w) => {
+                    let to_execute = &unsafe { w.as_ref() }.unwrap().body;
+                    match to_execute {
+                        Word::Threaded(_) => {
+                            let next = unsafe { iter.add(1) };
                             self.return_stack
-                                .push(ReturnStackEntry::Word(&unsafe { w.as_ref() }.unwrap().body));
+                                .push(ReturnStackEntry::ThreadedWordEntry(next));
+                            return self.execute_word(to_execute); // Jump to next word
                         }
-                        ThreadedWordEntry::LastEntry => {}
-                    };
+                        _ => self.execute_word(to_execute), // Continue iteration
+                    }
+                }
+                ThreadedWordEntry::Literal(l) => self.data_stack.push(*l),
+                ThreadedWordEntry::LastEntry => {
+                    return match self.return_stack.pop() {
+                        Some(next) => {
+                            match next {
+                                ReturnStackEntry::Word(w) => {
+                                    self.execute_word(unsafe { w.as_ref() }.unwrap())
+                                }
+                                ReturnStackEntry::ThreadedWordEntry(e) => {
+                                    self.execute_threaded_word(unsafe { e.as_ref() }.unwrap())
+                                }
+                            };
+                        }
+                        _ => {}
+                    }
                 }
             }
+            iter = unsafe { iter.add(1) };
         }
     }
 
