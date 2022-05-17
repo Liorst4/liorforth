@@ -96,6 +96,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     (
         ".s",
         Word::Native(|env| {
+            print!("<{}> ", env.data_stack.len());
             for i in env.data_stack.iter() {
                 env.print_cell(*i);
             }
