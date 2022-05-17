@@ -428,6 +428,7 @@ const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
 			       : 1- 1 - ; \
 			       : 0< 0 < ; \
 			       : 0= 0 = ; \
+			       : decimal 10 base ! ; \
 			       ";
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
