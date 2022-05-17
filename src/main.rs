@@ -39,6 +39,7 @@ struct DictionaryEntry {
 
 type Dictionary = std::collections::LinkedList<DictionaryEntry>;
 
+#[derive(Clone)]
 enum ReturnStackEntry {
     Word(*const Word),
     ThreadedWordEntry(*const ThreadedWordEntry),
@@ -91,6 +92,8 @@ macro_rules! compare_operator_native_word {
 	})
     }
 }
+const AMOUNT_OF_CELLS_PER_ITEM: usize =
+    std::mem::size_of::<ReturnStackEntry>() / std::mem::size_of::<Cell>();
 
 const PRIMITIVES: &[(&str, Word)] = &[
     (
@@ -388,6 +391,33 @@ const PRIMITIVES: &[(&str, Word)] = &[
             let n = env.data_stack.pop().unwrap();
             let result = n * (std::mem::size_of::<Cell>() as isize);
             env.data_stack.push(result);
+        }),
+    ),
+    (
+        "r>",
+        Word::Native(|env| {
+            let item = env.return_stack.pop().unwrap();
+            let item_as_cells: &[Cell; AMOUNT_OF_CELLS_PER_ITEM] =
+                unsafe { std::mem::transmute(&item) };
+
+            for i in item_as_cells {
+                env.data_stack.push(*i);
+            }
+        }),
+    ),
+    (
+        ">r",
+        Word::Native(|env| {
+            let mut cells_to_create_return_stack_entry = [0 as Cell; AMOUNT_OF_CELLS_PER_ITEM];
+
+            for cell in cells_to_create_return_stack_entry.iter_mut().rev() {
+                cell.clone_from(&env.data_stack.pop().unwrap());
+            }
+
+            let return_stack_entry: &ReturnStackEntry =
+                unsafe { std::mem::transmute(&cells_to_create_return_stack_entry) };
+
+            env.return_stack.push(return_stack_entry.clone());
         }),
     ),
 ];
