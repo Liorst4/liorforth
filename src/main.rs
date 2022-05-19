@@ -24,7 +24,6 @@ enum ThreadedWordEntry {
 
 #[derive(Clone)]
 enum Word {
-    Data(Cell), // TODO: Should represent variable, constant, value, etc...
     Native(fn(&mut Environment)),
     Threaded(Vec<ThreadedWordEntry>),
 }
@@ -322,9 +321,6 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ("=", compare_operator_native_word!(==)),
     ("<", compare_operator_native_word!(<)),
     (">", compare_operator_native_word!(>)),
-    ("bl", Word::Data(' ' as Cell)),
-    ("true", Word::Data(bool_as_cell(true))),
-    ("false", Word::Data(bool_as_cell(false))),
     (
         // Not a part of the core words, but its useful for debugging
         // TODO: Replace with a threaded word once compilation fully is working
@@ -460,6 +456,9 @@ const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
 			       : 0< 0 < ; \
 			       : 0= 0 = ; \
 			       : decimal 10 base ! ; \
+			       : bl 32 ; \
+			       : true -1 ; \
+			       : false 0 ; \
 			       ";
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
@@ -616,7 +615,6 @@ impl<'a> Environment<'a> {
 
     fn execute_word(&mut self, word: &Word) {
         match word {
-            Word::Data(d) => self.data_stack.push(*d),
             Word::Native(f) => f(self),
             Word::Threaded(t) => self.execute_threaded_word(t.first().unwrap()),
         }
