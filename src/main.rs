@@ -249,9 +249,6 @@ const PRIMITIVES: &[(&str, Primitive)] = &[
             *address = data;
         }
     }),
-    ("cr", |_env| {
-        println!("");
-    }),
     ("emit", |env| {
         let n = env.data_stack.pop().unwrap();
         let c = (n as u8) as char;
@@ -401,6 +398,7 @@ const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
 			       : false 0 ; \
 			       : , here 1 cells allot ! ; \
 			       : c, here 1 allot c! ; \
+			       : cr 10 emit ; \
 			       ";
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
