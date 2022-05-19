@@ -64,250 +64,184 @@ struct Environment<'a> {
 
 macro_rules! binary_operator_native_word {
     ($method:tt) => {
-        Word::Primitive(|env| {
+        |env| {
             let b = env.data_stack.pop().unwrap();
             let a = env.data_stack.pop().unwrap();
             let c = a.$method(b);
             env.data_stack.push(c);
-        })
+        }
     };
 }
 
 macro_rules! unary_operator_native_word {
     ($operator:tt) => {
-	Word::Primitive(|env| {
+	|env| {
             let a = env.data_stack.pop().unwrap();
 	    let b = $operator a;
             env.data_stack.push(b);
-	})
+	}
     }
 }
 
 macro_rules! compare_operator_native_word {
     ($operator:tt) => {
-	Word::Primitive(|env| {
+	|env| {
             let b = env.data_stack.pop().unwrap();
             let a = env.data_stack.pop().unwrap();
             let c = a $operator b;
             env.data_stack.push(bool_as_cell(c));
-	})
+	}
     }
 }
 const AMOUNT_OF_CELLS_PER_ITEM: usize =
     std::mem::size_of::<ReturnStackEntry>() / std::mem::size_of::<Cell>();
 
-const PRIMITIVES: &[(&str, Word)] = &[
-    (
-        ".s",
-        Word::Primitive(|env| {
-            print!("<{}> ", env.data_stack.len());
-            for i in env.data_stack.iter() {
-                env.print_cell(*i);
-            }
-        }),
-    ),
-    ("bye", Word::Primitive(|_env| std::process::exit(0))),
-    (
-        "words",
-        Word::Primitive(|env| {
-            // TODO: Implement fmt::Display?
-            for entry in env.dictionary.iter() {
-                for c in entry.name {
-                    if c == 0 {
-                        break;
-                    }
-                    print!("{}", c as char);
+const PRIMITIVES: &[(&str, Primitive)] = &[
+    (".s", |env| {
+        print!("<{}> ", env.data_stack.len());
+        for i in env.data_stack.iter() {
+            env.print_cell(*i);
+        }
+    }),
+    ("bye", |_env| std::process::exit(0)),
+    ("words", |env| {
+        // TODO: Implement fmt::Display?
+        for entry in env.dictionary.iter() {
+            for c in entry.name {
+                if c == 0 {
+                    break;
                 }
-                print!("\n");
+                print!("{}", c as char);
             }
-        }),
-    ),
-    (
-        "dup",
-        Word::Primitive(|env| {
-            let x = *env.data_stack.last().unwrap();
-            env.data_stack.push(x)
-        }),
-    ),
-    (
-        "drop",
-        Word::Primitive(|env| {
-            env.data_stack.pop().unwrap();
-        }),
-    ),
-    (
-        ".",
-        Word::Primitive(|env| {
-            let x = env.data_stack.pop().unwrap();
-            env.print_cell(x);
-        }),
-    ),
-    (
-        "swap",
-        Word::Primitive(|env| {
-            let a = env.data_stack.pop().unwrap();
-            let b = env.data_stack.pop().unwrap();
-            env.data_stack.push(a);
-            env.data_stack.push(b);
-        }),
-    ),
-    (
-        "over",
-        Word::Primitive(|env| {
-            let a = env.data_stack.pop().unwrap();
-            let b = env.data_stack.pop().unwrap();
-            env.data_stack.push(b);
-            env.data_stack.push(a);
-            env.data_stack.push(b);
-        }),
-    ),
-    (
-        "nip",
-        Word::Primitive(|env| {
-            let a = env.data_stack.pop().unwrap();
-            env.data_stack.pop().unwrap();
-            env.data_stack.push(a);
-        }),
-    ),
-    (
-        "rot",
-        Word::Primitive(|env| {
-            let a = env.data_stack.pop().unwrap();
-            let b = env.data_stack.pop().unwrap();
-            let c = env.data_stack.pop().unwrap();
-            env.data_stack.push(b);
-            env.data_stack.push(a);
-            env.data_stack.push(c);
-        }),
-    ),
-    (
-        "min",
-        Word::Primitive(|env| {
-            let a = env.data_stack.pop().unwrap();
-            let b = env.data_stack.pop().unwrap();
-            env.data_stack.push(std::cmp::min(a, b));
-        }),
-    ),
-    (
-        "max",
-        Word::Primitive(|env| {
-            let a = env.data_stack.pop().unwrap();
-            let b = env.data_stack.pop().unwrap();
-            env.data_stack.push(std::cmp::max(a, b));
-        }),
-    ),
-    (
-        "abs",
-        Word::Primitive(|env| {
-            let a = env.data_stack.pop().unwrap();
-            env.data_stack.push(a.abs());
-        }),
-    ),
-    (
-        "/mod",
-        Word::Primitive(|env| {
-            let n2 = env.data_stack.pop().unwrap();
-            let n1 = env.data_stack.pop().unwrap();
-            let n3 = n1 % n2;
-            let n4 = n1 / n2;
-            env.data_stack.push(n3);
-            env.data_stack.push(n4);
-        }),
-    ),
-    (
-        "*/",
-        Word::Primitive(|env| {
-            let n3 = env.data_stack.pop().unwrap();
-            let n2 = env.data_stack.pop().unwrap();
-            let n1 = env.data_stack.pop().unwrap();
+            print!("\n");
+        }
+    }),
+    ("dup", |env| {
+        let x = *env.data_stack.last().unwrap();
+        env.data_stack.push(x)
+    }),
+    ("drop", |env| {
+        env.data_stack.pop().unwrap();
+    }),
+    (".", |env| {
+        let x = env.data_stack.pop().unwrap();
+        env.print_cell(x);
+    }),
+    ("swap", |env| {
+        let a = env.data_stack.pop().unwrap();
+        let b = env.data_stack.pop().unwrap();
+        env.data_stack.push(a);
+        env.data_stack.push(b);
+    }),
+    ("over", |env| {
+        let a = env.data_stack.pop().unwrap();
+        let b = env.data_stack.pop().unwrap();
+        env.data_stack.push(b);
+        env.data_stack.push(a);
+        env.data_stack.push(b);
+    }),
+    ("nip", |env| {
+        let a = env.data_stack.pop().unwrap();
+        env.data_stack.pop().unwrap();
+        env.data_stack.push(a);
+    }),
+    ("rot", |env| {
+        let a = env.data_stack.pop().unwrap();
+        let b = env.data_stack.pop().unwrap();
+        let c = env.data_stack.pop().unwrap();
+        env.data_stack.push(b);
+        env.data_stack.push(a);
+        env.data_stack.push(c);
+    }),
+    ("min", |env| {
+        let a = env.data_stack.pop().unwrap();
+        let b = env.data_stack.pop().unwrap();
+        env.data_stack.push(std::cmp::min(a, b));
+    }),
+    ("max", |env| {
+        let a = env.data_stack.pop().unwrap();
+        let b = env.data_stack.pop().unwrap();
+        env.data_stack.push(std::cmp::max(a, b));
+    }),
+    ("abs", |env| {
+        let a = env.data_stack.pop().unwrap();
+        env.data_stack.push(a.abs());
+    }),
+    ("/mod", |env| {
+        let n2 = env.data_stack.pop().unwrap();
+        let n1 = env.data_stack.pop().unwrap();
+        let n3 = n1 % n2;
+        let n4 = n1 / n2;
+        env.data_stack.push(n3);
+        env.data_stack.push(n4);
+    }),
+    ("*/", |env| {
+        let n3 = env.data_stack.pop().unwrap();
+        let n2 = env.data_stack.pop().unwrap();
+        let n1 = env.data_stack.pop().unwrap();
 
-            let double_mul_result: DoubleCell = (n1 as DoubleCell) * (n2 as DoubleCell);
-            let double_div_result: DoubleCell = double_mul_result / (n3 as DoubleCell);
-            let result: Cell = double_div_result.try_into().unwrap();
-            env.data_stack.push(result);
-        }),
-    ),
-    (
-        "*/mod",
-        Word::Primitive(|env| {
-            let n3 = env.data_stack.pop().unwrap();
-            let n2 = env.data_stack.pop().unwrap();
-            let n1 = env.data_stack.pop().unwrap();
+        let double_mul_result: DoubleCell = (n1 as DoubleCell) * (n2 as DoubleCell);
+        let double_div_result: DoubleCell = double_mul_result / (n3 as DoubleCell);
+        let result: Cell = double_div_result.try_into().unwrap();
+        env.data_stack.push(result);
+    }),
+    ("*/mod", |env| {
+        let n3 = env.data_stack.pop().unwrap();
+        let n2 = env.data_stack.pop().unwrap();
+        let n1 = env.data_stack.pop().unwrap();
 
-            let double_mul_result: DoubleCell = (n1 as DoubleCell) * (n2 as DoubleCell);
-            let double_div_result: DoubleCell = double_mul_result / (n3 as DoubleCell);
-            let double_mod_result: DoubleCell = double_mul_result % (n3 as DoubleCell);
-            let n4: Cell = double_mod_result.try_into().unwrap();
-            let n5: Cell = double_div_result.try_into().unwrap();
-            env.data_stack.push(n4);
-            env.data_stack.push(n5);
-        }),
-    ),
-    (
-        "here",
-        Word::Primitive(|env| {
-            let address: *const Byte = env.data_space_pointer.as_ref().as_ptr();
-            env.data_stack.push(unsafe { std::mem::transmute(address) });
-        }),
-    ),
-    (
-        "allot",
-        Word::Primitive(|env| {
-            let n = env.data_stack.pop().unwrap();
-            for _ in 0..n {
-                match env.data_space_pointer.next() {
-                    None => panic!("Not enough memory"),
-                    _ => {}
-                }
+        let double_mul_result: DoubleCell = (n1 as DoubleCell) * (n2 as DoubleCell);
+        let double_div_result: DoubleCell = double_mul_result / (n3 as DoubleCell);
+        let double_mod_result: DoubleCell = double_mul_result % (n3 as DoubleCell);
+        let n4: Cell = double_mod_result.try_into().unwrap();
+        let n5: Cell = double_div_result.try_into().unwrap();
+        env.data_stack.push(n4);
+        env.data_stack.push(n5);
+    }),
+    ("here", |env| {
+        let address: *const Byte = env.data_space_pointer.as_ref().as_ptr();
+        env.data_stack.push(unsafe { std::mem::transmute(address) });
+    }),
+    ("allot", |env| {
+        let n = env.data_stack.pop().unwrap();
+        for _ in 0..n {
+            match env.data_space_pointer.next() {
+                None => panic!("Not enough memory"),
+                _ => {}
             }
-        }),
-    ),
-    (
-        "@",
-        Word::Primitive(|env| {
-            let n = env.data_stack.pop().unwrap();
-            let address: *mut Cell;
-            let data: Cell;
-            unsafe {
-                address = std::mem::transmute(n);
-                data = *address;
-            }
-            env.data_stack.push(data);
-        }),
-    ),
-    (
-        "!",
-        Word::Primitive(|env| {
-            let n = env.data_stack.pop().unwrap();
-            let data = env.data_stack.pop().unwrap();
-            let address: *mut Cell;
-            unsafe {
-                address = std::mem::transmute(n);
-                *address = data;
-            }
-        }),
-    ),
-    (
-        "cr",
-        Word::Primitive(|_env| {
-            println!("");
-        }),
-    ),
-    (
-        "emit",
-        Word::Primitive(|env| {
-            let n = env.data_stack.pop().unwrap();
-            let c = (n as u8) as char;
-            print!("{}", c);
-        }),
-    ),
-    (
-        "base",
-        Word::Primitive(|env| {
-            env.data_stack
-                .push(unsafe { std::mem::transmute(&env.base) });
-        }),
-    ),
+        }
+    }),
+    ("@", |env| {
+        let n = env.data_stack.pop().unwrap();
+        let address: *mut Cell;
+        let data: Cell;
+        unsafe {
+            address = std::mem::transmute(n);
+            data = *address;
+        }
+        env.data_stack.push(data);
+    }),
+    ("!", |env| {
+        let n = env.data_stack.pop().unwrap();
+        let data = env.data_stack.pop().unwrap();
+        let address: *mut Cell;
+        unsafe {
+            address = std::mem::transmute(n);
+            *address = data;
+        }
+    }),
+    ("cr", |_env| {
+        println!("");
+    }),
+    ("emit", |env| {
+        let n = env.data_stack.pop().unwrap();
+        let c = (n as u8) as char;
+        print!("{}", c);
+    }),
+    ("base", |env| {
+        env.data_stack
+            .push(unsafe { std::mem::transmute(&env.base) });
+    }),
     ("+", binary_operator_native_word!(wrapping_add)),
     ("-", binary_operator_native_word!(wrapping_sub)),
     ("*", binary_operator_native_word!(wrapping_mul)),
@@ -327,7 +261,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
         // Not a part of the core words, but its useful for debugging
         // TODO: Replace with a threaded word once compilation fully is working
         "dump",
-        Word::Primitive(|env| {
+        |env| {
             const ROW_SIZE: usize = 0x10;
             let byte_count: usize = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
             let address: usize = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
@@ -347,77 +281,62 @@ const PRIMITIVES: &[(&str, Word)] = &[
             }
 
             println!("");
-        }),
+        },
     ),
-    (
-        ":",
-        Word::Primitive(|env| {
-            if env.entry_under_construction.is_some() {
-                panic!("Can't double compile!");
-            }
+    (":", |env| {
+        if env.entry_under_construction.is_some() {
+            panic!("Can't double compile!");
+        }
 
-            let (token_offset, token_size) = env.next_token(true, ' ' as Byte);
-            let mut name: Name = Default::default();
-            name[0..token_size]
-                .copy_from_slice(&env.input_buffer[token_offset..(token_offset + token_size)]);
-            env.entry_under_construction = Some((name, Vec::new()));
-        }),
-    ),
-    (
-        ";",
-        Word::Primitive(|env| {
-            if env.entry_under_construction.is_none() {
-                panic!("Using ; without : !");
-            }
+        let (token_offset, token_size) = env.next_token(true, ' ' as Byte);
+        let mut name: Name = Default::default();
+        name[0..token_size]
+            .copy_from_slice(&env.input_buffer[token_offset..(token_offset + token_size)]);
+        env.entry_under_construction = Some((name, Vec::new()));
+    }),
+    (";", |env| {
+        if env.entry_under_construction.is_none() {
+            panic!("Using ; without : !");
+        }
 
-            let (name, mut threaded) = env.entry_under_construction.clone().unwrap();
-            threaded.push(ThreadedWordEntry::LastEntry);
+        let (name, mut threaded) = env.entry_under_construction.clone().unwrap();
+        threaded.push(ThreadedWordEntry::LastEntry);
 
-            // TODO: Print a message if a word is re-defined
+        // TODO: Print a message if a word is re-defined
 
-            env.dictionary.push_front(DictionaryEntry {
-                name,
-                body: Word::Threaded(threaded),
-            });
+        env.dictionary.push_front(DictionaryEntry {
+            name,
+            body: Word::Threaded(threaded),
+        });
 
-            env.entry_under_construction = None;
-        }),
-    ),
-    (
-        "cells",
-        Word::Primitive(|env| {
-            let n = env.data_stack.pop().unwrap();
-            let result = n * (std::mem::size_of::<Cell>() as isize);
-            env.data_stack.push(result);
-        }),
-    ),
-    (
-        "r>",
-        Word::Primitive(|env| {
-            let item = env.return_stack.pop().unwrap();
-            let item_as_cells: &[Cell; AMOUNT_OF_CELLS_PER_ITEM] =
-                unsafe { std::mem::transmute(&item) };
+        env.entry_under_construction = None;
+    }),
+    ("cells", |env| {
+        let n = env.data_stack.pop().unwrap();
+        let result = n * (std::mem::size_of::<Cell>() as isize);
+        env.data_stack.push(result);
+    }),
+    ("r>", |env| {
+        let item = env.return_stack.pop().unwrap();
+        let item_as_cells: &[Cell; AMOUNT_OF_CELLS_PER_ITEM] =
+            unsafe { std::mem::transmute(&item) };
 
-            for i in item_as_cells {
-                env.data_stack.push(*i);
-            }
-        }),
-    ),
-    (
-        ">r",
-        Word::Primitive(|env| {
-            let mut cells_to_create_return_stack_entry = [0 as Cell; AMOUNT_OF_CELLS_PER_ITEM];
+        for i in item_as_cells {
+            env.data_stack.push(*i);
+        }
+    }),
+    (">r", |env| {
+        let mut cells_to_create_return_stack_entry = [0 as Cell; AMOUNT_OF_CELLS_PER_ITEM];
 
-            for cell in cells_to_create_return_stack_entry.iter_mut().rev() {
-                cell.clone_from(&env.data_stack.pop().unwrap());
-            }
+        for cell in cells_to_create_return_stack_entry.iter_mut().rev() {
+            cell.clone_from(&env.data_stack.pop().unwrap());
+        }
 
-            let return_stack_entry: &ReturnStackEntry =
-                unsafe { std::mem::transmute(&cells_to_create_return_stack_entry) };
+        let return_stack_entry: &ReturnStackEntry =
+            unsafe { std::mem::transmute(&cells_to_create_return_stack_entry) };
 
-            env.return_stack.push(return_stack_entry.clone());
-        }),
-    ),
+        env.return_stack.push(return_stack_entry.clone());
+    }),
 ];
 
 // TODO: Implement From?
@@ -445,10 +364,10 @@ fn search_dictionary(dict: &Dictionary, name: &str) -> Option<*const DictionaryE
 }
 
 fn initial_dictionary() -> Dictionary {
-    return std::collections::LinkedList::from_iter(PRIMITIVES.iter().map(|(a, b)| {
+    return std::collections::LinkedList::from_iter(PRIMITIVES.iter().map(|(name, ptr)| {
         DictionaryEntry {
-            name: name_from_str(a).unwrap(),
-            body: b.clone(),
+            name: name_from_str(name).unwrap(),
+            body: Word::Primitive(ptr.clone()),
         }
     }));
 }
