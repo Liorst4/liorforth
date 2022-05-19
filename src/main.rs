@@ -15,6 +15,8 @@ const fn bool_as_cell(b: bool) -> Cell {
 
 type Byte = u8;
 
+type Primitive = fn(&mut Environment);
+
 #[derive(Clone)]
 enum ThreadedWordEntry {
     Literal(Cell),
@@ -24,7 +26,7 @@ enum ThreadedWordEntry {
 
 #[derive(Clone)]
 enum Word {
-    Native(fn(&mut Environment)),
+    Primitive(Primitive),
     Threaded(Vec<ThreadedWordEntry>),
 }
 
@@ -62,7 +64,7 @@ struct Environment<'a> {
 
 macro_rules! binary_operator_native_word {
     ($method:tt) => {
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let b = env.data_stack.pop().unwrap();
             let a = env.data_stack.pop().unwrap();
             let c = a.$method(b);
@@ -73,7 +75,7 @@ macro_rules! binary_operator_native_word {
 
 macro_rules! unary_operator_native_word {
     ($operator:tt) => {
-	Word::Native(|env| {
+	Word::Primitive(|env| {
             let a = env.data_stack.pop().unwrap();
 	    let b = $operator a;
             env.data_stack.push(b);
@@ -83,7 +85,7 @@ macro_rules! unary_operator_native_word {
 
 macro_rules! compare_operator_native_word {
     ($operator:tt) => {
-	Word::Native(|env| {
+	Word::Primitive(|env| {
             let b = env.data_stack.pop().unwrap();
             let a = env.data_stack.pop().unwrap();
             let c = a $operator b;
@@ -97,17 +99,17 @@ const AMOUNT_OF_CELLS_PER_ITEM: usize =
 const PRIMITIVES: &[(&str, Word)] = &[
     (
         ".s",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             print!("<{}> ", env.data_stack.len());
             for i in env.data_stack.iter() {
                 env.print_cell(*i);
             }
         }),
     ),
-    ("bye", Word::Native(|_env| std::process::exit(0))),
+    ("bye", Word::Primitive(|_env| std::process::exit(0))),
     (
         "words",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             // TODO: Implement fmt::Display?
             for entry in env.dictionary.iter() {
                 for c in entry.name {
@@ -122,27 +124,27 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         "dup",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let x = *env.data_stack.last().unwrap();
             env.data_stack.push(x)
         }),
     ),
     (
         "drop",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             env.data_stack.pop().unwrap();
         }),
     ),
     (
         ".",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let x = env.data_stack.pop().unwrap();
             env.print_cell(x);
         }),
     ),
     (
         "swap",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let a = env.data_stack.pop().unwrap();
             let b = env.data_stack.pop().unwrap();
             env.data_stack.push(a);
@@ -151,7 +153,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         "over",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let a = env.data_stack.pop().unwrap();
             let b = env.data_stack.pop().unwrap();
             env.data_stack.push(b);
@@ -161,7 +163,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         "nip",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let a = env.data_stack.pop().unwrap();
             env.data_stack.pop().unwrap();
             env.data_stack.push(a);
@@ -169,7 +171,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         "rot",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let a = env.data_stack.pop().unwrap();
             let b = env.data_stack.pop().unwrap();
             let c = env.data_stack.pop().unwrap();
@@ -180,7 +182,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         "min",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let a = env.data_stack.pop().unwrap();
             let b = env.data_stack.pop().unwrap();
             env.data_stack.push(std::cmp::min(a, b));
@@ -188,7 +190,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         "max",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let a = env.data_stack.pop().unwrap();
             let b = env.data_stack.pop().unwrap();
             env.data_stack.push(std::cmp::max(a, b));
@@ -196,14 +198,14 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         "abs",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let a = env.data_stack.pop().unwrap();
             env.data_stack.push(a.abs());
         }),
     ),
     (
         "/mod",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let n2 = env.data_stack.pop().unwrap();
             let n1 = env.data_stack.pop().unwrap();
             let n3 = n1 % n2;
@@ -214,7 +216,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         "*/",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let n3 = env.data_stack.pop().unwrap();
             let n2 = env.data_stack.pop().unwrap();
             let n1 = env.data_stack.pop().unwrap();
@@ -227,7 +229,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         "*/mod",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let n3 = env.data_stack.pop().unwrap();
             let n2 = env.data_stack.pop().unwrap();
             let n1 = env.data_stack.pop().unwrap();
@@ -243,14 +245,14 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         "here",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let address: *const Byte = env.data_space_pointer.as_ref().as_ptr();
             env.data_stack.push(unsafe { std::mem::transmute(address) });
         }),
     ),
     (
         "allot",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let n = env.data_stack.pop().unwrap();
             for _ in 0..n {
                 match env.data_space_pointer.next() {
@@ -262,7 +264,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         "@",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let n = env.data_stack.pop().unwrap();
             let address: *mut Cell;
             let data: Cell;
@@ -275,7 +277,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         "!",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let n = env.data_stack.pop().unwrap();
             let data = env.data_stack.pop().unwrap();
             let address: *mut Cell;
@@ -287,13 +289,13 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         "cr",
-        Word::Native(|_env| {
+        Word::Primitive(|_env| {
             println!("");
         }),
     ),
     (
         "emit",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let n = env.data_stack.pop().unwrap();
             let c = (n as u8) as char;
             print!("{}", c);
@@ -301,7 +303,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         "base",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             env.data_stack
                 .push(unsafe { std::mem::transmute(&env.base) });
         }),
@@ -325,7 +327,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
         // Not a part of the core words, but its useful for debugging
         // TODO: Replace with a threaded word once compilation fully is working
         "dump",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             const ROW_SIZE: usize = 0x10;
             let byte_count: usize = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
             let address: usize = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
@@ -349,7 +351,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         ":",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             if env.entry_under_construction.is_some() {
                 panic!("Can't double compile!");
             }
@@ -363,7 +365,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         ";",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             if env.entry_under_construction.is_none() {
                 panic!("Using ; without : !");
             }
@@ -383,7 +385,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         "cells",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let n = env.data_stack.pop().unwrap();
             let result = n * (std::mem::size_of::<Cell>() as isize);
             env.data_stack.push(result);
@@ -391,7 +393,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         "r>",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let item = env.return_stack.pop().unwrap();
             let item_as_cells: &[Cell; AMOUNT_OF_CELLS_PER_ITEM] =
                 unsafe { std::mem::transmute(&item) };
@@ -403,7 +405,7 @@ const PRIMITIVES: &[(&str, Word)] = &[
     ),
     (
         ">r",
-        Word::Native(|env| {
+        Word::Primitive(|env| {
             let mut cells_to_create_return_stack_entry = [0 as Cell; AMOUNT_OF_CELLS_PER_ITEM];
 
             for cell in cells_to_create_return_stack_entry.iter_mut().rev() {
@@ -615,7 +617,7 @@ impl<'a> Environment<'a> {
 
     fn execute_word(&mut self, word: &Word) {
         match word {
-            Word::Native(f) => f(self),
+            Word::Primitive(f) => f(self),
             Word::Threaded(t) => self.execute_threaded_word(t.first().unwrap()),
         }
     }
