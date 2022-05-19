@@ -399,6 +399,7 @@ const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
 			       : , here 1 cells allot ! ; \
 			       : c, here 1 allot c! ; \
 			       : cr 10 emit ; \
+			       : space bl emit ; \
 			       ";
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
