@@ -361,6 +361,11 @@ const PRIMITIVES: &[(&str, Primitive)] = &[
         let range: &mut [Byte] = unsafe { std::slice::from_raw_parts_mut(addr, amount as usize) };
         range.fill(c);
     }),
+    ("u.", |env| {
+        let s = env.data_stack.pop().unwrap();
+        let u: usize = s as usize;
+        print!("{} ", u);
+    }),
 ];
 
 // TODO: Implement From?
