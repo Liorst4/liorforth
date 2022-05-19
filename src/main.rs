@@ -230,6 +230,25 @@ const PRIMITIVES: &[(&str, Primitive)] = &[
             *address = data;
         }
     }),
+    ("c@", |env| {
+        let n = env.data_stack.pop().unwrap();
+        let address: *mut Byte;
+        let data: Byte;
+        unsafe {
+            address = std::mem::transmute(n);
+            data = *address;
+        }
+        env.data_stack.push(data as Cell);
+    }),
+    ("c!", |env| {
+        let n = env.data_stack.pop().unwrap();
+        let data = env.data_stack.pop().unwrap() as Byte;
+        let address: *mut Byte;
+        unsafe {
+            address = std::mem::transmute(n);
+            *address = data;
+        }
+    }),
     ("cr", |_env| {
         println!("");
     }),
@@ -381,6 +400,7 @@ const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
 			       : true -1 ; \
 			       : false 0 ; \
 			       : , here 1 cells allot ! ; \
+			       : c, here 1 allot c! ; \
 			       ";
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
