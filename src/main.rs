@@ -366,6 +366,14 @@ const PRIMITIVES: &[(&str, Primitive)] = &[
         let u: usize = s as usize;
         print!("{} ", u);
     }),
+    ("u<", |env| {
+        let s2 = env.data_stack.pop().unwrap();
+        let s1 = env.data_stack.pop().unwrap();
+        let u2 = s2 as usize;
+        let u1 = s1 as usize;
+        let result = bool_as_cell(u1 < u2);
+        env.data_stack.push(result);
+    }),
 ];
 
 // TODO: Implement From?
