@@ -168,12 +168,12 @@ const PRIMITIVES: &[(&str, Primitive)] = &[
         env.data_stack.push(a.abs());
     }),
     ("/mod", |env| {
-        let n2 = env.data_stack.pop().unwrap();
-        let n1 = env.data_stack.pop().unwrap();
-        let n3 = n1 % n2;
-        let n4 = n1 / n2;
-        env.data_stack.push(n3);
-        env.data_stack.push(n4);
+        let divisor = env.data_stack.pop().unwrap();
+        let divided = env.data_stack.pop().unwrap();
+        let remainder = divided % divisor;
+        let quotient = divided / divisor; // TODO: Handle 0?
+        env.data_stack.push(remainder);
+        env.data_stack.push(quotient);
     }),
     ("*/", |env| {
         let n3 = env.data_stack.pop().unwrap();
