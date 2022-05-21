@@ -21,7 +21,7 @@ type Primitive = fn(&mut Environment);
 enum ThreadedWordEntry {
     Literal(Cell),
     AnotherWord(*const DictionaryEntry),
-    BranchOnFalse(usize /* offset */),
+    BranchOnFalse(isize /* offset */),
     LastEntry, // Pretty much "EXIT"
 }
 
@@ -338,8 +338,26 @@ const PRIMITIVES: &[(&str, Primitive)] = &[
     }),
     ("then", |env| {
         let mut true_section = env.control_flow_stack.pop().unwrap();
-        let mut branch = vec![ThreadedWordEntry::BranchOnFalse(true_section.len() + 1)];
+        let offset = true_section.len() + 1;
+        let mut branch = vec![ThreadedWordEntry::BranchOnFalse(offset.try_into().unwrap())];
         branch.append(&mut true_section);
+
+        if env.control_flow_stack.is_empty() {
+            panic!("");
+        } else {
+            env.control_flow_stack
+                .last_mut()
+                .unwrap()
+                .append(&mut branch);
+        }
+    }),
+    ("begin", |env| {
+        env.control_flow_stack.push(Vec::new());
+    }),
+    ("until", |env| {
+        let mut branch = env.control_flow_stack.pop().unwrap();
+        let offset: isize = -(branch.len() as isize);
+        branch.push(ThreadedWordEntry::BranchOnFalse(offset));
 
         if env.control_flow_stack.is_empty() {
             panic!("");
@@ -400,7 +418,7 @@ const PRIMITIVES: &[(&str, Primitive)] = &[
 ];
 
 // TODO: Don't use a hard coded list
-const WORDS_TO_EXECUTE_DURING_COMPILATION: [&str; 3] = [";", "if", "then"];
+const WORDS_TO_EXECUTE_DURING_COMPILATION: [&str; 5] = [";", "if", "then", "begin", "until"];
 
 // TODO: Implement From?
 fn name_from_str(s: &str) -> Option<Name> {
@@ -636,7 +654,7 @@ impl<'a> Environment<'a> {
                 ThreadedWordEntry::BranchOnFalse(offset) => {
                     let cond = self.data_stack.pop().unwrap();
                     if cond == bool_as_cell(false) {
-                        iter = unsafe { iter.add(*offset) };
+                        iter = unsafe { iter.offset(*offset) };
                         continue;
                     }
                 }
