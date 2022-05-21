@@ -21,6 +21,7 @@ type Primitive = fn(&mut Environment);
 enum ThreadedWordEntry {
     Literal(Cell),
     AnotherWord(*const DictionaryEntry),
+    BranchOnFalse(usize /* offset */),
     LastEntry, // Pretty much "EXIT"
 }
 
@@ -59,7 +60,8 @@ struct Environment<'a> {
 
     base: Cell,
 
-    entry_under_construction: Option<(Name, Vec<ThreadedWordEntry>)>,
+    control_flow_stack: Vec<Vec<ThreadedWordEntry>>,
+    name_of_entry_under_construction: Option<Name>,
 }
 
 macro_rules! binary_operator_native_word {
@@ -299,32 +301,54 @@ const PRIMITIVES: &[(&str, Primitive)] = &[
         },
     ),
     (":", |env| {
-        if env.entry_under_construction.is_some() {
+        if !env.control_flow_stack.is_empty() {
             panic!("Can't double compile!");
         }
 
         let (token_offset, token_size) = env.next_token(true, ' ' as Byte);
-        let mut name: Name = Default::default();
-        name[0..token_size]
+        env.name_of_entry_under_construction = Some(Default::default());
+        env.name_of_entry_under_construction.as_mut().unwrap()[0..token_size]
             .copy_from_slice(&env.input_buffer[token_offset..(token_offset + token_size)]);
-        env.entry_under_construction = Some((name, Vec::new()));
+        env.control_flow_stack.push(Vec::new());
     }),
     (";", |env| {
-        if env.entry_under_construction.is_none() {
+        if env.control_flow_stack.is_empty() {
             panic!("Using ; without : !");
         }
 
-        let (name, mut threaded) = env.entry_under_construction.clone().unwrap();
+        if env.control_flow_stack.len() != 1 {
+            panic!("Control flow stack is not empty!");
+        }
+
+        let mut threaded = env.control_flow_stack.pop().unwrap();
         threaded.push(ThreadedWordEntry::LastEntry);
+        let threaded = threaded;
 
         // TODO: Print a message if a word is re-defined
 
         env.dictionary.push_front(DictionaryEntry {
-            name,
+            name: env.name_of_entry_under_construction.unwrap(),
             body: Word::Threaded(threaded),
         });
 
-        env.entry_under_construction = None;
+        env.name_of_entry_under_construction = None;
+    }),
+    ("if", |env| {
+        env.control_flow_stack.push(Vec::new());
+    }),
+    ("then", |env| {
+        let mut true_section = env.control_flow_stack.pop().unwrap();
+        let mut branch = vec![ThreadedWordEntry::BranchOnFalse(true_section.len() + 1)];
+        branch.append(&mut true_section);
+
+        if env.control_flow_stack.is_empty() {
+            panic!("");
+        } else {
+            env.control_flow_stack
+                .last_mut()
+                .unwrap()
+                .append(&mut branch);
+        }
     }),
     ("cells", |env| {
         let n = env.data_stack.pop().unwrap();
@@ -374,6 +398,9 @@ const PRIMITIVES: &[(&str, Primitive)] = &[
         env.data_stack.push(result);
     }),
 ];
+
+// TODO: Don't use a hard coded list
+const WORDS_TO_EXECUTE_DURING_COMPILATION: [&str; 3] = [";", "if", "then"];
 
 // TODO: Implement From?
 fn name_from_str(s: &str) -> Option<Name> {
@@ -456,7 +483,8 @@ impl<'a> Environment<'a> {
             input_buffer_head: 0,
             dictionary: initial_dictionary(),
             base: 10,
-            entry_under_construction: None,
+            control_flow_stack: Vec::new(),
+            name_of_entry_under_construction: None,
         };
 
         for line in CORE_WORDS_INIT.lines() {
@@ -467,7 +495,7 @@ impl<'a> Environment<'a> {
     }
 
     fn compile_mode(&self) -> bool {
-        return self.entry_under_construction.is_some();
+        return !self.control_flow_stack.is_empty();
     }
 
     fn next_token(
@@ -555,8 +583,7 @@ impl<'a> Environment<'a> {
     fn handle_number_token(&mut self, token: Cell) {
         if self.compile_mode() {
             let literal = ThreadedWordEntry::Literal(token);
-            let (_, threaded) = self.entry_under_construction.as_mut().unwrap();
-            threaded.push(literal);
+            self.control_flow_stack.last_mut().unwrap().push(literal);
         } else {
             self.data_stack.push(token);
         }
@@ -566,9 +593,16 @@ impl<'a> Environment<'a> {
         let dict_entry = search_dictionary(&self.dictionary, &token.to_lowercase()).unwrap();
         let dict_entry = unsafe { dict_entry.as_ref() }.unwrap();
 
-        if self.compile_mode() && dict_entry.name[0] != ';' as Byte {
-            let (_, threaded) = self.entry_under_construction.as_mut().unwrap();
-            threaded.push(ThreadedWordEntry::AnotherWord(dict_entry));
+        let compilation_word = WORDS_TO_EXECUTE_DURING_COMPILATION
+            .iter()
+            .any(|item| item == &token);
+
+        if self.compile_mode() && !compilation_word {
+            let another_word = ThreadedWordEntry::AnotherWord(dict_entry);
+            self.control_flow_stack
+                .last_mut()
+                .unwrap()
+                .push(another_word);
         } else {
             let next_word = &dict_entry.body;
             self.execute_word(next_word);
@@ -599,6 +633,13 @@ impl<'a> Environment<'a> {
                     }
                 }
                 ThreadedWordEntry::Literal(l) => self.data_stack.push(*l),
+                ThreadedWordEntry::BranchOnFalse(offset) => {
+                    let cond = self.data_stack.pop().unwrap();
+                    if cond == bool_as_cell(false) {
+                        iter = unsafe { iter.add(*offset) };
+                        continue;
+                    }
+                }
                 ThreadedWordEntry::LastEntry => {
                     return match self.return_stack.pop() {
                         Some(next) => {
