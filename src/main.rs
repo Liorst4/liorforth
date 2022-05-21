@@ -261,7 +261,6 @@ const PRIMITIVES: &[(&str, Primitive)] = &[
     ("+", binary_operator_native_word!(wrapping_add)),
     ("-", binary_operator_native_word!(wrapping_sub)),
     ("*", binary_operator_native_word!(wrapping_mul)),
-    ("/", binary_operator_native_word!(div)), // TODO: Handle divide error
     ("and", binary_operator_native_word!(bitand)),
     ("or", binary_operator_native_word!(bitor)),
     ("xor", binary_operator_native_word!(bitxor)),
@@ -421,6 +420,7 @@ const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
 			       : c, here 1 allot c! ; \
 			       : cr 10 emit ; \
 			       : space bl emit ; \
+			       : / /mod swap drop ; \
 			       ";
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
