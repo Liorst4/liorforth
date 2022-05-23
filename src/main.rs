@@ -3,8 +3,17 @@ use std::ops::*;
 
 type Cell = isize;
 
-// TODO: Add static_assert to make sure that its bigger than Cell
+#[cfg(target_pointer_width = "64")]
 type DoubleCell = i128;
+
+#[cfg(target_pointer_width = "32")]
+type DoubleCell = i64;
+
+#[cfg(target_pointer_width = "16")]
+type DoubleCell = i32;
+
+#[cfg(target_pointer_width = "8")]
+type DoubleCell = i16;
 
 type Byte = u8;
 
