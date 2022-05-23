@@ -426,6 +426,12 @@ const PRIMITIVES: &[(&str, Primitive)] = &[
 
         dest.copy_from_slice(src);
     }),
+    ("cell+", |env| {
+        let address: *const Cell = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
+        let address = unsafe { address.add(1) };
+        let address: Cell = unsafe { std::mem::transmute(address) };
+        env.data_stack.push(address);
+    }),
 ];
 
 // TODO: Don't use a hard coded list
