@@ -415,6 +415,17 @@ const PRIMITIVES: &[(&str, Primitive)] = &[
         let result = bool_as_cell(u1 < u2);
         env.data_stack.push(result);
     }),
+    ("move", |env| {
+        let length = env.data_stack.pop().unwrap() as usize;
+
+        let dest: *mut Byte = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
+        let src: *const Byte = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
+
+        let src: &[Byte] = unsafe { std::slice::from_raw_parts(src, length) };
+        let dest: &mut [Byte] = unsafe { std::slice::from_raw_parts_mut(dest, length) };
+
+        dest.copy_from_slice(src);
+    }),
 ];
 
 // TODO: Don't use a hard coded list
