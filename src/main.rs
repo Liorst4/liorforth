@@ -6,13 +6,6 @@ type Cell = isize;
 // TODO: Add static_assert to make sure that its bigger than Cell
 type DoubleCell = i128;
 
-const fn bool_as_cell(b: bool) -> Cell {
-    match b {
-        true => -1,
-        _ => 0,
-    }
-}
-
 type Byte = u8;
 
 type Primitive = fn(&mut Environment);
@@ -62,6 +55,13 @@ struct Environment<'a> {
 
     control_flow_stack: Vec<Vec<ThreadedWordEntry>>,
     name_of_entry_under_construction: Option<Name>,
+}
+
+const fn bool_as_cell(b: bool) -> Cell {
+    match b {
+        true => -1,
+        _ => 0,
+    }
 }
 
 macro_rules! binary_operator_native_word {
