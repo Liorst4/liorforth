@@ -441,6 +441,9 @@ const PRIMITIVES: &[(&str, Primitive)] = &[
         let address: Cell = unsafe { std::mem::transmute(address) };
         env.data_stack.push(address);
     }),
+    ("depth", |env| {
+        env.data_stack.push(env.data_stack.len() as Cell);
+    }),
 ];
 
 // TODO: Don't use a hard coded list
