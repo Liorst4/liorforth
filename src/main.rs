@@ -444,6 +444,12 @@ const PRIMITIVES: &[(&str, Primitive)] = &[
     ("depth", |env| {
         env.data_stack.push(env.data_stack.len() as Cell);
     }),
+    ("?dup", |env| {
+        let number = *env.data_stack.last().unwrap();
+        if number != 0 {
+            env.data_stack.push(number);
+        }
+    }),
 ];
 
 // TODO: Don't use a hard coded list
