@@ -112,7 +112,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     (".s", |env| {
         print!("<{}> ", env.data_stack.len());
         for i in env.data_stack.iter() {
-            env.print_cell(*i);
+            env.print_number(*i);
         }
     }),
     ("bye", |_env| std::process::exit(0)),
@@ -137,7 +137,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     }),
     (".", |env| {
         let x = env.data_stack.pop().unwrap();
-        env.print_cell(x);
+        env.print_number(x);
     }),
     ("swap", |env| {
         let a = env.data_stack.pop().unwrap();
@@ -367,7 +367,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("u.", |env| {
         let s = env.data_stack.pop().unwrap();
         let u: usize = s as usize;
-        print!("{} ", u);
+        env.print_number(u);
     }),
     ("u<", |env| {
         let s2 = env.data_stack.pop().unwrap();
@@ -742,11 +742,11 @@ impl<'a> Environment<'a> {
         }
     }
 
-    fn print_cell(&self, c: Cell) {
+    fn print_number<T: std::fmt::Binary + std::fmt::LowerHex + std::fmt::Display>(&self, n: T) {
         match self.base {
-            2 => print!("{:b} ", c),
-            16 => print!("{:x} ", c),
-            _ => print!("{} ", c),
+            2 => print!("{:b} ", n),
+            16 => print!("{:x} ", n),
+            _ => print!("{} ", n),
         }
     }
 }
