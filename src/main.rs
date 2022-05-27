@@ -347,6 +347,15 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
 
         env.return_stack.push(return_stack_entry.clone());
     }),
+    ("r@", |env| {
+        let item = env.return_stack.last().unwrap().clone();
+        let item_as_cells: &[Cell; AMOUNT_OF_CELLS_PER_ITEM] =
+            unsafe { std::mem::transmute(&item) };
+
+        for i in item_as_cells {
+            env.data_stack.push(*i);
+        }
+    }),
     ("fill", |env| {
         let c = env.data_stack.pop().unwrap() as Byte;
         let amount = env.data_stack.pop().unwrap();
