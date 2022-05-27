@@ -388,12 +388,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("depth", |env| {
         env.data_stack.push(env.data_stack.len() as Cell);
     }),
-    ("?dup", |env| {
-        let number = *env.data_stack.last().unwrap();
-        if number != 0 {
-            env.data_stack.push(number);
-        }
-    }),
 ];
 
 const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
@@ -521,6 +515,7 @@ const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
 			       : space bl emit ; \
 			       : / /mod swap drop ; \
 			       : +! dup @ swap rot rot + swap ! ; \
+			       : ?dup dup dup 0= if drop then ; \
 			       ";
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
