@@ -38,7 +38,8 @@ type Name = [Byte; 31];
 // TODO: Compile only words
 struct DictionaryEntry {
     name: Name,
-    body: Word,
+    execution_body: Word,
+    compilation_body: Option<Word>,
 }
 
 type Dictionary = std::collections::LinkedList<DictionaryEntry>;
@@ -107,7 +108,7 @@ macro_rules! compare_operator_native_word {
 const AMOUNT_OF_CELLS_PER_ITEM: usize =
     std::mem::size_of::<ReturnStackEntry>() / std::mem::size_of::<Cell>();
 
-const PRIMITIVES: &[(&str, Primitive)] = &[
+const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     (".s", |env| {
         print!("<{}> ", env.data_stack.len());
         for i in env.data_stack.iter() {
@@ -320,63 +321,6 @@ const PRIMITIVES: &[(&str, Primitive)] = &[
             .copy_from_slice(&env.input_buffer[token_offset..(token_offset + token_size)]);
         env.control_flow_stack.push(Vec::new());
     }),
-    (";", |env| {
-        if env.control_flow_stack.is_empty() {
-            panic!("Using ; without : !");
-        }
-
-        if env.control_flow_stack.len() != 1 {
-            panic!("Control flow stack is not empty!");
-        }
-
-        let mut threaded = env.control_flow_stack.pop().unwrap();
-        threaded.push(ThreadedWordEntry::LastEntry);
-        let threaded = threaded;
-
-        // TODO: Print a message if a word is re-defined
-
-        env.dictionary.push_front(DictionaryEntry {
-            name: env.name_of_entry_under_construction.unwrap(),
-            body: Word::Threaded(threaded),
-        });
-
-        env.name_of_entry_under_construction = None;
-    }),
-    ("if", |env| {
-        env.control_flow_stack.push(Vec::new());
-    }),
-    ("then", |env| {
-        let mut true_section = env.control_flow_stack.pop().unwrap();
-        let offset = true_section.len() + 1;
-        let mut branch = vec![ThreadedWordEntry::BranchOnFalse(offset.try_into().unwrap())];
-        branch.append(&mut true_section);
-
-        if env.control_flow_stack.is_empty() {
-            panic!("");
-        } else {
-            env.control_flow_stack
-                .last_mut()
-                .unwrap()
-                .append(&mut branch);
-        }
-    }),
-    ("begin", |env| {
-        env.control_flow_stack.push(Vec::new());
-    }),
-    ("until", |env| {
-        let mut branch = env.control_flow_stack.pop().unwrap();
-        let offset: isize = -(branch.len() as isize);
-        branch.push(ThreadedWordEntry::BranchOnFalse(offset));
-
-        if env.control_flow_stack.is_empty() {
-            panic!("");
-        } else {
-            env.control_flow_stack
-                .last_mut()
-                .unwrap()
-                .append(&mut branch);
-        }
-    }),
     ("cells", |env| {
         let n = env.data_stack.pop().unwrap();
         let result = n * (std::mem::size_of::<Cell>() as isize);
@@ -452,8 +396,66 @@ const PRIMITIVES: &[(&str, Primitive)] = &[
     }),
 ];
 
-// TODO: Don't use a hard coded list
-const WORDS_TO_EXECUTE_DURING_COMPILATION: [&str; 5] = [";", "if", "then", "begin", "until"];
+const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
+    (";", |env| {
+        if env.control_flow_stack.is_empty() {
+            panic!("Using ; without : !");
+        }
+
+        if env.control_flow_stack.len() != 1 {
+            panic!("Control flow stack is not empty!");
+        }
+
+        let mut threaded = env.control_flow_stack.pop().unwrap();
+        threaded.push(ThreadedWordEntry::LastEntry);
+        let threaded = threaded;
+
+        // TODO: Print a message if a word is re-defined
+
+        env.dictionary.push_front(DictionaryEntry {
+            name: env.name_of_entry_under_construction.unwrap(),
+            execution_body: Word::Threaded(threaded),
+            compilation_body: None,
+        });
+
+        env.name_of_entry_under_construction = None;
+    }),
+    ("if", |env| {
+        env.control_flow_stack.push(Vec::new());
+    }),
+    ("then", |env| {
+        let mut true_section = env.control_flow_stack.pop().unwrap();
+        let offset = true_section.len() + 1;
+        let mut branch = vec![ThreadedWordEntry::BranchOnFalse(offset.try_into().unwrap())];
+        branch.append(&mut true_section);
+
+        if env.control_flow_stack.is_empty() {
+            panic!("");
+        } else {
+            env.control_flow_stack
+                .last_mut()
+                .unwrap()
+                .append(&mut branch);
+        }
+    }),
+    ("begin", |env| {
+        env.control_flow_stack.push(Vec::new());
+    }),
+    ("until", |env| {
+        let mut branch = env.control_flow_stack.pop().unwrap();
+        let offset: isize = -(branch.len() as isize);
+        branch.push(ThreadedWordEntry::BranchOnFalse(offset));
+
+        if env.control_flow_stack.is_empty() {
+            panic!("");
+        } else {
+            env.control_flow_stack
+                .last_mut()
+                .unwrap()
+                .append(&mut branch);
+        }
+    }),
+];
 
 // TODO: Implement From?
 fn name_from_str(s: &str) -> Option<Name> {
@@ -480,12 +482,29 @@ fn search_dictionary(dict: &Dictionary, name: &str) -> Option<*const DictionaryE
 }
 
 fn initial_dictionary() -> Dictionary {
-    return std::collections::LinkedList::from_iter(PRIMITIVES.iter().map(|(name, ptr)| {
-        DictionaryEntry {
-            name: name_from_str(name).unwrap(),
-            body: Word::Primitive(ptr.clone()),
-        }
-    }));
+    let execute_only_entries =
+        EXECUTION_PRIMITIVES
+            .iter()
+            .map(|(name, exec_ptr)| DictionaryEntry {
+                name: name_from_str(name).unwrap(),
+                execution_body: Word::Primitive(exec_ptr.clone()),
+                compilation_body: None,
+            });
+
+    let compile_only_entries =
+        COMPILATION_PRIMITIVES
+            .iter()
+            .map(|(name, comp_ptr)| DictionaryEntry {
+                name: name_from_str(name).unwrap(),
+                execution_body: Word::Primitive(|_env| {
+                    panic!("Tried to execute a compile only word!");
+                }),
+                compilation_body: Some(Word::Primitive(comp_ptr.clone())),
+            });
+
+    let entries = execute_only_entries.chain(compile_only_entries);
+
+    return std::collections::LinkedList::from_iter(entries);
 }
 
 const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
@@ -647,18 +666,21 @@ impl<'a> Environment<'a> {
         let dict_entry = search_dictionary(&self.dictionary, &token.to_lowercase()).unwrap();
         let dict_entry = unsafe { dict_entry.as_ref() }.unwrap();
 
-        let compilation_word = WORDS_TO_EXECUTE_DURING_COMPILATION
-            .iter()
-            .any(|item| item == &token);
-
-        if self.compile_mode() && !compilation_word {
-            let another_word = ThreadedWordEntry::AnotherWord(dict_entry);
-            self.control_flow_stack
-                .last_mut()
-                .unwrap()
-                .push(another_word);
+        if self.compile_mode() {
+            match &dict_entry.compilation_body {
+                Some(thing_to_execute) => {
+                    self.execute_word(thing_to_execute);
+                }
+                _ => {
+                    let another_word = ThreadedWordEntry::AnotherWord(dict_entry);
+                    self.control_flow_stack
+                        .last_mut()
+                        .unwrap()
+                        .push(another_word);
+                }
+            }
         } else {
-            let next_word = &dict_entry.body;
+            let next_word = &dict_entry.execution_body;
             self.execute_word(next_word);
         }
     }
@@ -675,7 +697,7 @@ impl<'a> Environment<'a> {
         loop {
             match unsafe { iter.as_ref() }.unwrap() {
                 ThreadedWordEntry::AnotherWord(w) => {
-                    let to_execute = &unsafe { w.as_ref() }.unwrap().body;
+                    let to_execute = &unsafe { w.as_ref() }.unwrap().execution_body;
                     match to_execute {
                         Word::Threaded(_) => {
                             let next = unsafe { iter.add(1) };
