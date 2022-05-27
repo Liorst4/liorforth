@@ -69,7 +69,7 @@ struct Environment<'a> {
 
 const fn bool_as_cell(b: bool) -> Cell {
     match b {
-        true => -1,
+        true => !0,
         _ => 0,
     }
 }
@@ -516,8 +516,8 @@ const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
 			       : 0= 0 = ; \
 			       : decimal 10 base ! ; \
 			       : bl 32 ; \
-			       : true -1 ; \
 			       : false 0 ; \
+			       : true false invert ; \
 			       : , here 1 cells allot ! ; \
 			       : c, here 1 allot c! ; \
 			       : cr 10 emit ; \
