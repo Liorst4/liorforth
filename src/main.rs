@@ -709,7 +709,8 @@ impl<'a> Environment<'a> {
                             let next = unsafe { iter.add(1) };
                             self.return_stack
                                 .push(ReturnStackEntry::ThreadedWordEntry(next));
-                            return self.execute_word(to_execute); // Jump to next word
+                            // NOTE: Using `return` to hint to the optimizer to make this a tail jump recursion.
+                            return self.execute_word(to_execute);
                         }
                         _ => self.execute_word(to_execute), // Continue iteration
                     }
