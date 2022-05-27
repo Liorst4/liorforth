@@ -517,6 +517,7 @@ const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
 			       : +! dup @ swap rot rot + swap ! ; \
 			       : ?dup dup dup 0= if drop then ; \
 			       : 2drop drop drop ; \
+			       : 2dup over over ; \
 			       ";
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
