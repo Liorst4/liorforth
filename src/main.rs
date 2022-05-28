@@ -433,7 +433,7 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
         branch.append(&mut true_section);
 
         if env.control_flow_stack.is_empty() {
-            panic!("");
+            panic!("Control flow stack is empty!");
         } else {
             env.control_flow_stack
                 .last_mut()
@@ -450,7 +450,7 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
         branch.push(ThreadedWordEntry::BranchOnFalse(offset));
 
         if env.control_flow_stack.is_empty() {
-            panic!("");
+            panic!("Control flow stack is empty!");
         } else {
             env.control_flow_stack
                 .last_mut()
