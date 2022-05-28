@@ -9,6 +9,10 @@ Project goals:
 
 	To have fun
 
+License:
+	This project is distributed under GPLv3+, read the "COPYING" file
+	for more details.
+
 Project structure:
 	src -> rust source code
 	examples -> example forth code
