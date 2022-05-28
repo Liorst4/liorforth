@@ -1,0 +1,185 @@
+A (work in progress) implementation of the forth programming language written
+in Rust.
+
+Project goals:
+	To write a forth implementation that follows the forth standard
+	(https://forth-standard.org/) and implements the core words.
+
+	To practice rust and forth
+
+	To have fun
+
+Project structure:
+	src -> rust source code
+	examples -> example forth code
+
+Building:
+	cargo build
+	cargo run
+
+Implemented words:
+	Standard:
+		2dup
+		2drop
+		?dup
+		+!
+		/
+		space
+		cr
+		c,
+		,
+		true
+		false
+		bl
+		decimal
+		0=
+		0<
+		1-
+		1+
+		.s
+		bye
+		words
+		dup
+		drop
+		.
+		swap
+		over
+		nip
+		rot
+		min
+		max
+		abs
+		/mod
+		*/
+		*/mod
+		here
+		allot
+		@
+		!
+		c@
+		c!
+		emit
+		base
+		+
+		-
+		*
+		and
+		or
+		xor
+		mod
+		lshift
+		rshift
+		negate
+		invert
+		=
+		<
+		>
+		:
+		cells
+		r>
+		>r
+		r@
+		fill
+		u.
+		u<
+		move
+		cell+
+		depth
+		;
+		if
+		then
+		begin
+		until
+	Extra:
+		dump
+
+Core words to implement:
+	else
+	exit
+	quit
+	
+	while
+	repeat
+	leave
+	
+	do
+	loop
+	unloop
+	+loop
+	i
+	j
+	
+	>in
+	state
+	source
+
+	word
+
+	abort
+	abort"
+
+	char
+	(
+	."
+	s"
+	
+	create
+	variable
+	constant
+	
+	'
+	find
+	execute
+	>body
+	
+	[
+	]
+	[char]
+	[']
+	
+	recurse
+	immediate
+	postpone
+	literal
+	
+	does>
+
+	evaluate
+	
+	align
+	aligned
+	char+
+	chars
+	
+	spaces
+	type
+	
+	2!
+	2*
+	2/
+	2@
+	2over
+	2swap
+	s>d
+	
+	fm/mod
+	sm/rem
+	um*
+	um/mod
+	m*
+	
+	#
+	#>
+	#s
+	<#
+	hold
+	sign
+	
+	key
+	accept
+
+	>number
+
+	count
+
+	environment?
