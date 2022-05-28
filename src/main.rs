@@ -49,7 +49,6 @@ enum Word {
 
 type Name = [Byte; 31];
 
-// TODO: Compile only words
 struct DictionaryEntry {
     name: Name,
     execution_body: Word,
