@@ -38,7 +38,7 @@ enum ThreadedWordEntry {
     Literal(Cell),
     AnotherWord(*const DictionaryEntry),
     BranchOnFalse(isize /* offset */),
-    LastEntry, // Pretty much "EXIT"
+    Exit,
 }
 
 #[derive(Clone)]
@@ -423,7 +423,7 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
         }
 
         let mut threaded = env.control_flow_stack.pop().unwrap();
-        threaded.push(ThreadedWordEntry::LastEntry);
+        threaded.push(ThreadedWordEntry::Exit);
         let threaded = threaded;
 
         // TODO: Print a message if a word is re-defined
@@ -470,6 +470,12 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
                 .unwrap()
                 .append(&mut branch);
         }
+    }),
+    ("exit", |env| {
+        env.control_flow_stack
+            .last_mut()
+            .unwrap()
+            .push(ThreadedWordEntry::Exit);
     }),
 ];
 
@@ -736,7 +742,7 @@ impl<'a> Environment<'a> {
                         continue;
                     }
                 }
-                ThreadedWordEntry::LastEntry => {
+                ThreadedWordEntry::Exit => {
                     return match self.return_stack.pop() {
                         Some(next) => {
                             match next {

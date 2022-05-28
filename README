@@ -94,12 +94,12 @@ Implemented words:
 		then
 		begin
 		until
+		exit
 	Extra:
 		dump
 
 Core words to implement:
 	else
-	exit
 	quit
 	
 	while

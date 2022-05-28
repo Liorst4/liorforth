@@ -8,7 +8,7 @@
     prime_candidate @ divisor @ mod 0 = if
       drop
       false
-      prime_candidate @ divisor !
+      exit
     then
     1 divisor +!
     divisor @ prime_candidate @ < invert until
