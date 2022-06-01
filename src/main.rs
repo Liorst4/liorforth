@@ -38,14 +38,11 @@ enum ThreadedWordEntry {
     Literal(Cell),
     AnotherWord(*const DictionaryEntry),
     BranchOnFalse(isize /* offset */),
+    Primitive(Primitive),
     Exit,
 }
 
-#[derive(Clone)]
-enum Word {
-    Primitive(Primitive),
-    Threaded(Vec<ThreadedWordEntry>),
-}
+type Word = Vec<ThreadedWordEntry>;
 
 type Name = [Byte; 31];
 
@@ -57,11 +54,7 @@ struct DictionaryEntry {
 
 type Dictionary = std::collections::LinkedList<DictionaryEntry>;
 
-#[derive(Clone)]
-enum ReturnStackEntry {
-    Word(*const Word),
-    ThreadedWordEntry(*const ThreadedWordEntry),
-}
+type ReturnStackEntry = *const ThreadedWordEntry;
 
 struct Environment<'a> {
     data_space_pointer: std::slice::IterMut<'a, Byte>,
@@ -430,7 +423,7 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
 
         env.dictionary.push_front(DictionaryEntry {
             name: env.name_of_entry_under_construction.unwrap(),
-            execution_body: Word::Threaded(threaded),
+            execution_body: threaded,
             compilation_body: None,
         });
 
@@ -509,7 +502,10 @@ fn initial_dictionary() -> Dictionary {
             .iter()
             .map(|(name, exec_ptr)| DictionaryEntry {
                 name: name_from_str(name).unwrap(),
-                execution_body: Word::Primitive(exec_ptr.clone()),
+                execution_body: vec![
+                    ThreadedWordEntry::Primitive(exec_ptr.clone()),
+                    ThreadedWordEntry::Exit,
+                ],
                 compilation_body: None,
             });
 
@@ -518,10 +514,16 @@ fn initial_dictionary() -> Dictionary {
             .iter()
             .map(|(name, comp_ptr)| DictionaryEntry {
                 name: name_from_str(name).unwrap(),
-                execution_body: Word::Primitive(|_env| {
-                    panic!("Tried to execute a compile only word!");
-                }),
-                compilation_body: Some(Word::Primitive(comp_ptr.clone())),
+                execution_body: vec![
+                    ThreadedWordEntry::Primitive(|_env| {
+                        panic!("Tried to execute a compile only word!");
+                    }),
+                    ThreadedWordEntry::Exit,
+                ],
+                compilation_body: Some(vec![
+                    ThreadedWordEntry::Primitive(comp_ptr.clone()),
+                    ThreadedWordEntry::Exit,
+                ]),
             });
 
     let entries = execute_only_entries.chain(compile_only_entries);
@@ -694,7 +696,7 @@ impl<'a> Environment<'a> {
         if self.compile_mode() {
             match &dict_entry.compilation_body {
                 Some(thing_to_execute) => {
-                    self.execute_word(thing_to_execute);
+                    self.execute_word(thing_to_execute.first().unwrap());
                 }
                 _ => {
                     let another_word = ThreadedWordEntry::AnotherWord(dict_entry);
@@ -706,33 +708,20 @@ impl<'a> Environment<'a> {
             }
         } else {
             let next_word = &dict_entry.execution_body;
-            self.execute_word(next_word);
+            self.execute_word(next_word.first().unwrap());
         }
     }
 
-    fn execute_word(&mut self, word: &Word) {
-        match word {
-            Word::Primitive(f) => f(self),
-            Word::Threaded(t) => self.execute_threaded_word(t.first().unwrap()),
-        }
-    }
-
-    fn execute_threaded_word(&mut self, entry: &ThreadedWordEntry) {
+    fn execute_word(&mut self, entry: &ThreadedWordEntry) {
         let mut iter: *const ThreadedWordEntry = entry;
         loop {
             match unsafe { iter.as_ref() }.unwrap() {
                 ThreadedWordEntry::AnotherWord(w) => {
                     let to_execute = &unsafe { w.as_ref() }.unwrap().execution_body;
-                    match to_execute {
-                        Word::Threaded(_) => {
-                            let next = unsafe { iter.add(1) };
-                            self.return_stack
-                                .push(ReturnStackEntry::ThreadedWordEntry(next));
-                            // NOTE: Using `return` to hint to the optimizer to make this a tail jump recursion.
-                            return self.execute_word(to_execute);
-                        }
-                        _ => self.execute_word(to_execute), // Continue iteration
-                    }
+                    let next = unsafe { iter.add(1) };
+                    self.return_stack.push(next);
+                    // NOTE: Using `return` to hint to the optimizer to make this a tail jump recursion.
+                    return self.execute_word(to_execute.first().unwrap());
                 }
                 ThreadedWordEntry::Literal(l) => self.data_stack.push(*l),
                 ThreadedWordEntry::BranchOnFalse(offset) => {
@@ -742,18 +731,10 @@ impl<'a> Environment<'a> {
                         continue;
                     }
                 }
+                ThreadedWordEntry::Primitive(func) => func(self),
                 ThreadedWordEntry::Exit => {
                     return match self.return_stack.pop() {
-                        Some(next) => {
-                            match next {
-                                ReturnStackEntry::Word(w) => {
-                                    self.execute_word(unsafe { w.as_ref() }.unwrap())
-                                }
-                                ReturnStackEntry::ThreadedWordEntry(e) => {
-                                    self.execute_threaded_word(unsafe { e.as_ref() }.unwrap())
-                                }
-                            };
-                        }
+                        Some(next) => self.execute_word(unsafe { next.as_ref() }.unwrap()),
                         _ => {}
                     }
                 }
