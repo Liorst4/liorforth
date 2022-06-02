@@ -435,6 +435,34 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
             .execution_body
             .push(ThreadedWordEntry::BranchOnFalse(None));
     }),
+    ("else", |env| {
+        let unresolved_if_branch_index = env.index_of_last_unresolved_branch().unwrap();
+        env.entry_under_construction
+            .as_mut()
+            .unwrap()
+            .execution_body
+            .push(ThreadedWordEntry::Literal(bool_as_cell(false)));
+        env.entry_under_construction
+            .as_mut()
+            .unwrap()
+            .execution_body
+            .push(ThreadedWordEntry::BranchOnFalse(None));
+        let branch_offset = env
+            .entry_under_construction
+            .as_ref()
+            .unwrap()
+            .execution_body
+            .len()
+            - unresolved_if_branch_index;
+        let unresolved_branch: &mut ThreadedWordEntry = env
+            .entry_under_construction
+            .as_mut()
+            .unwrap()
+            .execution_body
+            .get_mut(unresolved_if_branch_index)
+            .unwrap();
+        *unresolved_branch = ThreadedWordEntry::BranchOnFalse(Some(branch_offset as isize));
+    }),
     ("then", |env| {
         let unresolved_branch_index = env.index_of_last_unresolved_branch().unwrap();
         let branch_offset = env

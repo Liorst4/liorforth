@@ -91,6 +91,7 @@ Implemented words:
 		depth
 		;
 		if
+		else
 		then
 		begin
 		until
@@ -99,7 +100,6 @@ Implemented words:
 		dump
 
 Core words to implement:
-	else
 	quit
 	
 	while
