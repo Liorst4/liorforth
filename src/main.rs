@@ -37,7 +37,7 @@ type Primitive = fn(&mut Environment);
 enum ThreadedWordEntry {
     Literal(Cell),
     AnotherWord(*const DictionaryEntry),
-    BranchOnFalse(isize /* offset */),
+    BranchOnFalse(Option<isize /* offset */> /* None for unresolved */),
     Primitive(Primitive),
     Exit,
 }
@@ -46,6 +46,7 @@ type Word = Vec<ThreadedWordEntry>;
 
 type Name = [Byte; 31];
 
+#[derive(Clone)]
 struct DictionaryEntry {
     name: Name,
     execution_body: Word,
@@ -69,8 +70,8 @@ struct Environment<'a> {
 
     base: Cell,
 
-    control_flow_stack: Vec<Vec<ThreadedWordEntry>>,
-    name_of_entry_under_construction: Option<Name>,
+    entry_under_construction: Option<DictionaryEntry>,
+    control_flow_stack: Vec<usize>,
 }
 
 const fn bool_as_cell(b: bool) -> Cell {
@@ -317,15 +318,19 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         },
     ),
     (":", |env| {
-        if !env.control_flow_stack.is_empty() {
+        if env.entry_under_construction.is_some() {
             panic!("Can't double compile!");
         }
 
         let (token_offset, token_size) = env.next_token(true, ' ' as Byte);
-        env.name_of_entry_under_construction = Some(Default::default());
-        env.name_of_entry_under_construction.as_mut().unwrap()[0..token_size]
+        let mut name = Name::default();
+        name[0..token_size]
             .copy_from_slice(&env.input_buffer[token_offset..(token_offset + token_size)]);
-        env.control_flow_stack.push(Vec::new());
+        env.entry_under_construction = Some(DictionaryEntry {
+            name,
+            execution_body: Vec::new(),
+            compilation_body: None,
+        });
     }),
     ("cells", |env| {
         let n = env.data_stack.pop().unwrap();
@@ -407,67 +412,77 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
 
 const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
     (";", |env| {
-        if env.control_flow_stack.is_empty() {
+        if env.entry_under_construction.is_none() {
             panic!("Using ; without : !");
         }
 
-        if env.control_flow_stack.len() != 1 {
-            panic!("Control flow stack is not empty!");
-        }
-
-        let mut threaded = env.control_flow_stack.pop().unwrap();
-        threaded.push(ThreadedWordEntry::Exit);
-        let threaded = threaded;
+        env.entry_under_construction
+            .as_mut()
+            .unwrap()
+            .execution_body
+            .push(ThreadedWordEntry::Exit);
 
         // TODO: Print a message if a word is re-defined
+        let new_entry = env.entry_under_construction.clone().unwrap();
+        env.dictionary.push_front(new_entry);
 
-        env.dictionary.push_front(DictionaryEntry {
-            name: env.name_of_entry_under_construction.unwrap(),
-            execution_body: threaded,
-            compilation_body: None,
-        });
-
-        env.name_of_entry_under_construction = None;
+        env.entry_under_construction = None;
     }),
     ("if", |env| {
-        env.control_flow_stack.push(Vec::new());
+        env.entry_under_construction
+            .as_mut()
+            .unwrap()
+            .execution_body
+            .push(ThreadedWordEntry::BranchOnFalse(None));
     }),
     ("then", |env| {
-        let mut true_section = env.control_flow_stack.pop().unwrap();
-        let offset = true_section.len() + 1;
-        let mut branch = vec![ThreadedWordEntry::BranchOnFalse(offset.try_into().unwrap())];
-        branch.append(&mut true_section);
-
-        if env.control_flow_stack.is_empty() {
-            panic!("Control flow stack is empty!");
-        } else {
-            env.control_flow_stack
-                .last_mut()
-                .unwrap()
-                .append(&mut branch);
-        }
+        let unresolved_branch_index = env.index_of_last_unresolved_branch().unwrap();
+        let branch_offset = env
+            .entry_under_construction
+            .as_ref()
+            .unwrap()
+            .execution_body
+            .len()
+            - unresolved_branch_index;
+        let unresolved_branch: &mut ThreadedWordEntry = env
+            .entry_under_construction
+            .as_mut()
+            .unwrap()
+            .execution_body
+            .get_mut(unresolved_branch_index)
+            .unwrap();
+        *unresolved_branch = ThreadedWordEntry::BranchOnFalse(Some(branch_offset as isize));
     }),
     ("begin", |env| {
-        env.control_flow_stack.push(Vec::new());
+        env.control_flow_stack.push(
+            env.entry_under_construction
+                .as_ref()
+                .unwrap()
+                .execution_body
+                .len(),
+        );
     }),
     ("until", |env| {
-        let mut branch = env.control_flow_stack.pop().unwrap();
-        let offset: isize = -(branch.len() as isize);
-        branch.push(ThreadedWordEntry::BranchOnFalse(offset));
-
-        if env.control_flow_stack.is_empty() {
-            panic!("Control flow stack is empty!");
-        } else {
-            env.control_flow_stack
-                .last_mut()
-                .unwrap()
-                .append(&mut branch);
-        }
+        let branch_offset = env
+            .entry_under_construction
+            .as_ref()
+            .unwrap()
+            .execution_body
+            .len()
+            - env.control_flow_stack.pop().unwrap();
+        let branch_offset = branch_offset as isize;
+        let branch_offset = -branch_offset;
+        env.entry_under_construction
+            .as_mut()
+            .unwrap()
+            .execution_body
+            .push(ThreadedWordEntry::BranchOnFalse(Some(branch_offset)));
     }),
     ("exit", |env| {
-        env.control_flow_stack
-            .last_mut()
+        env.entry_under_construction
+            .as_mut()
             .unwrap()
+            .execution_body
             .push(ThreadedWordEntry::Exit);
     }),
 ];
@@ -583,8 +598,8 @@ impl<'a> Environment<'a> {
             input_buffer_head: 0,
             dictionary: initial_dictionary(),
             base: 10,
+            entry_under_construction: None,
             control_flow_stack: Vec::new(),
-            name_of_entry_under_construction: None,
         };
 
         for line in CORE_WORDS_INIT.lines() {
@@ -595,7 +610,7 @@ impl<'a> Environment<'a> {
     }
 
     fn compile_mode(&self) -> bool {
-        return !self.control_flow_stack.is_empty();
+        return self.entry_under_construction.is_some();
     }
 
     fn next_token(
@@ -683,7 +698,11 @@ impl<'a> Environment<'a> {
     fn handle_number_token(&mut self, token: Cell) {
         if self.compile_mode() {
             let literal = ThreadedWordEntry::Literal(token);
-            self.control_flow_stack.last_mut().unwrap().push(literal);
+            self.entry_under_construction
+                .as_mut()
+                .unwrap()
+                .execution_body
+                .push(literal);
         } else {
             self.data_stack.push(token);
         }
@@ -700,9 +719,10 @@ impl<'a> Environment<'a> {
                 }
                 _ => {
                     let another_word = ThreadedWordEntry::AnotherWord(dict_entry);
-                    self.control_flow_stack
-                        .last_mut()
+                    self.entry_under_construction
+                        .as_mut()
                         .unwrap()
+                        .execution_body
                         .push(another_word);
                 }
             }
@@ -727,7 +747,7 @@ impl<'a> Environment<'a> {
                 ThreadedWordEntry::BranchOnFalse(offset) => {
                     let cond = self.data_stack.pop().unwrap();
                     if cond == bool_as_cell(false) {
-                        iter = unsafe { iter.offset(*offset) };
+                        iter = unsafe { iter.offset(offset.unwrap()) };
                         continue;
                     }
                 }
@@ -749,6 +769,37 @@ impl<'a> Environment<'a> {
             16 => print!("{:x} ", n),
             _ => print!("{} ", n),
         }
+    }
+
+    fn index_of_last_unresolved_branch(&self) -> Option<usize> {
+        let mut index_from_the_end = 0;
+        for item in self
+            .entry_under_construction
+            .as_ref()
+            .unwrap()
+            .execution_body
+            .iter()
+            .rev()
+        {
+            index_from_the_end += 1;
+            match item {
+                ThreadedWordEntry::BranchOnFalse(b) => match b {
+                    None => {
+                        return Some(
+                            self.entry_under_construction
+                                .as_ref()
+                                .unwrap()
+                                .execution_body
+                                .len()
+                                - index_from_the_end,
+                        );
+                    }
+                    _ => {}
+                },
+                _ => {}
+            }
+        }
+        return None;
     }
 }
 
