@@ -89,6 +89,7 @@ Implemented words:
 		move
 		cell+
 		depth
+		quit
 		;
 		if
 		else
@@ -100,8 +101,6 @@ Implemented words:
 		dump
 
 Core words to implement:
-	quit
-	
 	while
 	repeat
 	leave

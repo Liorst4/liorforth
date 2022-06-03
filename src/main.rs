@@ -408,6 +408,10 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("depth", |env| {
         env.data_stack.push(env.data_stack.len() as Cell);
     }),
+    ("quit", |env| {
+        env.return_stack.clear();
+        // TODO: Don't print ok after execution
+    }),
 ];
 
 const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
