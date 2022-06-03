@@ -510,6 +510,53 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
             .execution_body
             .push(ThreadedWordEntry::BranchOnFalse(Some(branch_offset)));
     }),
+    ("while", |env| {
+        env.entry_under_construction
+            .as_mut()
+            .unwrap()
+            .execution_body
+            .push(ThreadedWordEntry::BranchOnFalse(None));
+    }),
+    ("repeat", |env| {
+        let begin_index = env.control_flow_stack.pop().unwrap();
+        env.entry_under_construction
+            .as_mut()
+            .unwrap()
+            .execution_body
+            .push(ThreadedWordEntry::Literal(bool_as_cell(false)));
+        let true_jump_offset = env
+            .entry_under_construction
+            .as_ref()
+            .unwrap()
+            .execution_body
+            .len()
+            - begin_index;
+        let true_jump_offset = true_jump_offset as isize;
+        let true_jump_offset = -true_jump_offset;
+        env.entry_under_construction
+            .as_mut()
+            .unwrap()
+            .execution_body
+            .push(ThreadedWordEntry::BranchOnFalse(Some(true_jump_offset)));
+
+        let unresolved_while_branch_index = env.index_of_last_unresolved_branch().unwrap();
+        let false_jump_offset = env
+            .entry_under_construction
+            .as_mut()
+            .unwrap()
+            .execution_body
+            .len()
+            - unresolved_while_branch_index;
+        let false_jump_offset = false_jump_offset as isize;
+        let unresolved_branch: &mut ThreadedWordEntry = env
+            .entry_under_construction
+            .as_mut()
+            .unwrap()
+            .execution_body
+            .get_mut(unresolved_while_branch_index)
+            .unwrap();
+        *unresolved_branch = ThreadedWordEntry::BranchOnFalse(Some(false_jump_offset));
+    }),
     ("exit", |env| {
         env.entry_under_construction
             .as_mut()

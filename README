@@ -96,21 +96,20 @@ Implemented words:
 		then
 		begin
 		until
+		while
+		repeat
 		exit
 	Extra:
 		dump
 
 Core words to implement:
-	while
-	repeat
-	leave
-	
 	do
 	loop
 	unloop
 	+loop
 	i
 	j
+	leave
 	
 	>in
 	state
