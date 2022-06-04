@@ -812,33 +812,38 @@ impl<'a> Environment<'a> {
     }
 
     fn execute_word(&mut self, entry: &ThreadedWordEntry) {
-        let mut iter: *const ThreadedWordEntry = entry;
+        let mut instruction_pointer: *const ThreadedWordEntry = entry;
         loop {
-            match unsafe { iter.as_ref() }.unwrap() {
+            match unsafe { instruction_pointer.as_ref() }.unwrap() {
                 ThreadedWordEntry::AnotherWord(w) => {
                     let to_execute = &unsafe { w.as_ref() }.unwrap().execution_body;
-                    let next = unsafe { iter.add(1) };
+                    let next = unsafe { instruction_pointer.add(1) };
                     self.return_stack.push(next);
-                    // NOTE: Using `return` to hint to the optimizer to make this a tail jump recursion.
-                    return self.execute_word(to_execute.first().unwrap());
+                    instruction_pointer = to_execute.first().unwrap();
+                    continue;
                 }
                 ThreadedWordEntry::Literal(l) => self.data_stack.push(*l),
                 ThreadedWordEntry::BranchOnFalse(offset) => {
                     let cond = self.data_stack.pop().unwrap();
                     if cond == bool_as_cell(false) {
-                        iter = unsafe { iter.offset(offset.unwrap()) };
+                        instruction_pointer =
+                            unsafe { instruction_pointer.offset(offset.unwrap()) };
                         continue;
                     }
                 }
                 ThreadedWordEntry::Primitive(func) => func(self),
-                ThreadedWordEntry::Exit => {
-                    return match self.return_stack.pop() {
-                        Some(next) => self.execute_word(unsafe { next.as_ref() }.unwrap()),
-                        _ => {}
+                ThreadedWordEntry::Exit => match self.return_stack.pop() {
+                    Some(next) => {
+                        instruction_pointer = next;
+                        continue;
                     }
-                }
+                    _ => {
+                        break; // Nothing left to execute
+                    }
+                },
             }
-            iter = unsafe { iter.add(1) };
+
+            instruction_pointer = unsafe { instruction_pointer.add(1) };
         }
     }
 
