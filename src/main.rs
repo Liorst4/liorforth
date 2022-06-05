@@ -64,7 +64,7 @@ struct Environment<'a> {
     return_stack: Vec<ReturnStackEntry>,
 
     input_buffer: &'a mut [Byte],
-    input_buffer_head: usize,
+    input_buffer_head: Cell,
 
     dictionary: Dictionary,
 
@@ -412,6 +412,10 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.return_stack.clear();
         // TODO: Don't print ok after execution
     }),
+    (">in", |env| {
+        let address: Cell = unsafe { std::mem::transmute(&env.input_buffer_head) };
+        env.data_stack.push(address);
+    }),
 ];
 
 const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
@@ -702,15 +706,25 @@ impl<'a> Environment<'a> {
     ) {
         if skip_leading_delimiters {
             'find_first_char: loop {
-                if self.input_buffer_head >= self.input_buffer.len() {
+                if self.input_buffer_head as usize >= self.input_buffer.len() {
                     return (0, 0);
                 }
 
-                if *self.input_buffer.get(self.input_buffer_head).unwrap() == 0 {
+                if *self
+                    .input_buffer
+                    .get(self.input_buffer_head as usize)
+                    .unwrap()
+                    == 0
+                {
                     return (0, 0);
                 }
 
-                if *self.input_buffer.get(self.input_buffer_head).unwrap() != delimiter {
+                if *self
+                    .input_buffer
+                    .get(self.input_buffer_head as usize)
+                    .unwrap()
+                    != delimiter
+                {
                     break 'find_first_char;
                 }
 
@@ -718,19 +732,28 @@ impl<'a> Environment<'a> {
             }
         }
 
-        let token_begin = self.input_buffer_head;
+        let token_begin = self.input_buffer_head as usize;
         let token_size;
 
         'read_token: loop {
-            if self.input_buffer_head >= self.input_buffer.len()
-                || *self.input_buffer.get(self.input_buffer_head).unwrap() == 0
+            if self.input_buffer_head as usize >= self.input_buffer.len()
+                || *self
+                    .input_buffer
+                    .get(self.input_buffer_head as usize)
+                    .unwrap()
+                    == 0
             {
-                token_size = self.input_buffer_head - token_begin;
+                token_size = (self.input_buffer_head as usize) - token_begin;
                 break 'read_token;
             }
 
-            if *self.input_buffer.get(self.input_buffer_head).unwrap() == delimiter {
-                token_size = self.input_buffer_head - token_begin;
+            if *self
+                .input_buffer
+                .get(self.input_buffer_head as usize)
+                .unwrap()
+                == delimiter
+            {
+                token_size = (self.input_buffer_head as usize) - token_begin;
                 self.input_buffer_head += 1;
                 break 'read_token;
             }

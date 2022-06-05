@@ -90,6 +90,7 @@ Implemented words:
 		cell+
 		depth
 		quit
+		>in
 		;
 		if
 		else
@@ -111,7 +112,6 @@ Core words to implement:
 	j
 	leave
 	
-	>in
 	state
 	source
 

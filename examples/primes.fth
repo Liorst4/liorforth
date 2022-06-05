@@ -14,7 +14,7 @@
     divisor @ prime_candidate @ < invert until
 ;
 
-: upper_limit 10000 ;
+: upper_limit 1000000 ;
 
 : primes
   1 . cr
