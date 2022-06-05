@@ -431,6 +431,23 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let address: Cell = unsafe { std::mem::transmute(&env.currently_compiling) };
         env.data_stack.push(address);
     }),
+    ("source", |env| {
+        let address: Cell = unsafe { std::mem::transmute(env.input_buffer.as_ptr()) };
+        let mut size: Cell = 0;
+        loop {
+            match env.input_buffer.get(size as usize) {
+                Some(c) => {
+                    if *c == 0 {
+                        break;
+                    }
+                }
+                _ => break,
+            }
+            size += 1;
+        }
+        env.data_stack.push(address);
+        env.data_stack.push(size);
+    }),
     ("true", |env| {
         env.data_stack.push(Flag::True as Cell);
     }),

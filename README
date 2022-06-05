@@ -90,6 +90,7 @@ Implemented words:
 		quit
 		>in
 		state
+		source
 		true
 		false
 		;
@@ -112,8 +113,6 @@ Core words to implement:
 	i
 	j
 	leave
-	
-	source
 
 	word
 
