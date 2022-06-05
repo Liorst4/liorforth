@@ -103,6 +103,7 @@ Implemented words:
 		while
 		repeat
 		exit
+		literal
 	Extra:
 		dump
 
@@ -141,7 +142,6 @@ Core words to implement:
 	
 	recurse
 	postpone
-	literal
 	
 	does>
 

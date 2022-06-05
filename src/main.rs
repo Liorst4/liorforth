@@ -612,6 +612,15 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
             .execution_body
             .push(ThreadedWordEntry::Exit);
     }),
+    ("literal", |env| {
+        let data = env.data_stack.pop().unwrap();
+        let literal = ThreadedWordEntry::Literal(data);
+        env.entry_under_construction
+            .as_mut()
+            .unwrap()
+            .execution_body
+            .push(literal);
+    }),
 ];
 
 // TODO: Implement From?
