@@ -93,6 +93,7 @@ Implemented words:
 		source
 		true
 		false
+		immediate
 		;
 		if
 		else
@@ -139,7 +140,6 @@ Core words to implement:
 	[']
 	
 	recurse
-	immediate
 	postpone
 	literal
 	

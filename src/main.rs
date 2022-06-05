@@ -63,6 +63,7 @@ type Name = [Byte; 31];
 #[derive(Clone)]
 struct DictionaryEntry {
     name: Name,
+    immediate: bool,
     execution_body: Word,
     compilation_body: Option<Word>,
 }
@@ -337,6 +338,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             .copy_from_slice(&env.input_buffer[token_offset..(token_offset + token_size)]);
         env.entry_under_construction = Some(DictionaryEntry {
             name,
+            immediate: false,
             execution_body: Vec::new(),
             compilation_body: None,
         });
@@ -453,6 +455,9 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     }),
     ("false", |env| {
         env.data_stack.push(Flag::False as Cell);
+    }),
+    ("immediate", |env| {
+        env.dictionary.back_mut().unwrap().immediate = true;
     }),
 ];
 
@@ -639,6 +644,7 @@ fn initial_dictionary() -> Dictionary {
             .iter()
             .map(|(name, exec_ptr)| DictionaryEntry {
                 name: name_from_str(name).unwrap(),
+                immediate: false,
                 execution_body: vec![
                     ThreadedWordEntry::Primitive(exec_ptr.clone()),
                     ThreadedWordEntry::Exit,
@@ -651,6 +657,7 @@ fn initial_dictionary() -> Dictionary {
             .iter()
             .map(|(name, comp_ptr)| DictionaryEntry {
                 name: name_from_str(name).unwrap(),
+                immediate: false,
                 execution_body: vec![
                     ThreadedWordEntry::Primitive(|_env| {
                         panic!("Tried to execute a compile only word!");
@@ -706,6 +713,18 @@ fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
         Ok(x) => Some(x),
         _ => None,
     };
+}
+
+fn append_immidiate(destination: &mut Word, immidate: &Word) {
+    let mut to_append = immidate.clone();
+
+    // Remove exit at the end
+    match to_append.pop().unwrap() {
+        ThreadedWordEntry::Exit => {}
+        _ => panic!("Corrupted immediate (no exit found)"),
+    }
+
+    destination.append(&mut to_append);
 }
 
 impl<'a> Environment<'a> {
@@ -861,15 +880,27 @@ impl<'a> Environment<'a> {
         if self.compile_mode() {
             match &dict_entry.compilation_body {
                 Some(thing_to_execute) => {
+                    assert_eq!(dict_entry.immediate, false); // Is that even a thing?
                     self.execute_word(thing_to_execute.first().unwrap());
                 }
                 _ => {
-                    let another_word = ThreadedWordEntry::AnotherWord(dict_entry);
-                    self.entry_under_construction
-                        .as_mut()
-                        .unwrap()
-                        .execution_body
-                        .push(another_word);
+                    if dict_entry.immediate {
+                        append_immidiate(
+                            &mut self
+                                .entry_under_construction
+                                .as_mut()
+                                .unwrap()
+                                .execution_body,
+                            &dict_entry.execution_body,
+                        );
+                    } else {
+                        let another_word = ThreadedWordEntry::AnotherWord(dict_entry);
+                        self.entry_under_construction
+                            .as_mut()
+                            .unwrap()
+                            .execution_body
+                            .push(another_word);
+                    }
                 }
             }
         } else {
