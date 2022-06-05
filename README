@@ -91,6 +91,7 @@ Implemented words:
 		depth
 		quit
 		>in
+		state
 		;
 		if
 		else
@@ -112,7 +113,6 @@ Core words to implement:
 	j
 	leave
 	
-	state
 	source
 
 	word

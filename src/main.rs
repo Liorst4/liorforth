@@ -70,6 +70,7 @@ struct Environment<'a> {
 
     base: Cell,
 
+    currently_compiling: Cell,
     entry_under_construction: Option<DictionaryEntry>,
     control_flow_stack: Vec<usize>,
 }
@@ -331,6 +332,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             execution_body: Vec::new(),
             compilation_body: None,
         });
+        env.currently_compiling = bool_as_cell(true);
     }),
     ("cells", |env| {
         let n = env.data_stack.pop().unwrap();
@@ -416,6 +418,10 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let address: Cell = unsafe { std::mem::transmute(&env.input_buffer_head) };
         env.data_stack.push(address);
     }),
+    ("state", |env| {
+        let address: Cell = unsafe { std::mem::transmute(&env.currently_compiling) };
+        env.data_stack.push(address);
+    }),
 ];
 
 const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
@@ -435,6 +441,7 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.dictionary.push_front(new_entry);
 
         env.entry_under_construction = None;
+        env.currently_compiling = bool_as_cell(false);
     }),
     ("if", |env| {
         env.entry_under_construction
@@ -681,6 +688,7 @@ impl<'a> Environment<'a> {
             input_buffer_head: 0,
             dictionary: initial_dictionary(),
             base: 10,
+            currently_compiling: bool_as_cell(false),
             entry_under_construction: None,
             control_flow_stack: Vec::new(),
         };
@@ -693,7 +701,13 @@ impl<'a> Environment<'a> {
     }
 
     fn compile_mode(&self) -> bool {
-        return self.entry_under_construction.is_some();
+        if self.currently_compiling == bool_as_cell(true) {
+            assert!(self.entry_under_construction.is_some());
+            return true;
+        }
+
+        assert!(self.entry_under_construction.is_none());
+        return false;
     }
 
     fn next_token(
