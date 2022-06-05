@@ -32,8 +32,6 @@ Implemented words:
 		cr
 		c,
 		,
-		true
-		false
 		bl
 		decimal
 		0=
@@ -92,6 +90,8 @@ Implemented words:
 		quit
 		>in
 		state
+		true
+		false
 		;
 		if
 		else

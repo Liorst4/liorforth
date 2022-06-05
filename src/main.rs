@@ -17,6 +17,20 @@ use std::ops::*;
 
 type Cell = isize;
 
+enum Flag {
+    False = (0 as Cell),
+    True = !(Flag::False as Cell),
+}
+
+impl From<bool> for Flag {
+    fn from(b: bool) -> Self {
+        if b {
+            return Flag::True;
+        }
+        return Flag::False;
+    }
+}
+
 #[cfg(target_pointer_width = "64")]
 type DoubleCell = i128;
 
@@ -75,13 +89,6 @@ struct Environment<'a> {
     control_flow_stack: Vec<usize>,
 }
 
-const fn bool_as_cell(b: bool) -> Cell {
-    match b {
-        true => !0,
-        _ => 0,
-    }
-}
-
 macro_rules! binary_operator_native_word {
     ($method:tt) => {
         |env| {
@@ -109,7 +116,8 @@ macro_rules! compare_operator_native_word {
             let b = env.data_stack.pop().unwrap();
             let a = env.data_stack.pop().unwrap();
             let c = a $operator b;
-            env.data_stack.push(bool_as_cell(c));
+	    let f : Flag = c.into();
+            env.data_stack.push(f as Cell);
 	}
     }
 }
@@ -332,7 +340,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             execution_body: Vec::new(),
             compilation_body: None,
         });
-        env.currently_compiling = bool_as_cell(true);
+        env.currently_compiling = Flag::True as Cell;
     }),
     ("cells", |env| {
         let n = env.data_stack.pop().unwrap();
@@ -387,8 +395,9 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let s1 = env.data_stack.pop().unwrap();
         let u2 = s2 as usize;
         let u1 = s1 as usize;
-        let result = bool_as_cell(u1 < u2);
-        env.data_stack.push(result);
+        let result: bool = u1 < u2;
+        let result: Flag = result.into();
+        env.data_stack.push(result as Cell);
     }),
     ("move", |env| {
         let length = env.data_stack.pop().unwrap() as usize;
@@ -422,6 +431,12 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let address: Cell = unsafe { std::mem::transmute(&env.currently_compiling) };
         env.data_stack.push(address);
     }),
+    ("true", |env| {
+        env.data_stack.push(Flag::True as Cell);
+    }),
+    ("false", |env| {
+        env.data_stack.push(Flag::False as Cell);
+    }),
 ];
 
 const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
@@ -441,7 +456,7 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.dictionary.push_front(new_entry);
 
         env.entry_under_construction = None;
-        env.currently_compiling = bool_as_cell(false);
+        env.currently_compiling = Flag::False as Cell;
     }),
     ("if", |env| {
         env.entry_under_construction
@@ -456,7 +471,7 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
             .as_mut()
             .unwrap()
             .execution_body
-            .push(ThreadedWordEntry::Literal(bool_as_cell(false)));
+            .push(ThreadedWordEntry::Literal(Flag::False as Cell));
         env.entry_under_construction
             .as_mut()
             .unwrap()
@@ -534,7 +549,7 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
             .as_mut()
             .unwrap()
             .execution_body
-            .push(ThreadedWordEntry::Literal(bool_as_cell(false)));
+            .push(ThreadedWordEntry::Literal(Flag::False as Cell));
         let true_jump_offset = env
             .entry_under_construction
             .as_ref()
@@ -642,8 +657,6 @@ const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
 			       : 0= 0 = ; \
 			       : decimal 10 base ! ; \
 			       : bl 32 ; \
-			       : false 0 ; \
-			       : true false invert ; \
 			       : , here 1 cells allot ! ; \
 			       : c, here 1 allot c! ; \
 			       : cr 10 emit ; \
@@ -688,7 +701,7 @@ impl<'a> Environment<'a> {
             input_buffer_head: 0,
             dictionary: initial_dictionary(),
             base: 10,
-            currently_compiling: bool_as_cell(false),
+            currently_compiling: Flag::False as Cell,
             entry_under_construction: None,
             control_flow_stack: Vec::new(),
         };
@@ -701,7 +714,7 @@ impl<'a> Environment<'a> {
     }
 
     fn compile_mode(&self) -> bool {
-        if self.currently_compiling == bool_as_cell(true) {
+        if self.currently_compiling == Flag::True as Cell {
             assert!(self.entry_under_construction.is_some());
             return true;
         }
@@ -862,7 +875,7 @@ impl<'a> Environment<'a> {
                 ThreadedWordEntry::Literal(l) => self.data_stack.push(*l),
                 ThreadedWordEntry::BranchOnFalse(offset) => {
                     let cond = self.data_stack.pop().unwrap();
-                    if cond == bool_as_cell(false) {
+                    if cond == Flag::False as Cell {
                         instruction_pointer =
                             unsafe { instruction_pointer.offset(offset.unwrap()) };
                         continue;
