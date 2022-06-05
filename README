@@ -22,7 +22,7 @@ Building:
 	cargo run
 
 Implemented words:
-	Standard:
+	Core:
 		2dup
 		2drop
 		?dup
