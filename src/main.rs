@@ -679,10 +679,9 @@ fn name_from_str(s: &str) -> Option<Name> {
     return Some(result);
 }
 
-fn search_dictionary(dict: &Dictionary, name: &str) -> Option<*const DictionaryEntry> {
-    let name = name_from_str(name).unwrap();
+fn search_dictionary(dict: &Dictionary, name: &Name) -> Option<*const DictionaryEntry> {
     for item in dict {
-        if item.name == name {
+        if item.name == *name {
             return Some(item.deref());
         }
     }
@@ -926,7 +925,8 @@ impl<'a> Environment<'a> {
     }
 
     fn hanle_text_token(&mut self, token: &str) {
-        let dict_entry = search_dictionary(&self.dictionary, &token.to_lowercase()).unwrap();
+        let name = name_from_str(token).unwrap();
+        let dict_entry = search_dictionary(&self.dictionary, &name).unwrap();
         let dict_entry = unsafe { dict_entry.as_ref() }.unwrap();
 
         if self.compile_mode() {
