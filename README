@@ -104,6 +104,9 @@ Implemented words:
 		repeat
 		exit
 		literal
+		create
+		variable
+		constant
 	Extra:
 		dump
 
@@ -125,10 +128,6 @@ Core words to implement:
 	(
 	."
 	s"
-	
-	create
-	variable
-	constant
 	
 	'
 	find

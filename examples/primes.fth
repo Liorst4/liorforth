@@ -1,5 +1,7 @@
-: prime_candidate here 1 cells - ;
-: divisor here 2 cells - ;
+1000000 constant upper_limit
+variable prime_candidate
+variable divisor
+
 
 : prime?
   true
@@ -14,8 +16,6 @@
     divisor @ prime_candidate @ < invert until
 ;
 
-: upper_limit 1000000 ;
-
 : primes
   1 . cr
   2 . cr
@@ -29,6 +29,5 @@
     prime_candidate @ upper_limit > until
 ;
 
-2 cells allot
 primes
 bye

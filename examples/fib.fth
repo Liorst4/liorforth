@@ -1,6 +1,6 @@
-: print-top dup . cr ;
+1000000 constant upper-limit
 
-: upper-limit 1000000 ;
+: print-top dup . cr ;
 
 : fibonacci
   0 print-top

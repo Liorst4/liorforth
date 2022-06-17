@@ -459,6 +459,38 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("immediate", |env| {
         env.dictionary.back_mut().unwrap().immediate = true;
     }),
+    ("create", |env| {
+        let (token_offset, token_size) = env.next_token(true, ' ' as Byte);
+        let token = &env.input_buffer[token_offset..token_offset + token_size];
+        let mut name = Name::default();
+        name[0..token_size].clone_from_slice(token);
+
+        env.align_data_pointer();
+        let data = env.data_space_pointer.as_ref().as_ptr();
+        let data: Cell = unsafe { std::mem::transmute(data) };
+
+        env.dictionary.push_back(DictionaryEntry {
+            name,
+            immediate: false,
+            execution_body: vec![ThreadedWordEntry::Literal(data), ThreadedWordEntry::Exit],
+            compilation_body: None,
+        });
+    }),
+    ("constant", |env| {
+        let (token_offset, token_size) = env.next_token(true, ' ' as Byte);
+        let token = &env.input_buffer[token_offset..token_offset + token_size];
+        let mut name = Name::default();
+        name[0..token_size].clone_from_slice(token);
+
+        let data = env.data_stack.pop().unwrap();
+
+        env.dictionary.push_back(DictionaryEntry {
+            name,
+            immediate: true,
+            execution_body: vec![ThreadedWordEntry::Literal(data), ThreadedWordEntry::Exit],
+            compilation_body: None,
+        });
+    }),
 ];
 
 const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
@@ -699,6 +731,7 @@ const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
 			       : ?dup dup dup 0= if drop then ; \
 			       : 2drop drop drop ; \
 			       : 2dup over over ; \
+			       : variable create 0 , ; \
 			       ";
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
@@ -991,6 +1024,17 @@ impl<'a> Environment<'a> {
             }
         }
         return None;
+    }
+
+    fn align_data_pointer(&mut self) {
+        loop {
+            let data = self.data_space_pointer.as_ref().as_ptr();
+            let data: usize = unsafe { std::mem::transmute(data) };
+            if data % std::mem::size_of::<Cell>() == 0 {
+                break;
+            }
+            self.data_space_pointer.next().unwrap();
+        }
     }
 }
 
