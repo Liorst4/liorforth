@@ -657,11 +657,11 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
 fn name_from_str(s: &str) -> Option<Name> {
     let mut result = Name::default();
 
-    if s.len() > result.len() {
+    if s.as_bytes().len() > result.len() {
         return None;
     }
 
-    result[0..s.len()].clone_from_slice(s.as_bytes());
+    result[0..s.as_bytes().len()].clone_from_slice(s.as_bytes());
     return Some(result);
 }
 
