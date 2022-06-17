@@ -491,6 +491,16 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             compilation_body: None,
         });
     }),
+    ("align", |env| env.align_data_pointer()),
+    ("aligned", |env| {
+        let mut address = env.data_stack.pop().unwrap();
+        let sizeof = std::mem::size_of::<Cell>() as Cell;
+        let modulo = address % sizeof;
+        if modulo != 0 {
+            address += sizeof - modulo;
+        }
+        env.data_stack.push(address);
+    }),
 ];
 
 const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[

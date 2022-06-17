@@ -107,6 +107,8 @@ Implemented words:
 		create
 		variable
 		constant
+		align
+		aligned
 	Extra:
 		dump
 
@@ -146,8 +148,6 @@ Core words to implement:
 
 	evaluate
 	
-	align
-	aligned
 	char+
 	chars
 	
