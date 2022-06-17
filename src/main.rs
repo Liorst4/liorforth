@@ -655,15 +655,13 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
 
 // TODO: Implement From?
 fn name_from_str(s: &str) -> Option<Name> {
-    let mut result: Name = Name::default();
+    let mut result = Name::default();
+
     if s.len() > result.len() {
         return None;
     }
 
-    for (i, c) in s.as_bytes().iter().enumerate() {
-        result[i] = *c;
-    }
-
+    result[0..s.len()].clone_from_slice(s.as_bytes());
     return Some(result);
 }
 
