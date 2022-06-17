@@ -332,12 +332,8 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             panic!("Can't double compile!");
         }
 
-        let (token_offset, token_size) = env.next_token(true, ' ' as Byte);
-        let mut name = Name::default();
-        name[0..token_size]
-            .copy_from_slice(&env.input_buffer[token_offset..(token_offset + token_size)]);
         env.entry_under_construction = Some(DictionaryEntry {
-            name,
+            name: env.read_name_from_input_buffer().unwrap(),
             immediate: false,
             execution_body: Vec::new(),
             compilation_body: None,
@@ -460,15 +456,11 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.dictionary.back_mut().unwrap().immediate = true;
     }),
     ("create", |env| {
-        let (token_offset, token_size) = env.next_token(true, ' ' as Byte);
-        let token = &env.input_buffer[token_offset..token_offset + token_size];
-        let mut name = Name::default();
-        name[0..token_size].clone_from_slice(token);
-
         env.align_data_pointer();
         let data = env.data_space_pointer.as_ref().as_ptr();
         let data: Cell = unsafe { std::mem::transmute(data) };
 
+        let name = env.read_name_from_input_buffer().unwrap();
         env.dictionary.push_back(DictionaryEntry {
             name,
             immediate: false,
@@ -477,13 +469,9 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         });
     }),
     ("constant", |env| {
-        let (token_offset, token_size) = env.next_token(true, ' ' as Byte);
-        let token = &env.input_buffer[token_offset..token_offset + token_size];
-        let mut name = Name::default();
-        name[0..token_size].clone_from_slice(token);
-
         let data = env.data_stack.pop().unwrap();
 
+        let name = env.read_name_from_input_buffer().unwrap();
         env.dictionary.push_back(DictionaryEntry {
             name,
             immediate: true,
@@ -1045,6 +1033,18 @@ impl<'a> Environment<'a> {
             }
             self.data_space_pointer.next().unwrap();
         }
+    }
+
+    fn read_name_from_input_buffer(&mut self) -> Option<Name> {
+        let (token_offset, token_size) = self.next_token(true, ' ' as Byte);
+        if token_size == 0 {
+            return None;
+        }
+
+        let mut name = Name::default();
+        name[0..token_size]
+            .copy_from_slice(&self.input_buffer[token_offset..(token_offset + token_size)]);
+        return Some(name);
     }
 }
 
