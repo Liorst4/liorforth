@@ -497,11 +497,19 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
             panic!("Using ; without : !");
         }
 
-        env.entry_under_construction
-            .as_mut()
-            .unwrap()
+        let entry_under_construction = env.entry_under_construction.as_mut().unwrap();
+
+        entry_under_construction
             .execution_body
             .push(ThreadedWordEntry::Exit);
+
+        if entry_under_construction.compilation_body.is_some() {
+            entry_under_construction
+                .compilation_body
+                .as_mut()
+                .unwrap()
+                .push(ThreadedWordEntry::Exit);
+        }
 
         // TODO: Print a message if a word is re-defined
         let new_entry = env.entry_under_construction.clone().unwrap();
@@ -650,6 +658,32 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
             .unwrap()
             .execution_body
             .push(literal);
+    }),
+    ("postpone", |env| {
+        let name = env.read_name_from_input_buffer().unwrap();
+        let entry = search_dictionary(&env.dictionary, &name).unwrap();
+
+        let maybe_compilation_body = &mut env
+            .entry_under_construction
+            .as_mut()
+            .unwrap()
+            .compilation_body;
+        if maybe_compilation_body.is_none() {
+            *maybe_compilation_body = Some(vec![]);
+        }
+        let compilation_body = maybe_compilation_body.as_mut().unwrap();
+        let entry = unsafe { entry.as_ref() }.unwrap();
+
+        if entry.immediate {
+            let mut to_append = entry.compilation_body.as_ref().unwrap().clone();
+            match to_append.pop() {
+                Some(ThreadedWordEntry::Exit) => {}
+                _ => panic!("Corrupted word"),
+            }
+            compilation_body.append(&mut to_append);
+        } else {
+            compilation_body.push(ThreadedWordEntry::AnotherWord(entry));
+        }
     }),
 ];
 
@@ -952,7 +986,14 @@ impl<'a> Environment<'a> {
         loop {
             match unsafe { instruction_pointer.as_ref() }.unwrap() {
                 ThreadedWordEntry::AnotherWord(w) => {
-                    let to_execute = &unsafe { w.as_ref() }.unwrap().execution_body;
+                    let w = unsafe { w.as_ref() }.unwrap();
+                    let to_execute;
+                    if self.compile_mode() {
+                        to_execute = w.compilation_body.as_ref().unwrap();
+                    } else {
+                        to_execute = w.execution_body.as_ref();
+                    }
+
                     let next = unsafe { instruction_pointer.add(1) };
                     self.return_stack.push(next);
                     instruction_pointer = to_execute.first().unwrap();
