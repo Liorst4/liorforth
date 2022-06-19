@@ -489,6 +489,17 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         }
         env.data_stack.push(address);
     }),
+    ("char+", |env| {
+        let address: *const Byte = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
+        let address = unsafe { address.add(1) };
+        let address: Cell = unsafe { std::mem::transmute(address) };
+        env.data_stack.push(address);
+    }),
+    ("chars", |env| {
+        let n = env.data_stack.pop().unwrap();
+        let result = n * (std::mem::size_of::<Byte>() as isize);
+        env.data_stack.push(result);
+    }),
 ];
 
 const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
@@ -752,7 +763,7 @@ const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
 			       : decimal 10 base ! ; \
 			       : bl 32 ; \
 			       : , here 1 cells allot ! ; \
-			       : c, here 1 allot c! ; \
+			       : c, here 1 chars allot c! ; \
 			       : cr 10 emit ; \
 			       : space bl emit ; \
 			       : / /mod swap drop ; \

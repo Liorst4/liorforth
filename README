@@ -110,6 +110,8 @@ Implemented words:
 		align
 		aligned
 		postpone
+		char+
+		chars
 	Extra:
 		dump
 
@@ -147,9 +149,6 @@ Core words to implement:
 	does>
 
 	evaluate
-	
-	char+
-	chars
 	
 	spaces
 	type
