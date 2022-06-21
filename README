@@ -114,6 +114,9 @@ Implemented words:
 		chars
 	Extra:
 		dump
+		sizeof-cell
+		sizeof-char
+		nl
 
 Core words to implement:
 	do

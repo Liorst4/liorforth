@@ -125,6 +125,15 @@ macro_rules! compare_operator_native_word {
 const AMOUNT_OF_CELLS_PER_ITEM: usize =
     std::mem::size_of::<ReturnStackEntry>() / std::mem::size_of::<Cell>();
 
+const CONSTANT_PRIMITIVES: &[(&str, Cell)] = &[
+    ("true", Flag::True as Cell),
+    ("false", Flag::False as Cell),
+    ("bl", ' ' as Cell),
+    ("nl", '\n' as Cell),
+    ("sizeof-cell", std::mem::size_of::<Cell>() as Cell),
+    ("sizeof-char", std::mem::size_of::<Byte>() as Cell),
+];
+
 const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     (".s", |env| {
         print!("<{}> ", env.data_stack.len());
@@ -340,11 +349,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         });
         env.currently_compiling = Flag::True as Cell;
     }),
-    ("cells", |env| {
-        let n = env.data_stack.pop().unwrap();
-        let result = n * (std::mem::size_of::<Cell>() as isize);
-        env.data_stack.push(result);
-    }),
     ("r>", |env| {
         let item = env.return_stack.pop().unwrap();
         let item_as_cells: &[Cell; AMOUNT_OF_CELLS_PER_ITEM] =
@@ -408,12 +412,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
 
         dest.copy_from_slice(src);
     }),
-    ("cell+", |env| {
-        let address: *const Cell = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
-        let address = unsafe { address.add(1) };
-        let address: Cell = unsafe { std::mem::transmute(address) };
-        env.data_stack.push(address);
-    }),
     ("depth", |env| {
         env.data_stack.push(env.data_stack.len() as Cell);
     }),
@@ -446,12 +444,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.data_stack.push(address);
         env.data_stack.push(size);
     }),
-    ("true", |env| {
-        env.data_stack.push(Flag::True as Cell);
-    }),
-    ("false", |env| {
-        env.data_stack.push(Flag::False as Cell);
-    }),
     ("immediate", |env| {
         env.dictionary.back_mut().unwrap().immediate = true;
     }),
@@ -480,26 +472,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         });
     }),
     ("align", |env| env.align_data_pointer()),
-    ("aligned", |env| {
-        let mut address = env.data_stack.pop().unwrap();
-        let sizeof = std::mem::size_of::<Cell>() as Cell;
-        let modulo = address % sizeof;
-        if modulo != 0 {
-            address += sizeof - modulo;
-        }
-        env.data_stack.push(address);
-    }),
-    ("char+", |env| {
-        let address: *const Byte = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
-        let address = unsafe { address.add(1) };
-        let address: Cell = unsafe { std::mem::transmute(address) };
-        env.data_stack.push(address);
-    }),
-    ("chars", |env| {
-        let n = env.data_stack.pop().unwrap();
-        let result = n * (std::mem::size_of::<Byte>() as isize);
-        env.data_stack.push(result);
-    }),
 ];
 
 const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
@@ -720,6 +692,15 @@ fn search_dictionary(dict: &Dictionary, name: &Name) -> Option<*const Dictionary
 }
 
 fn initial_dictionary() -> Dictionary {
+    let constant_entries = CONSTANT_PRIMITIVES
+        .iter()
+        .map(|(name, value)| DictionaryEntry {
+            name: name_from_str(name).unwrap(),
+            immediate: true,
+            execution_body: vec![ThreadedWordEntry::Literal(*value), ThreadedWordEntry::Exit],
+            compilation_body: None,
+        });
+
     let execute_only_entries =
         EXECUTION_PRIMITIVES
             .iter()
@@ -751,7 +732,9 @@ fn initial_dictionary() -> Dictionary {
                 ]),
             });
 
-    let entries = execute_only_entries.chain(compile_only_entries);
+    let entries = constant_entries
+        .chain(execute_only_entries)
+        .chain(compile_only_entries);
 
     return std::collections::LinkedList::from_iter(entries);
 }
@@ -761,10 +744,13 @@ const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
 			       : 0< 0 < ; \
 			       : 0= 0 = ; \
 			       : decimal 10 base ! ; \
-			       : bl 32 ; \
+			       : cells sizeof-cell * ; \
+			       : cell+ sizeof-cell + ; \
 			       : , here 1 cells allot ! ; \
+			       : chars sizeof-char * ; \
+			       : char+ sizeof-char + ; \
 			       : c, here 1 chars allot c! ; \
-			       : cr 10 emit ; \
+			       : cr nl emit ; \
 			       : space bl emit ; \
 			       : / /mod swap drop ; \
 			       : +! dup @ swap rot rot + swap ! ; \
@@ -772,6 +758,11 @@ const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
 			       : 2drop drop drop ; \
 			       : 2dup over over ; \
 			       : variable create 0 , ; \
+			       : aligned \
+			         dup sizeof-cell mod dup 0= if \
+			         drop else \
+			         sizeof-cell swap - + \
+			         then ; \
 			       ";
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
