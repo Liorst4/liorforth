@@ -40,7 +40,6 @@ Implemented words:
 		1+
 		.s
 		bye
-		words
 		dup
 		drop
 		.
@@ -113,6 +112,7 @@ Implemented words:
 		char+
 		chars
 	Extra:
+		words
 		dump
 		sizeof-cell
 		sizeof-char
