@@ -64,8 +64,7 @@ type Name = [Byte; 31];
 struct DictionaryEntry {
     name: Name,
     immediate: bool,
-    execution_body: Word,
-    compilation_body: Option<Word>,
+    body: Word,
 }
 
 type Dictionary = std::collections::LinkedList<DictionaryEntry>;
@@ -344,8 +343,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.entry_under_construction = Some(DictionaryEntry {
             name: env.read_name_from_input_buffer().unwrap(),
             immediate: false,
-            execution_body: Vec::new(),
-            compilation_body: None,
+            body: Vec::new(),
         });
         env.currently_compiling = Flag::True as Cell;
     }),
@@ -456,8 +454,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.dictionary.push_back(DictionaryEntry {
             name,
             immediate: false,
-            execution_body: vec![ThreadedWordEntry::Literal(data), ThreadedWordEntry::Exit],
-            compilation_body: None,
+            body: vec![ThreadedWordEntry::Literal(data), ThreadedWordEntry::Exit],
         });
     }),
     ("constant", |env| {
@@ -466,9 +463,8 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let name = env.read_name_from_input_buffer().unwrap();
         env.dictionary.push_back(DictionaryEntry {
             name,
-            immediate: true,
-            execution_body: vec![ThreadedWordEntry::Literal(data), ThreadedWordEntry::Exit],
-            compilation_body: None,
+            immediate: false,
+            body: vec![ThreadedWordEntry::Literal(data), ThreadedWordEntry::Exit],
         });
     }),
     ("align", |env| env.align_data_pointer()),
@@ -482,17 +478,7 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
 
         let entry_under_construction = env.entry_under_construction.as_mut().unwrap();
 
-        entry_under_construction
-            .execution_body
-            .push(ThreadedWordEntry::Exit);
-
-        if entry_under_construction.compilation_body.is_some() {
-            entry_under_construction
-                .compilation_body
-                .as_mut()
-                .unwrap()
-                .push(ThreadedWordEntry::Exit);
-        }
+        entry_under_construction.body.push(ThreadedWordEntry::Exit);
 
         // TODO: Print a message if a word is re-defined
         let new_entry = env.entry_under_construction.clone().unwrap();
@@ -505,7 +491,7 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.entry_under_construction
             .as_mut()
             .unwrap()
-            .execution_body
+            .body
             .push(ThreadedWordEntry::BranchOnFalse(None));
     }),
     ("else", |env| {
@@ -513,77 +499,57 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.entry_under_construction
             .as_mut()
             .unwrap()
-            .execution_body
+            .body
             .push(ThreadedWordEntry::Literal(Flag::False as Cell));
         env.entry_under_construction
             .as_mut()
             .unwrap()
-            .execution_body
+            .body
             .push(ThreadedWordEntry::BranchOnFalse(None));
-        let branch_offset = env
-            .entry_under_construction
-            .as_ref()
-            .unwrap()
-            .execution_body
-            .len()
-            - unresolved_if_branch_index;
+        let branch_offset =
+            env.entry_under_construction.as_ref().unwrap().body.len() - unresolved_if_branch_index;
         let unresolved_branch: &mut ThreadedWordEntry = env
             .entry_under_construction
             .as_mut()
             .unwrap()
-            .execution_body
+            .body
             .get_mut(unresolved_if_branch_index)
             .unwrap();
         *unresolved_branch = ThreadedWordEntry::BranchOnFalse(Some(branch_offset as isize));
     }),
     ("then", |env| {
         let unresolved_branch_index = env.index_of_last_unresolved_branch().unwrap();
-        let branch_offset = env
-            .entry_under_construction
-            .as_ref()
-            .unwrap()
-            .execution_body
-            .len()
-            - unresolved_branch_index;
+        let branch_offset =
+            env.entry_under_construction.as_ref().unwrap().body.len() - unresolved_branch_index;
         let unresolved_branch: &mut ThreadedWordEntry = env
             .entry_under_construction
             .as_mut()
             .unwrap()
-            .execution_body
+            .body
             .get_mut(unresolved_branch_index)
             .unwrap();
         *unresolved_branch = ThreadedWordEntry::BranchOnFalse(Some(branch_offset as isize));
     }),
     ("begin", |env| {
-        env.control_flow_stack.push(
-            env.entry_under_construction
-                .as_ref()
-                .unwrap()
-                .execution_body
-                .len(),
-        );
+        env.control_flow_stack
+            .push(env.entry_under_construction.as_ref().unwrap().body.len());
     }),
     ("until", |env| {
-        let branch_offset = env
-            .entry_under_construction
-            .as_ref()
-            .unwrap()
-            .execution_body
-            .len()
+        let branch_offset = env.entry_under_construction.as_ref().unwrap().body.len()
             - env.control_flow_stack.pop().unwrap();
         let branch_offset = branch_offset as isize;
         let branch_offset = -branch_offset;
         env.entry_under_construction
             .as_mut()
             .unwrap()
-            .execution_body
+            .body
             .push(ThreadedWordEntry::BranchOnFalse(Some(branch_offset)));
     }),
     ("while", |env| {
         env.entry_under_construction
             .as_mut()
             .unwrap()
-            .execution_body
+            .body
             .push(ThreadedWordEntry::BranchOnFalse(None));
     }),
     ("repeat", |env| {
@@ -591,37 +557,27 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.entry_under_construction
             .as_mut()
             .unwrap()
-            .execution_body
+            .body
             .push(ThreadedWordEntry::Literal(Flag::False as Cell));
-        let true_jump_offset = env
-            .entry_under_construction
-            .as_ref()
-            .unwrap()
-            .execution_body
-            .len()
-            - begin_index;
+        let true_jump_offset =
+            env.entry_under_construction.as_ref().unwrap().body.len() - begin_index;
         let true_jump_offset = true_jump_offset as isize;
         let true_jump_offset = -true_jump_offset;
         env.entry_under_construction
             .as_mut()
             .unwrap()
-            .execution_body
+            .body
             .push(ThreadedWordEntry::BranchOnFalse(Some(true_jump_offset)));
 
         let unresolved_while_branch_index = env.index_of_last_unresolved_branch().unwrap();
-        let false_jump_offset = env
-            .entry_under_construction
-            .as_mut()
-            .unwrap()
-            .execution_body
-            .len()
+        let false_jump_offset = env.entry_under_construction.as_mut().unwrap().body.len()
             - unresolved_while_branch_index;
         let false_jump_offset = false_jump_offset as isize;
         let unresolved_branch: &mut ThreadedWordEntry = env
             .entry_under_construction
             .as_mut()
             .unwrap()
-            .execution_body
+            .body
             .get_mut(unresolved_while_branch_index)
             .unwrap();
         *unresolved_branch = ThreadedWordEntry::BranchOnFalse(Some(false_jump_offset));
@@ -630,7 +586,7 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.entry_under_construction
             .as_mut()
             .unwrap()
-            .execution_body
+            .body
             .push(ThreadedWordEntry::Exit);
     }),
     ("literal", |env| {
@@ -639,34 +595,19 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.entry_under_construction
             .as_mut()
             .unwrap()
-            .execution_body
+            .body
             .push(literal);
     }),
     ("postpone", |env| {
         let name = env.read_name_from_input_buffer().unwrap();
         let entry = search_dictionary(&env.dictionary, &name).unwrap();
-
-        let maybe_compilation_body = &mut env
-            .entry_under_construction
-            .as_mut()
-            .unwrap()
-            .compilation_body;
-        if maybe_compilation_body.is_none() {
-            *maybe_compilation_body = Some(vec![]);
-        }
-        let compilation_body = maybe_compilation_body.as_mut().unwrap();
         let entry = unsafe { entry.as_ref() }.unwrap();
 
-        if entry.immediate {
-            let mut to_append = entry.compilation_body.as_ref().unwrap().clone();
-            match to_append.pop() {
-                Some(ThreadedWordEntry::Exit) => {}
-                _ => panic!("Corrupted word"),
-            }
-            compilation_body.append(&mut to_append);
-        } else {
-            compilation_body.push(ThreadedWordEntry::AnotherWord(entry));
-        }
+        env.entry_under_construction
+            .as_mut()
+            .unwrap()
+            .body
+            .push(ThreadedWordEntry::AnotherWord(entry));
     }),
 ];
 
@@ -696,9 +637,8 @@ fn initial_dictionary() -> Dictionary {
         .iter()
         .map(|(name, value)| DictionaryEntry {
             name: name_from_str(name).unwrap(),
-            immediate: true,
-            execution_body: vec![ThreadedWordEntry::Literal(*value), ThreadedWordEntry::Exit],
-            compilation_body: None,
+            immediate: false,
+            body: vec![ThreadedWordEntry::Literal(*value), ThreadedWordEntry::Exit],
         });
 
     let execute_only_entries =
@@ -707,11 +647,10 @@ fn initial_dictionary() -> Dictionary {
             .map(|(name, exec_ptr)| DictionaryEntry {
                 name: name_from_str(name).unwrap(),
                 immediate: false,
-                execution_body: vec![
+                body: vec![
                     ThreadedWordEntry::Primitive(exec_ptr.clone()),
                     ThreadedWordEntry::Exit,
                 ],
-                compilation_body: None,
             });
 
     let compile_only_entries =
@@ -719,17 +658,11 @@ fn initial_dictionary() -> Dictionary {
             .iter()
             .map(|(name, comp_ptr)| DictionaryEntry {
                 name: name_from_str(name).unwrap(),
-                immediate: false,
-                execution_body: vec![
-                    ThreadedWordEntry::Primitive(|_env| {
-                        panic!("Tried to execute a compile only word!");
-                    }),
-                    ThreadedWordEntry::Exit,
-                ],
-                compilation_body: Some(vec![
+                immediate: true,
+                body: vec![
                     ThreadedWordEntry::Primitive(comp_ptr.clone()),
                     ThreadedWordEntry::Exit,
-                ]),
+                ],
             });
 
     let entries = constant_entries
@@ -762,18 +695,6 @@ fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
         Ok(x) => Some(x),
         _ => None,
     };
-}
-
-fn append_immidiate(destination: &mut Word, immidate: &Word) {
-    let mut to_append = immidate.clone();
-
-    // Remove exit at the end
-    match to_append.pop().unwrap() {
-        ThreadedWordEntry::Exit => {}
-        _ => panic!("Corrupted immediate (no exit found)"),
-    }
-
-    destination.append(&mut to_append);
 }
 
 impl<'a> Environment<'a> {
@@ -918,7 +839,7 @@ impl<'a> Environment<'a> {
             self.entry_under_construction
                 .as_mut()
                 .unwrap()
-                .execution_body
+                .body
                 .push(literal);
         } else {
             self.data_stack.push(token);
@@ -930,34 +851,14 @@ impl<'a> Environment<'a> {
         let dict_entry = search_dictionary(&self.dictionary, &name).unwrap();
         let dict_entry = unsafe { dict_entry.as_ref() }.unwrap();
 
-        if self.compile_mode() {
-            match &dict_entry.compilation_body {
-                Some(thing_to_execute) => {
-                    assert_eq!(dict_entry.immediate, false); // Is that even a thing?
-                    self.execute_word(thing_to_execute.first().unwrap());
-                }
-                _ => {
-                    if dict_entry.immediate {
-                        append_immidiate(
-                            &mut self
-                                .entry_under_construction
-                                .as_mut()
-                                .unwrap()
-                                .execution_body,
-                            &dict_entry.execution_body,
-                        );
-                    } else {
-                        let another_word = ThreadedWordEntry::AnotherWord(dict_entry);
-                        self.entry_under_construction
-                            .as_mut()
-                            .unwrap()
-                            .execution_body
-                            .push(another_word);
-                    }
-                }
-            }
+        if self.compile_mode() && !dict_entry.immediate {
+            self.entry_under_construction
+                .as_mut()
+                .unwrap()
+                .body
+                .push(ThreadedWordEntry::AnotherWord(dict_entry));
         } else {
-            let next_word = &dict_entry.execution_body;
+            let next_word = &dict_entry.body;
             self.execute_word(next_word.first().unwrap());
         }
     }
@@ -968,12 +869,7 @@ impl<'a> Environment<'a> {
             match unsafe { instruction_pointer.as_ref() }.unwrap() {
                 ThreadedWordEntry::AnotherWord(w) => {
                     let w = unsafe { w.as_ref() }.unwrap();
-                    let to_execute;
-                    if self.compile_mode() {
-                        to_execute = w.compilation_body.as_ref().unwrap();
-                    } else {
-                        to_execute = w.execution_body.as_ref();
-                    }
+                    let to_execute = &w.body;
 
                     let next = unsafe { instruction_pointer.add(1) };
                     self.return_stack.push(next);
@@ -1019,7 +915,7 @@ impl<'a> Environment<'a> {
             .entry_under_construction
             .as_ref()
             .unwrap()
-            .execution_body
+            .body
             .iter()
             .rev()
         {
@@ -1028,11 +924,7 @@ impl<'a> Environment<'a> {
                 ThreadedWordEntry::BranchOnFalse(b) => match b {
                     None => {
                         return Some(
-                            self.entry_under_construction
-                                .as_ref()
-                                .unwrap()
-                                .execution_body
-                                .len()
+                            self.entry_under_construction.as_ref().unwrap().body.len()
                                 - index_from_the_end,
                         );
                     }
