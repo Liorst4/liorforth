@@ -462,6 +462,9 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             }
         }
     }),
+    ("]", |env| {
+        env.currently_compiling = Flag::True as Cell;
+    }),
 ];
 
 const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
@@ -606,6 +609,9 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
     ("(", |env| {
         env.next_token(true, ')' as Byte);
     }),
+    ("[", |env| {
+        env.currently_compiling = Flag::False as Cell;
+    }),
 ];
 
 fn search_dictionary(dict: &Dictionary, name: &str) -> Option<*const DictionaryEntry> {
@@ -710,7 +716,6 @@ impl<'a> Environment<'a> {
             return true;
         }
 
-        assert!(self.entry_under_construction.is_none());
         return false;
     }
 

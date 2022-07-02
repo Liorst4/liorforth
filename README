@@ -113,6 +113,8 @@ Implemented words:
 		chars
 		spaces
 		(
+		[
+		]
 	Extra:
 		words
 		dump
@@ -143,8 +145,6 @@ Core words to implement:
 	execute
 	>body
 	
-	[
-	]
 	[char]
 	[']
 	
