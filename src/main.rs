@@ -739,31 +739,7 @@ fn initial_dictionary() -> Dictionary {
     return std::collections::LinkedList::from_iter(entries);
 }
 
-const CORE_WORDS_INIT: &str = ": 1+ 1 + ; \
-			       : 1- 1 - ; \
-			       : 0< 0 < ; \
-			       : 0= 0 = ; \
-			       : decimal 10 base ! ; \
-			       : cells sizeof-cell * ; \
-			       : cell+ sizeof-cell + ; \
-			       : , here 1 cells allot ! ; \
-			       : chars sizeof-char * ; \
-			       : char+ sizeof-char + ; \
-			       : c, here 1 chars allot c! ; \
-			       : cr nl emit ; \
-			       : space bl emit ; \
-			       : / /mod swap drop ; \
-			       : +! dup @ swap rot rot + swap ! ; \
-			       : ?dup dup dup 0= if drop then ; \
-			       : 2drop drop drop ; \
-			       : 2dup over over ; \
-			       : variable create 0 , ; \
-			       : aligned \
-			         dup sizeof-cell mod dup 0= if \
-			         drop else \
-			         sizeof-cell swap - + \
-			         then ; \
-			       ";
+const CORE_WORDS_INIT: &str = include_str!("core.fth");
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
     if word.is_empty() {
@@ -816,7 +792,10 @@ impl<'a> Environment<'a> {
         };
 
         for line in CORE_WORDS_INIT.lines() {
-            env.interpret_line(line);
+            // TODO: Remove when "\" is implemented
+            if !line.starts_with("\\") {
+                env.interpret_line(line);
+            }
         }
 
         return env;
