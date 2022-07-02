@@ -445,7 +445,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.data_stack.push(size);
     }),
     ("immediate", |env| {
-        env.dictionary.back_mut().unwrap().immediate = true;
+        env.dictionary.front_mut().unwrap().immediate = true;
     }),
     ("create", |env| {
         env.align_data_pointer();
