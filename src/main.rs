@@ -908,7 +908,7 @@ impl<'a> Environment<'a> {
     fn handle_token(&mut self, token: &str) {
         match parse_number(self.base as u32, &token) {
             Some(number) => self.handle_number_token(number),
-            _ => self.hanle_text_token(token),
+            _ => self.handle_text_token(token),
         }
     }
 
@@ -925,7 +925,7 @@ impl<'a> Environment<'a> {
         }
     }
 
-    fn hanle_text_token(&mut self, token: &str) {
+    fn handle_text_token(&mut self, token: &str) {
         let name = name_from_str(token).unwrap();
         let dict_entry = search_dictionary(&self.dictionary, &name).unwrap();
         let dict_entry = unsafe { dict_entry.as_ref() }.unwrap();
