@@ -603,6 +603,9 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
             .body
             .push(ThreadedWordEntry::AnotherWord(entry));
     }),
+    ("(", |env| {
+        env.next_token(true, ')' as Byte);
+    }),
 ];
 
 fn search_dictionary(dict: &Dictionary, name: &str) -> Option<*const DictionaryEntry> {
@@ -695,10 +698,7 @@ impl<'a> Environment<'a> {
         };
 
         for line in CORE_WORDS_INIT.lines() {
-            // TODO: Remove when "\" is implemented
-            if !line.starts_with("\\") {
-                env.interpret_line(line);
-            }
+            env.interpret_line(line);
         }
 
         return env;

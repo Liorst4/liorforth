@@ -112,6 +112,7 @@ Implemented words:
 		char+
 		chars
 		spaces
+		(
 	Extra:
 		words
 		dump
@@ -134,7 +135,6 @@ Core words to implement:
 	abort"
 
 	char
-	(
 	."
 	s"
 	
