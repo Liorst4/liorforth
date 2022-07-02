@@ -58,11 +58,9 @@ enum ThreadedWordEntry {
 
 type Word = Vec<ThreadedWordEntry>;
 
-type Name = [Byte; 31];
-
 #[derive(Clone)]
 struct DictionaryEntry {
-    name: Name,
+    name: String,
     immediate: bool,
     body: Word,
 }
@@ -142,15 +140,8 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     }),
     ("bye", |_env| std::process::exit(0)),
     ("words", |env| {
-        // TODO: Implement fmt::Display?
         for entry in env.dictionary.iter() {
-            for c in entry.name {
-                if c == 0 {
-                    break;
-                }
-                print!("{}", c as char);
-            }
-            print!("\n");
+            print!("{}\n", entry.name);
         }
     }),
     ("dup", |env| {
@@ -611,19 +602,7 @@ const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
     }),
 ];
 
-// TODO: Implement From?
-fn name_from_str(s: &str) -> Option<Name> {
-    let mut result = Name::default();
-
-    if s.as_bytes().len() > result.len() {
-        return None;
-    }
-
-    result[0..s.as_bytes().len()].clone_from_slice(s.as_bytes());
-    return Some(result);
-}
-
-fn search_dictionary(dict: &Dictionary, name: &Name) -> Option<*const DictionaryEntry> {
+fn search_dictionary(dict: &Dictionary, name: &str) -> Option<*const DictionaryEntry> {
     for item in dict {
         if item.name == *name {
             return Some(item.deref());
@@ -636,7 +615,7 @@ fn initial_dictionary() -> Dictionary {
     let constant_entries = CONSTANT_PRIMITIVES
         .iter()
         .map(|(name, value)| DictionaryEntry {
-            name: name_from_str(name).unwrap(),
+            name: name.to_string(),
             immediate: false,
             body: vec![ThreadedWordEntry::Literal(*value), ThreadedWordEntry::Exit],
         });
@@ -645,7 +624,7 @@ fn initial_dictionary() -> Dictionary {
         EXECUTION_PRIMITIVES
             .iter()
             .map(|(name, exec_ptr)| DictionaryEntry {
-                name: name_from_str(name).unwrap(),
+                name: name.to_string(),
                 immediate: false,
                 body: vec![
                     ThreadedWordEntry::Primitive(exec_ptr.clone()),
@@ -657,7 +636,7 @@ fn initial_dictionary() -> Dictionary {
         COMPILATION_PRIMITIVES
             .iter()
             .map(|(name, comp_ptr)| DictionaryEntry {
-                name: name_from_str(name).unwrap(),
+                name: name.to_string(),
                 immediate: true,
                 body: vec![
                     ThreadedWordEntry::Primitive(comp_ptr.clone()),
@@ -847,8 +826,7 @@ impl<'a> Environment<'a> {
     }
 
     fn handle_text_token(&mut self, token: &str) {
-        let name = name_from_str(token).unwrap();
-        let dict_entry = search_dictionary(&self.dictionary, &name).unwrap();
+        let dict_entry = search_dictionary(&self.dictionary, token).unwrap();
         let dict_entry = unsafe { dict_entry.as_ref() }.unwrap();
 
         if self.compile_mode() && !dict_entry.immediate {
@@ -947,15 +925,15 @@ impl<'a> Environment<'a> {
         }
     }
 
-    fn read_name_from_input_buffer(&mut self) -> Option<Name> {
+    fn read_name_from_input_buffer(&mut self) -> Option<String> {
         let (token_offset, token_size) = self.next_token(true, ' ' as Byte);
         if token_size == 0 {
             return None;
         }
 
-        let mut name = Name::default();
-        name[0..token_size]
-            .copy_from_slice(&self.input_buffer[token_offset..(token_offset + token_size)]);
+        let name =
+            String::from_utf8_lossy(&self.input_buffer[token_offset..(token_offset + token_size)])
+                .to_string();
         return Some(name);
     }
 }
