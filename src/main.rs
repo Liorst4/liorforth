@@ -168,11 +168,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.data_stack.push(a);
         env.data_stack.push(b);
     }),
-    ("nip", |env| {
-        let a = env.data_stack.pop().unwrap();
-        env.data_stack.pop().unwrap();
-        env.data_stack.push(a);
-    }),
     ("rot", |env| {
         let a = env.data_stack.pop().unwrap();
         let b = env.data_stack.pop().unwrap();

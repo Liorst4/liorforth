@@ -36,3 +36,4 @@
   drop else
   sizeof-cell swap - +
   then ;
+: nip swap drop ;
