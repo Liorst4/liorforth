@@ -465,6 +465,12 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("]", |env| {
         env.currently_compiling = Flag::True as Cell;
     }),
+    ("char", |env| {
+        let (offset, length) = env.next_token(true, ' ' as Byte);
+        assert_eq!(length, 1);
+        let c = *env.input_buffer.get(offset).unwrap();
+        env.data_stack.push(c as Cell);
+    }),
 ];
 
 const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
@@ -611,6 +617,16 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
     }),
     ("[", |env| {
         env.currently_compiling = Flag::False as Cell;
+    }),
+    ("[char]", |env| {
+        let (offset, length) = env.next_token(true, ' ' as Byte);
+        assert_eq!(length, 1);
+        let c = *env.input_buffer.get(offset).unwrap();
+        env.entry_under_construction
+            .as_mut()
+            .unwrap()
+            .body
+            .push(ThreadedWordEntry::Literal(c as Cell));
     }),
 ];
 
