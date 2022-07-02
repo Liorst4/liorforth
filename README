@@ -111,6 +111,7 @@ Implemented words:
 		postpone
 		char+
 		chars
+		spaces
 	Extra:
 		words
 		dump
@@ -153,7 +154,6 @@ Core words to implement:
 
 	evaluate
 	
-	spaces
 	type
 	
 	2!
