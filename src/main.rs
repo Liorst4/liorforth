@@ -464,7 +464,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     }),
 ];
 
-const COMPILATION_PRIMITIVES: &[(&str, Primitive)] = &[
+const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
     (";", |env| {
         if env.entry_under_construction.is_none() {
             panic!("Using ; without : !");
@@ -636,7 +636,7 @@ fn initial_dictionary() -> Dictionary {
             });
 
     let compile_only_entries =
-        COMPILATION_PRIMITIVES
+        IMMEDIATE_PRIMITIVES
             .iter()
             .map(|(name, comp_ptr)| DictionaryEntry {
                 name: name.to_string(),
