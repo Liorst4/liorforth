@@ -39,3 +39,5 @@
 : nip swap drop ;
 : 2* 2 * ;
 : 2/ 2 / ;
+: 2@ dup cell+ @ swap @ ;
+: 2! swap over ! cell+ ! ;

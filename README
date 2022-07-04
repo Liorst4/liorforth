@@ -119,6 +119,8 @@ Implemented words:
 		[char]
 		2*
 		2/
+		2!
+		2@
 	Extra:
 		words
 		dump
@@ -158,8 +160,6 @@ Core words to implement:
 	
 	type
 	
-	2!
-	2@
 	2over
 	2swap
 	s>d
