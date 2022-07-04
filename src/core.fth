@@ -37,3 +37,5 @@
   sizeof-cell swap - +
   then ;
 : nip swap drop ;
+: 2* 2 * ;
+: 2/ 2 / ;
