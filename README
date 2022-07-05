@@ -121,6 +121,9 @@ Implemented words:
 		2/
 		2!
 		2@
+		word
+		count
+		type
 	Extra:
 		words
 		dump
@@ -136,8 +139,6 @@ Core words to implement:
 	i
 	j
 	leave
-
-	word
 
 	abort
 	abort"
@@ -157,8 +158,6 @@ Core words to implement:
 	does>
 
 	evaluate
-	
-	type
 	
 	2over
 	2swap
@@ -181,7 +180,5 @@ Core words to implement:
 	accept
 
 	>number
-
-	count
 
 	environment?

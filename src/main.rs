@@ -45,6 +45,16 @@ type DoubleCell = i16;
 
 type Byte = u8;
 
+fn encode_counted_string(src: &[Byte]) -> Vec<Byte> {
+    let mut result = src.to_vec();
+    result.insert(0, src.len() as Byte);
+    return result;
+}
+
+unsafe fn decode_counted_string(src: *const Byte) -> (usize, *const Byte) {
+    return (*src as usize, src.add(1));
+}
+
 type Primitive = fn(&mut Environment);
 
 #[derive(Clone)]
@@ -85,6 +95,8 @@ struct Environment<'a> {
     currently_compiling: Cell,
     entry_under_construction: Option<DictionaryEntry>,
     control_flow_stack: Vec<usize>,
+
+    parsed_word: Vec<Byte>,
 }
 
 macro_rules! binary_operator_native_word {
@@ -471,6 +483,27 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let c = *env.input_buffer.get(offset).unwrap();
         env.data_stack.push(c as Cell);
     }),
+    ("word", |env| {
+        let delimiter = env.data_stack.pop().unwrap();
+        let (offset, length) = env.next_token(true, delimiter as Byte);
+        env.parsed_word = encode_counted_string(&env.input_buffer[offset..offset + length]);
+        env.data_stack
+            .push(unsafe { std::mem::transmute(env.parsed_word.as_ptr()) });
+    }),
+    ("count", |env| {
+        let address = env.data_stack.pop().unwrap();
+        let address: *const u8 = unsafe { std::mem::transmute(address) };
+        let (count, _) = unsafe { decode_counted_string(address) };
+        env.data_stack.push(count as Cell);
+    }),
+    ("type", |env| {
+        let count = env.data_stack.pop().unwrap() as usize;
+        let address = env.data_stack.pop().unwrap();
+        let address: *const u8 = unsafe { std::mem::transmute(address) };
+        let string = unsafe { std::slice::from_raw_parts(address, count) };
+        let string = String::from_utf8_lossy(string).to_string();
+        print!("{}", string);
+    }),
 ];
 
 const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
@@ -717,6 +750,7 @@ impl<'a> Environment<'a> {
             currently_compiling: Flag::False as Cell,
             entry_under_construction: None,
             control_flow_stack: Vec::new(),
+            parsed_word: Default::default(),
         };
 
         for line in CORE_WORDS_INIT.lines() {
