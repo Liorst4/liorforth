@@ -690,6 +690,33 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
             print!("{}", String::from_utf8_lossy(string).to_string());
         }
     }),
+    ("s\"", |env| {
+        let (offset, length) = env.next_token(false, '"' as Byte);
+        let string = &env.input_buffer[offset..offset + length];
+
+        // Copy to data space
+        let data_space_string_address: *const u8 = env.data_space_pointer.as_ref().as_ptr();
+        for byte in string {
+            **env.data_space_pointer.nth(0).as_mut().unwrap() = *byte;
+        }
+
+        if env.compile_mode() {
+            env.entry_under_construction
+                .as_mut()
+                .unwrap()
+                .body
+                .append(&mut vec![
+                    ThreadedWordEntry::Literal(unsafe {
+                        std::mem::transmute(data_space_string_address)
+                    }),
+                    ThreadedWordEntry::Literal(length as Cell),
+                ]);
+        } else {
+            env.data_stack
+                .push(unsafe { std::mem::transmute(data_space_string_address) });
+            env.data_stack.push(length as Cell);
+        }
+    }),
 ];
 
 fn search_dictionary(dict: &Dictionary, name: &str) -> Option<*const DictionaryEntry> {

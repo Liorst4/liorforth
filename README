@@ -125,6 +125,7 @@ Implemented words:
 		count
 		type
 		."
+		s"
 	Extra:
 		words
 		dump
@@ -144,8 +145,6 @@ Core words to implement:
 	abort
 	abort"
 
-	s"
-	
 	'
 	find
 	execute
