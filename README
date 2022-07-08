@@ -126,6 +126,11 @@ Implemented words:
 		type
 		."
 		s"
+		'
+		find
+		execute
+		>body
+		[']
 	Extra:
 		words
 		dump
@@ -144,13 +149,6 @@ Core words to implement:
 
 	abort
 	abort"
-
-	'
-	find
-	execute
-	>body
-	
-	[']
 	
 	recurse
 	

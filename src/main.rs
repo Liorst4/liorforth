@@ -504,6 +504,49 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let string = String::from_utf8_lossy(string).to_string();
         print!("{}", string);
     }),
+    ("'", |env| {
+        let name = env.read_name_from_input_buffer().unwrap();
+        let entry = search_dictionary(&env.dictionary, &name).unwrap();
+        env.data_stack.push(unsafe { std::mem::transmute(entry) });
+    }),
+    ("execute", |env| {
+        let entry = env.data_stack.pop().unwrap();
+        let entry: *const DictionaryEntry = unsafe { std::mem::transmute(entry) };
+        let entry = unsafe { entry.as_ref() }.unwrap();
+        env.execute_word(entry.body.first().unwrap());
+    }),
+    (">body", |env| {
+        let entry = env.data_stack.pop().unwrap();
+        let entry: *const DictionaryEntry = unsafe { std::mem::transmute(entry) };
+        let entry = unsafe { entry.as_ref() }.unwrap();
+        match entry.body.get(0).unwrap() {
+            ThreadedWordEntry::Literal(result) => env.data_stack.push(*result),
+            _ => panic!("Invalid argument given to >body"),
+        }
+    }),
+    ("find", |env| {
+        let name_conuted_string = env.data_stack.pop().unwrap();
+        let (name_bytecount, name_begin) =
+            unsafe { decode_counted_string(std::mem::transmute(name_conuted_string)) };
+        let name = unsafe { std::slice::from_raw_parts(name_begin, name_bytecount) };
+        let name = String::from_utf8_lossy(name).to_string();
+        match search_dictionary(&env.dictionary, &name) {
+            Some(entry) => {
+                env.data_stack.push(unsafe { std::mem::transmute(entry) });
+                let immediate;
+                if unsafe { entry.as_ref() }.unwrap().immediate {
+                    immediate = 1;
+                } else {
+                    immediate = -1;
+                }
+                env.data_stack.push(immediate);
+            }
+            _ => {
+                env.data_stack.push(name_conuted_string);
+                env.data_stack.push(0);
+            }
+        }
+    }),
 ];
 
 const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
@@ -716,6 +759,17 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
                 .push(unsafe { std::mem::transmute(data_space_string_address) });
             env.data_stack.push(length as Cell);
         }
+    }),
+    ("[']", |env| {
+        let name = env.read_name_from_input_buffer().unwrap();
+        let entry = search_dictionary(&env.dictionary, &name).unwrap();
+        env.entry_under_construction
+            .as_mut()
+            .unwrap()
+            .body
+            .push(ThreadedWordEntry::Literal(unsafe {
+                std::mem::transmute(entry)
+            }));
     }),
 ];
 
