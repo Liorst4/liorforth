@@ -131,6 +131,8 @@ Implemented words:
 		execute
 		>body
 		[']
+		2over
+		2swap
 	Extra:
 		words
 		dump
@@ -156,8 +158,6 @@ Core words to implement:
 
 	evaluate
 	
-	2over
-	2swap
 	s>d
 	
 	fm/mod
