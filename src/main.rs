@@ -796,6 +796,7 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
 ];
 
 fn search_dictionary(dict: &Dictionary, name: &str) -> Option<*const DictionaryEntry> {
+    let name = name.to_lowercase();
     for item in dict {
         if item.name == *name {
             return Some(item.deref());
