@@ -565,6 +565,10 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.data_stack.push(x1);
         env.data_stack.push(x2);
     }),
+    ("see", |env| {
+        let name = env.read_name_from_input_buffer().unwrap();
+        see(&env.dictionary, &name);
+    }),
 ];
 
 const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
@@ -798,6 +802,41 @@ fn search_dictionary(dict: &Dictionary, name: &str) -> Option<*const DictionaryE
         }
     }
     return None;
+}
+
+fn see(dict: &Dictionary, name: &str) {
+    let item = search_dictionary(dict, name).unwrap();
+    let item = unsafe { item.as_ref() }.unwrap();
+    println!(": {} ", item.name);
+    for threaded_word_entry in &item.body {
+        let address = &*threaded_word_entry;
+        let address: usize = unsafe { std::mem::transmute(address) };
+        print!("\t${:x}:\t", address);
+        match threaded_word_entry {
+            ThreadedWordEntry::Literal(literal) => print!("{}", literal),
+            ThreadedWordEntry::AnotherWord(another_entry) => {
+                let another_entry = unsafe { another_entry.as_ref() }.unwrap();
+                print!("{}", another_entry.name);
+            }
+            ThreadedWordEntry::BranchOnFalse(offset) => {
+                let offset = offset.unwrap();
+                let byte_offset = offset * (std::mem::size_of::<ThreadedWordEntry>() as isize);
+                let dest: usize = ((address as isize) + byte_offset) as usize;
+                print!("branch-on-false(${:x})", dest);
+            }
+            ThreadedWordEntry::Primitive(primitive) => {
+                let primitive: usize = unsafe { std::mem::transmute(primitive) };
+                print!("primitive(${:x})", primitive);
+            }
+            ThreadedWordEntry::Exit => print!("builtin-exit"),
+        }
+        println!("");
+    }
+    print!(";");
+    if item.immediate {
+        print!(" immediate");
+    }
+    println!("");
 }
 
 fn initial_dictionary() -> Dictionary {

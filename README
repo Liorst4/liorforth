@@ -139,6 +139,7 @@ Implemented words:
 		sizeof-cell
 		sizeof-char
 		nl
+		see
 
 Core words to implement:
 	do
