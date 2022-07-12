@@ -1165,12 +1165,8 @@ impl<'a> Environment<'a> {
 }
 
 fn main() {
-    const DATA_SPACE_SIZE: usize = 10 * 1024;
-    let mut data_space: [Byte; DATA_SPACE_SIZE] = [0; DATA_SPACE_SIZE];
-
-    const INPUT_BUFFER_SIZE: usize = 1024;
-    let mut input_buffer = [0; INPUT_BUFFER_SIZE];
-
+    let mut data_space = [0; 10 * 1024];
+    let mut input_buffer = [0; 1024];
     let mut environment = Environment::new(&mut data_space, &mut input_buffer);
     loop {
         let mut line_buffer = String::new();
