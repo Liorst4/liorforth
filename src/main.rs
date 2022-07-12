@@ -569,6 +569,13 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let name = env.read_name_from_input_buffer().unwrap();
         see(&env.dictionary, &name);
     }),
+    ("abort", |env| {
+        env.data_stack.clear();
+
+        // TODO: Call quit instead of copying code.
+        env.return_stack.clear();
+        // TODO: Don't print ok
+    }),
 ];
 
 const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
