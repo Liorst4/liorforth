@@ -66,13 +66,11 @@ enum ThreadedWordEntry {
     Exit,
 }
 
-type Word = Vec<ThreadedWordEntry>;
-
 #[derive(Clone)]
 struct DictionaryEntry {
     name: String,
     immediate: bool,
-    body: Word,
+    body: Vec<ThreadedWordEntry>,
 }
 
 type Dictionary = std::collections::LinkedList<DictionaryEntry>;
