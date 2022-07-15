@@ -800,6 +800,39 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
                 std::mem::transmute(entry)
             }));
     }),
+    ("abort\"", |env| {
+        let (offset, length) = env.next_token(false, '"' as Byte);
+        let abort_message_in_input_buffer = &env.input_buffer[offset..offset + length];
+
+        // Copy to data space
+        let abort_message: *const u8 = env.data_space_pointer.as_ref().as_ptr();
+        let abort_message: Cell = unsafe { std::mem::transmute(abort_message) };
+        for byte in abort_message_in_input_buffer {
+            **env.data_space_pointer.nth(0).as_mut().unwrap() = *byte;
+        }
+
+        let abort_entry = search_dictionary(&env.dictionary, "abort").unwrap();
+        let type_entry = search_dictionary(&env.dictionary, "type").unwrap();
+
+        let mut failure_section = vec![
+            ThreadedWordEntry::Literal(abort_message),
+            ThreadedWordEntry::Literal(length as Cell),
+            ThreadedWordEntry::AnotherWord(type_entry),
+            ThreadedWordEntry::AnotherWord(abort_entry),
+        ];
+
+        let mut to_append = vec![ThreadedWordEntry::BranchOnFalse(Some(
+            (failure_section.len() + 1) as isize,
+        ))];
+
+        to_append.append(&mut failure_section);
+
+        env.entry_under_construction
+            .as_mut()
+            .unwrap()
+            .body
+            .append(&mut to_append);
+    }),
 ];
 
 fn search_dictionary(dict: &Dictionary, name: &str) -> Option<*const DictionaryEntry> {

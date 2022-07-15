@@ -134,6 +134,7 @@ Implemented words:
 		2over
 		2swap
 		abort
+		abort"
 	Extra:
 		words
 		dump
@@ -151,7 +152,6 @@ Core words to implement:
 	j
 	leave
 
-	abort"
 	
 	recurse
 	
