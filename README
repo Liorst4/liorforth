@@ -135,6 +135,7 @@ Implemented words:
 		2swap
 		abort
 		abort"
+		environment? (partial)
 	Extra:
 		words
 		dump
@@ -178,5 +179,3 @@ Core words to implement:
 	accept
 
 	>number
-
-	environment?

@@ -576,6 +576,40 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.return_stack.clear();
         // TODO: Don't print ok
     }),
+    ("environment?", |env| {
+        let string_bytecount = env.data_stack.pop().unwrap() as usize;
+        let string_address = env.data_stack.pop().unwrap();
+        let string_address: *const u8 = unsafe { std::mem::transmute(string_address) };
+        let string = unsafe { std::slice::from_raw_parts(string_address, string_bytecount) };
+
+        let mut found = true;
+
+        // TODO: /HOLD
+        // TODO: /PAD
+        // TODO: FLOORED
+        // TODO: MAX-D
+        // TODO: MAX-UD
+
+        if string == "/COUNTED-STRING".as_bytes() || string == "MAX-CHAR".as_bytes() {
+            env.data_stack.push(Byte::MAX as Cell);
+        } else if string == "ADDRESS-UNIT-BITS".as_bytes() {
+            env.data_stack.push(Cell::BITS as Cell);
+        } else if string == "MAX-N".as_bytes()
+            || string == "RETURN-STACK-CELLS".as_bytes()
+            || string == "STACK-CELLS".as_bytes()
+        {
+            env.data_stack.push(Cell::MAX as Cell);
+        } else if string == "MAX-U".as_bytes() {
+            env.data_stack.push(usize::MAX as Cell);
+        } else {
+            found = false;
+        }
+
+        env.data_stack.push(match found {
+            true => Flag::True,
+            _ => Flag::False,
+        } as Cell);
+    }),
 ];
 
 const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
