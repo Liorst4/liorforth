@@ -75,13 +75,11 @@ struct DictionaryEntry {
 
 type Dictionary = std::collections::LinkedList<DictionaryEntry>;
 
-type ReturnStackEntry = *const ThreadedWordEntry;
-
 struct Environment<'a> {
     data_space_pointer: std::slice::IterMut<'a, Byte>,
 
     data_stack: Vec<Cell>,
-    return_stack: Vec<ReturnStackEntry>,
+    return_stack: Vec<*const ThreadedWordEntry>,
 
     input_buffer: &'a mut [Byte],
     input_buffer_head: Cell,
@@ -128,9 +126,6 @@ macro_rules! compare_operator_native_word {
 	}
     }
 }
-const AMOUNT_OF_CELLS_PER_ITEM: usize =
-    std::mem::size_of::<ReturnStackEntry>() / std::mem::size_of::<Cell>();
-
 const CONSTANT_PRIMITIVES: &[(&str, Cell)] = &[
     ("true", Flag::True as Cell),
     ("false", Flag::False as Cell),
@@ -340,34 +335,31 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.currently_compiling = Flag::True as Cell;
     }),
     ("r>", |env| {
-        let item = env.return_stack.pop().unwrap();
-        let item_as_cells: &[Cell; AMOUNT_OF_CELLS_PER_ITEM] =
-            unsafe { std::mem::transmute(&item) };
+        let calling_word_return_address = env.return_stack.pop().unwrap();
 
-        for i in item_as_cells {
-            env.data_stack.push(*i);
-        }
+        let from_return_stack = env.return_stack.pop().unwrap();
+        env.data_stack
+            .push(unsafe { std::mem::transmute(from_return_stack) });
+
+        env.return_stack.push(calling_word_return_address);
     }),
     (">r", |env| {
-        let mut cells_to_create_return_stack_entry = [0 as Cell; AMOUNT_OF_CELLS_PER_ITEM];
+        let calling_word_return_address = env.return_stack.pop().unwrap();
 
-        for cell in cells_to_create_return_stack_entry.iter_mut().rev() {
-            cell.clone_from(&env.data_stack.pop().unwrap());
-        }
+        let from_data_stack = env.data_stack.pop().unwrap();
+        env.return_stack
+            .push(unsafe { std::mem::transmute(from_data_stack) });
 
-        let return_stack_entry: &ReturnStackEntry =
-            unsafe { std::mem::transmute(&cells_to_create_return_stack_entry) };
-
-        env.return_stack.push(return_stack_entry.clone());
+        env.return_stack.push(calling_word_return_address);
     }),
     ("r@", |env| {
-        let item = env.return_stack.last().unwrap().clone();
-        let item_as_cells: &[Cell; AMOUNT_OF_CELLS_PER_ITEM] =
-            unsafe { std::mem::transmute(&item) };
+        let calling_word_return_address = env.return_stack.pop().unwrap();
 
-        for i in item_as_cells {
-            env.data_stack.push(*i);
-        }
+        let from_return_stack = env.return_stack.last().unwrap().clone();
+        env.data_stack
+            .push(unsafe { std::mem::transmute(from_return_stack) });
+
+        env.return_stack.push(calling_word_return_address);
     }),
     ("fill", |env| {
         let c = env.data_stack.pop().unwrap() as Byte;

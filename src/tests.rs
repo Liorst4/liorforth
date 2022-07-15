@@ -37,4 +37,40 @@ mod tests {
         ];
         test_stack_effects(code_result_map.as_slice());
     }
+
+    #[test]
+    fn return_stack_sanity() {
+        let mut data_space = [0; 10 * 1024];
+        let mut input_buffer = [0; 1024];
+        let mut environment = Environment::new(&mut data_space, &mut input_buffer);
+
+        environment.interpret_line(": a r> dup >r ;");
+        environment.interpret_line(": b a 1 ;");
+        environment.interpret_line("see a");
+        environment.interpret_line("see b");
+        environment.interpret_line("b");
+
+        assert_eq!(environment.data_stack.pop().unwrap(), 1);
+
+        let something_from_return_stack = environment.data_stack.pop().unwrap();
+
+        let b = search_dictionary(&environment.dictionary, "b").unwrap();
+        let b = unsafe { b.as_ref() }.unwrap();
+
+        let after_a_call = b.body.get(1).unwrap();
+        match *after_a_call {
+            ThreadedWordEntry::Literal(l) => {
+                assert_eq!(l, 1);
+
+                let after_a_call: *const ThreadedWordEntry = after_a_call;
+                let after_a_call: Cell = unsafe { std::mem::transmute(after_a_call) };
+                assert_eq!(
+                    something_from_return_stack, after_a_call,
+                    "got from stack: ${:x} after_a_call: ${:x}",
+                    something_from_return_stack, after_a_call
+                );
+            }
+            _ => assert!(false),
+        }
+    }
 }
