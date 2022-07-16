@@ -58,19 +58,19 @@ unsafe fn decode_counted_string(src: *const Byte) -> (usize, *const Byte) {
 type Primitive = fn(&mut Environment);
 
 #[derive(Clone)]
-enum ThreadedWordEntry {
-    Literal(Cell),
-    AnotherWord(*const DictionaryEntry),
+enum ForthOperation {
+    PushCellToDataStack(Cell),
+    CallAnotherDictionaryEntry(*const DictionaryEntry),
     BranchOnFalse(Option<isize /* offset */> /* None for unresolved */),
-    Primitive(Primitive),
-    Exit,
+    CallPrimitive(Primitive),
+    Return,
 }
 
 #[derive(Clone)]
 struct DictionaryEntry {
     name: String,
     immediate: bool,
-    body: Vec<ThreadedWordEntry>,
+    body: Vec<ForthOperation>,
 }
 
 type Dictionary = std::collections::LinkedList<DictionaryEntry>;
@@ -79,7 +79,7 @@ struct Environment<'a> {
     data_space_pointer: std::slice::IterMut<'a, Byte>,
 
     data_stack: Vec<Cell>,
-    return_stack: Vec<*const ThreadedWordEntry>,
+    return_stack: Vec<*const ForthOperation>,
 
     input_buffer: &'a mut [Byte],
     input_buffer_head: Cell,
@@ -438,7 +438,10 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.dictionary.push_back(DictionaryEntry {
             name,
             immediate: false,
-            body: vec![ThreadedWordEntry::Literal(data), ThreadedWordEntry::Exit],
+            body: vec![
+                ForthOperation::PushCellToDataStack(data),
+                ForthOperation::Return,
+            ],
         });
     }),
     ("constant", |env| {
@@ -448,7 +451,10 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.dictionary.push_back(DictionaryEntry {
             name,
             immediate: false,
-            body: vec![ThreadedWordEntry::Literal(data), ThreadedWordEntry::Exit],
+            body: vec![
+                ForthOperation::PushCellToDataStack(data),
+                ForthOperation::Return,
+            ],
         });
     }),
     ("align", |env| env.align_data_pointer()),
@@ -506,7 +512,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let entry: *const DictionaryEntry = unsafe { std::mem::transmute(entry) };
         let entry = unsafe { entry.as_ref() }.unwrap();
         match entry.body.get(0).unwrap() {
-            ThreadedWordEntry::Literal(result) => env.data_stack.push(*result),
+            ForthOperation::PushCellToDataStack(result) => env.data_stack.push(*result),
             _ => panic!("Invalid argument given to >body"),
         }
     }),
@@ -600,37 +606,33 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
 
 const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
     (";", |env| {
-        env.latest().body.push(ThreadedWordEntry::Exit);
+        env.latest().body.push(ForthOperation::Return);
         env.currently_compiling = Flag::False as Cell;
     }),
     ("if", |env| {
-        env.latest()
-            .body
-            .push(ThreadedWordEntry::BranchOnFalse(None));
+        env.latest().body.push(ForthOperation::BranchOnFalse(None));
     }),
     ("else", |env| {
         let unresolved_if_branch_index = env.index_of_last_unresolved_branch().unwrap();
         env.latest()
             .body
-            .push(ThreadedWordEntry::Literal(Flag::False as Cell));
-        env.latest()
-            .body
-            .push(ThreadedWordEntry::BranchOnFalse(None));
+            .push(ForthOperation::PushCellToDataStack(Flag::False as Cell));
+        env.latest().body.push(ForthOperation::BranchOnFalse(None));
         let branch_offset = env.latest().body.len() - unresolved_if_branch_index;
-        let unresolved_branch: &mut ThreadedWordEntry = env
+        let unresolved_branch: &mut ForthOperation = env
             .latest()
             .body
             .get_mut(unresolved_if_branch_index)
             .unwrap();
-        *unresolved_branch = ThreadedWordEntry::BranchOnFalse(Some(branch_offset as isize));
+        *unresolved_branch = ForthOperation::BranchOnFalse(Some(branch_offset as isize));
     }),
     ("then", |env| {
         let unresolved_branch_index = env.index_of_last_unresolved_branch().unwrap();
         let latest = env.latest();
         let branch_offset = latest.body.len() - unresolved_branch_index;
-        let unresolved_branch: &mut ThreadedWordEntry =
+        let unresolved_branch: &mut ForthOperation =
             latest.body.get_mut(unresolved_branch_index).unwrap();
-        *unresolved_branch = ThreadedWordEntry::BranchOnFalse(Some(branch_offset as isize));
+        *unresolved_branch = ForthOperation::BranchOnFalse(Some(branch_offset as isize));
     }),
     ("begin", |env| {
         let len = env.latest().body.len();
@@ -642,41 +644,39 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
         let branch_offset = -branch_offset;
         env.latest()
             .body
-            .push(ThreadedWordEntry::BranchOnFalse(Some(branch_offset)));
+            .push(ForthOperation::BranchOnFalse(Some(branch_offset)));
     }),
     ("while", |env| {
-        env.latest()
-            .body
-            .push(ThreadedWordEntry::BranchOnFalse(None));
+        env.latest().body.push(ForthOperation::BranchOnFalse(None));
     }),
     ("repeat", |env| {
         let begin_index = env.control_flow_stack.pop().unwrap();
         env.latest()
             .body
-            .push(ThreadedWordEntry::Literal(Flag::False as Cell));
+            .push(ForthOperation::PushCellToDataStack(Flag::False as Cell));
         let true_jump_offset = env.latest().body.len() - begin_index;
         let true_jump_offset = true_jump_offset as isize;
         let true_jump_offset = -true_jump_offset;
         env.latest()
             .body
-            .push(ThreadedWordEntry::BranchOnFalse(Some(true_jump_offset)));
+            .push(ForthOperation::BranchOnFalse(Some(true_jump_offset)));
 
         let unresolved_while_branch_index = env.index_of_last_unresolved_branch().unwrap();
         let false_jump_offset = env.latest().body.len() - unresolved_while_branch_index;
         let false_jump_offset = false_jump_offset as isize;
-        let unresolved_branch: &mut ThreadedWordEntry = env
+        let unresolved_branch: &mut ForthOperation = env
             .latest()
             .body
             .get_mut(unresolved_while_branch_index)
             .unwrap();
-        *unresolved_branch = ThreadedWordEntry::BranchOnFalse(Some(false_jump_offset));
+        *unresolved_branch = ForthOperation::BranchOnFalse(Some(false_jump_offset));
     }),
     ("exit", |env| {
-        env.latest().body.push(ThreadedWordEntry::Exit);
+        env.latest().body.push(ForthOperation::Return);
     }),
     ("literal", |env| {
         let data = env.data_stack.pop().unwrap();
-        let literal = ThreadedWordEntry::Literal(data);
+        let literal = ForthOperation::PushCellToDataStack(data);
         env.latest().body.push(literal);
     }),
     ("postpone", |env| {
@@ -685,7 +685,7 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
         let entry = unsafe { entry.as_ref() }.unwrap();
         env.latest()
             .body
-            .push(ThreadedWordEntry::AnotherWord(entry));
+            .push(ForthOperation::CallAnotherDictionaryEntry(entry));
     }),
     ("(", |env| {
         env.next_token(true, ')' as Byte);
@@ -699,7 +699,7 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
         let c = *env.input_buffer.get(offset).unwrap();
         env.latest()
             .body
-            .push(ThreadedWordEntry::Literal(c as Cell));
+            .push(ForthOperation::PushCellToDataStack(c as Cell));
     }),
     (".\"", |env| {
         let (offset, length) = env.next_token(false, '"' as Byte);
@@ -716,11 +716,11 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
             let type_entry = search_dictionary(&env.dictionary, "type").unwrap();
 
             env.latest().body.append(&mut vec![
-                ThreadedWordEntry::Literal(unsafe {
+                ForthOperation::PushCellToDataStack(unsafe {
                     std::mem::transmute(data_space_string_address)
                 }),
-                ThreadedWordEntry::Literal(length as Cell),
-                ThreadedWordEntry::AnotherWord(type_entry),
+                ForthOperation::PushCellToDataStack(length as Cell),
+                ForthOperation::CallAnotherDictionaryEntry(type_entry),
             ]);
         } else {
             print!("{}", String::from_utf8_lossy(string).to_string());
@@ -738,10 +738,10 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
 
         if env.compile_mode() {
             env.latest().body.append(&mut vec![
-                ThreadedWordEntry::Literal(unsafe {
+                ForthOperation::PushCellToDataStack(unsafe {
                     std::mem::transmute(data_space_string_address)
                 }),
-                ThreadedWordEntry::Literal(length as Cell),
+                ForthOperation::PushCellToDataStack(length as Cell),
             ]);
         } else {
             env.data_stack
@@ -752,9 +752,11 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
     ("[']", |env| {
         let name = env.read_name_from_input_buffer().unwrap();
         let entry = search_dictionary(&env.dictionary, &name).unwrap();
-        env.latest().body.push(ThreadedWordEntry::Literal(unsafe {
-            std::mem::transmute(entry)
-        }));
+        env.latest()
+            .body
+            .push(ForthOperation::PushCellToDataStack(unsafe {
+                std::mem::transmute(entry)
+            }));
     }),
     ("abort\"", |env| {
         let (offset, length) = env.next_token(false, '"' as Byte);
@@ -771,13 +773,13 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
         let type_entry = search_dictionary(&env.dictionary, "type").unwrap();
 
         let mut failure_section = vec![
-            ThreadedWordEntry::Literal(abort_message),
-            ThreadedWordEntry::Literal(length as Cell),
-            ThreadedWordEntry::AnotherWord(type_entry),
-            ThreadedWordEntry::AnotherWord(abort_entry),
+            ForthOperation::PushCellToDataStack(abort_message),
+            ForthOperation::PushCellToDataStack(length as Cell),
+            ForthOperation::CallAnotherDictionaryEntry(type_entry),
+            ForthOperation::CallAnotherDictionaryEntry(abort_entry),
         ];
 
-        let mut to_append = vec![ThreadedWordEntry::BranchOnFalse(Some(
+        let mut to_append = vec![ForthOperation::BranchOnFalse(Some(
             (failure_section.len() + 1) as isize,
         ))];
 
@@ -787,7 +789,7 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
     }),
     ("recurse", |env| {
         let latest = env.latest();
-        let call_self = ThreadedWordEntry::AnotherWord(latest);
+        let call_self = ForthOperation::CallAnotherDictionaryEntry(latest);
         latest.body.push(call_self);
     }),
 ];
@@ -811,22 +813,25 @@ fn see(dict: &Dictionary, name: &str) {
         let address: usize = unsafe { std::mem::transmute(address) };
         print!("\t${:x}:\t", address);
         match threaded_word_entry {
-            ThreadedWordEntry::Literal(literal) => print!("{}", literal),
-            ThreadedWordEntry::AnotherWord(another_entry) => {
+            ForthOperation::PushCellToDataStack(literal) => {
+                print!("PUSH\t{}", literal)
+            }
+            ForthOperation::CallAnotherDictionaryEntry(another_entry) => {
                 let another_entry = unsafe { another_entry.as_ref() }.unwrap();
-                print!("{}", another_entry.name);
+                let another_entry_addr: usize = unsafe { std::mem::transmute(another_entry) };
+                print!("CALL\t${:x} ({})", another_entry_addr, another_entry.name);
             }
-            ThreadedWordEntry::BranchOnFalse(offset) => {
+            ForthOperation::BranchOnFalse(offset) => {
                 let offset = offset.unwrap();
-                let byte_offset = offset * (std::mem::size_of::<ThreadedWordEntry>() as isize);
+                let byte_offset = offset * (std::mem::size_of::<ForthOperation>() as isize);
                 let dest: usize = ((address as isize) + byte_offset) as usize;
-                print!("branch-on-false(${:x})", dest);
+                print!("F-BR\t{} (${:x})", offset, dest);
             }
-            ThreadedWordEntry::Primitive(primitive) => {
+            ForthOperation::CallPrimitive(primitive) => {
                 let primitive: usize = unsafe { std::mem::transmute(primitive) };
-                print!("primitive(${:x})", primitive);
+                print!("PRIM\t${:x}", primitive);
             }
-            ThreadedWordEntry::Exit => print!("builtin-exit"),
+            ForthOperation::Return => print!("RTN"),
         }
         println!("");
     }
@@ -843,7 +848,10 @@ fn initial_dictionary() -> Dictionary {
         .map(|(name, value)| DictionaryEntry {
             name: name.to_string(),
             immediate: false,
-            body: vec![ThreadedWordEntry::Literal(*value), ThreadedWordEntry::Exit],
+            body: vec![
+                ForthOperation::PushCellToDataStack(*value),
+                ForthOperation::Return,
+            ],
         });
 
     let execute_only_entries =
@@ -853,8 +861,8 @@ fn initial_dictionary() -> Dictionary {
                 name: name.to_string(),
                 immediate: false,
                 body: vec![
-                    ThreadedWordEntry::Primitive(exec_ptr.clone()),
-                    ThreadedWordEntry::Exit,
+                    ForthOperation::CallPrimitive(exec_ptr.clone()),
+                    ForthOperation::Return,
                 ],
             });
 
@@ -865,8 +873,8 @@ fn initial_dictionary() -> Dictionary {
                 name: name.to_string(),
                 immediate: true,
                 body: vec![
-                    ThreadedWordEntry::Primitive(comp_ptr.clone()),
-                    ThreadedWordEntry::Exit,
+                    ForthOperation::CallPrimitive(comp_ptr.clone()),
+                    ForthOperation::Return,
                 ],
             });
 
@@ -1035,7 +1043,7 @@ impl<'a> Environment<'a> {
 
     fn handle_number_token(&mut self, token: Cell) {
         if self.compile_mode() {
-            let literal = ThreadedWordEntry::Literal(token);
+            let literal = ForthOperation::PushCellToDataStack(token);
             self.latest().body.push(literal);
         } else {
             self.data_stack.push(token);
@@ -1049,18 +1057,18 @@ impl<'a> Environment<'a> {
         if self.compile_mode() && !dict_entry.immediate {
             self.latest()
                 .body
-                .push(ThreadedWordEntry::AnotherWord(dict_entry));
+                .push(ForthOperation::CallAnotherDictionaryEntry(dict_entry));
         } else {
             let next_word = &dict_entry.body;
             self.execute_word(next_word.first().unwrap());
         }
     }
 
-    fn execute_word(&mut self, entry: &ThreadedWordEntry) {
-        let mut instruction_pointer: *const ThreadedWordEntry = entry;
+    fn execute_word(&mut self, entry: &ForthOperation) {
+        let mut instruction_pointer: *const ForthOperation = entry;
         loop {
             match unsafe { instruction_pointer.as_ref() }.unwrap() {
-                ThreadedWordEntry::AnotherWord(w) => {
+                ForthOperation::CallAnotherDictionaryEntry(w) => {
                     let w = unsafe { w.as_ref() }.unwrap();
                     let to_execute = &w.body;
 
@@ -1069,8 +1077,8 @@ impl<'a> Environment<'a> {
                     instruction_pointer = to_execute.first().unwrap();
                     continue;
                 }
-                ThreadedWordEntry::Literal(l) => self.data_stack.push(*l),
-                ThreadedWordEntry::BranchOnFalse(offset) => {
+                ForthOperation::PushCellToDataStack(l) => self.data_stack.push(*l),
+                ForthOperation::BranchOnFalse(offset) => {
                     let cond = self.data_stack.pop().unwrap();
                     if cond == Flag::False as Cell {
                         instruction_pointer =
@@ -1078,8 +1086,8 @@ impl<'a> Environment<'a> {
                         continue;
                     }
                 }
-                ThreadedWordEntry::Primitive(func) => func(self),
-                ThreadedWordEntry::Exit => match self.return_stack.pop() {
+                ForthOperation::CallPrimitive(func) => func(self),
+                ForthOperation::Return => match self.return_stack.pop() {
                     Some(next) => {
                         instruction_pointer = next;
                         continue;
@@ -1107,7 +1115,7 @@ impl<'a> Environment<'a> {
         for item in self.dictionary.front().unwrap().body.iter().rev() {
             index_from_the_end += 1;
             match item {
-                ThreadedWordEntry::BranchOnFalse(b) => match b {
+                ForthOperation::BranchOnFalse(b) => match b {
                     None => {
                         return Some(
                             self.dictionary.front().unwrap().body.len() - index_from_the_end,

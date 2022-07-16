@@ -59,10 +59,10 @@ mod tests {
 
         let after_a_call = b.body.get(1).unwrap();
         match *after_a_call {
-            ThreadedWordEntry::Literal(l) => {
+            ForthOperation::PushCellToDataStack(l) => {
                 assert_eq!(l, 1);
 
-                let after_a_call: *const ThreadedWordEntry = after_a_call;
+                let after_a_call: *const ForthOperation = after_a_call;
                 let after_a_call: Cell = unsafe { std::mem::transmute(after_a_call) };
                 assert_eq!(
                     something_from_return_stack, after_a_call,
