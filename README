@@ -137,6 +137,7 @@ Implemented words:
 		abort"
 		environment? (partial)
 		recurse
+		evaluate (partial)
 	Extra:
 		words
 		dump
@@ -155,8 +156,6 @@ Core words to implement:
 	leave
 
 	does>
-
-	evaluate
 	
 	s>d
 	

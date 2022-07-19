@@ -11,7 +11,7 @@ mod tests {
 
     fn test_stack_effect(code: &str, env: &mut Environment, expected_result: Vec<Cell>) {
         for line in code.lines() {
-            env.interpret_line(line);
+            env.interpret_line(line.as_bytes());
         }
         // TODO: Print code when assert is false
         assert_eq!(env.data_stack, expected_result);
@@ -44,11 +44,15 @@ mod tests {
         let mut input_buffer = [0; 1024];
         let mut environment = Environment::new(&mut data_space, &mut input_buffer);
 
-        environment.interpret_line(": a r> dup >r ;");
-        environment.interpret_line(": b a 1 ;");
-        environment.interpret_line("see a");
-        environment.interpret_line("see b");
-        environment.interpret_line("b");
+        let script = "
+: a r> dup >r ;
+: b a 1 ;
+see a
+see b
+b";
+        for line in script.lines() {
+            environment.interpret_line(line.as_bytes());
+        }
 
         assert_eq!(environment.data_stack.pop().unwrap(), 1);
 

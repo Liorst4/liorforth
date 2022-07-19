@@ -602,6 +602,24 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             _ => Flag::False,
         } as Cell);
     }),
+    ("evaluate", |env| {
+        let string_byte_count = env.data_stack.pop().unwrap() as usize;
+        let string_address = env.data_stack.pop().unwrap();
+        let string_address: *const u8 = unsafe { std::mem::transmute(string_address) };
+        let string = unsafe { std::slice::from_raw_parts(string_address, string_byte_count) };
+        let input_buffer_head_backup = env.input_buffer_head;
+        let input_buffer_backup = env.input_buffer.to_vec();
+
+        // TODO: Set the input buffer to be `string`, don't just copy it.
+
+        env.interpret_line(&string);
+
+        env.input_buffer_head = input_buffer_head_backup;
+        env.input_buffer.fill(0);
+        for i in 0..input_buffer_backup.len() {
+            *env.input_buffer.get_mut(i).unwrap() = *input_buffer_backup.get(i).unwrap();
+        }
+    }),
 ];
 
 const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
@@ -926,7 +944,7 @@ impl<'a> Environment<'a> {
         };
 
         for line in CORE_WORDS_INIT.lines() {
-            env.interpret_line(line);
+            env.interpret_line(line.as_bytes());
         }
 
         return env;
@@ -1008,15 +1026,15 @@ impl<'a> Environment<'a> {
         return (token_begin, token_size);
     }
 
-    fn interpret_line(&mut self, line: &str) {
+    fn interpret_line(&mut self, line: &[Byte]) {
         if line.len() == 0 {
             return;
         }
 
         self.input_buffer_head = 0;
         self.input_buffer.fill(0);
-        for i in 0..line.as_bytes().len() {
-            self.input_buffer[i] = *line.as_bytes().get(i).unwrap();
+        for i in 0..line.len() {
+            self.input_buffer[i] = *line.get(i).unwrap();
         }
 
         'empty_input_buffer: loop {
@@ -1161,7 +1179,7 @@ fn main() {
         let mut line_buffer = String::new();
         std::io::stdin().read_line(&mut line_buffer).unwrap();
         line_buffer.pop();
-        environment.interpret_line(&line_buffer);
+        environment.interpret_line(&line_buffer.as_bytes());
         println!(" ok. ");
         std::io::stdout().flush().unwrap();
     }
