@@ -471,9 +471,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             }
         }
     }),
-    ("]", |env| {
-        env.currently_compiling = Flag::True as Cell;
-    }),
     ("char", |env| {
         let (offset, length) = env.next_token(true, ' ' as Byte);
         assert_eq!(length, 1);
@@ -706,9 +703,6 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
     }),
     ("(", |env| {
         env.next_token(true, ')' as Byte);
-    }),
-    ("[", |env| {
-        env.currently_compiling = Flag::False as Cell;
     }),
     ("[char]", |env| {
         let (offset, length) = env.next_token(true, ' ' as Byte);

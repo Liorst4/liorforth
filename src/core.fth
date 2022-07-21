@@ -55,3 +55,6 @@
     dup 0 = until
   2drop
 ;
+
+: [ false state ! ; immediate
+: ] true state ! ;
