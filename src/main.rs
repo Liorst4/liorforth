@@ -699,14 +699,6 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
     ("(", |env| {
         env.next_token(true, ')' as Byte);
     }),
-    ("[char]", |env| {
-        let (offset, length) = env.next_token(true, ' ' as Byte);
-        assert_eq!(length, 1);
-        let c = *env.input_buffer.get(offset).unwrap();
-        env.latest()
-            .body
-            .push(ForthOperation::PushCellToDataStack(c as Cell));
-    }),
     (".\"", |env| {
         let (offset, length) = env.next_token(false, '"' as Byte);
         let string = &env.input_buffer[offset..offset + length];

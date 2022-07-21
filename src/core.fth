@@ -60,3 +60,4 @@
 : ] true state ! ;
 
 : char bl word count drop c@ ;
+: [char] char postpone literal ; immediate
