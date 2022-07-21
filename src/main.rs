@@ -487,7 +487,8 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("count", |env| {
         let address = env.data_stack.pop().unwrap();
         let address: *const u8 = unsafe { std::mem::transmute(address) };
-        let (count, _) = unsafe { decode_counted_string(address) };
+        let (count, start) = unsafe { decode_counted_string(address) };
+        env.data_stack.push(unsafe { std::mem::transmute(start) });
         env.data_stack.push(count as Cell);
     }),
     ("'", |env| {
