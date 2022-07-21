@@ -58,3 +58,5 @@
 
 : [ false state ! ; immediate
 : ] true state ! ;
+
+: char bl word count drop c@ ;

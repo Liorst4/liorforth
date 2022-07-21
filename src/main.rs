@@ -471,12 +471,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             }
         }
     }),
-    ("char", |env| {
-        let (offset, length) = env.next_token(true, ' ' as Byte);
-        assert_eq!(length, 1);
-        let c = *env.input_buffer.get(offset).unwrap();
-        env.data_stack.push(c as Cell);
-    }),
     ("word", |env| {
         let delimiter = env.data_stack.pop().unwrap();
         let (offset, length) = env.next_token(true, delimiter as Byte);
