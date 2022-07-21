@@ -41,3 +41,17 @@
 : 2/ 2 / ;
 : 2@ dup cell+ @ swap @ ;
 : 2! swap over ! cell+ ! ;
+
+: type ( c-addr u -- )
+  dup 0= if
+    2drop
+    exit
+  then
+
+  swap over + swap ( c-addr+u u )
+  begin
+    2dup - @ emit
+    1 -
+    dup 0 = until
+  2drop
+;

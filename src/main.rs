@@ -493,14 +493,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let (count, _) = unsafe { decode_counted_string(address) };
         env.data_stack.push(count as Cell);
     }),
-    ("type", |env| {
-        let count = env.data_stack.pop().unwrap() as usize;
-        let address = env.data_stack.pop().unwrap();
-        let address: *const u8 = unsafe { std::mem::transmute(address) };
-        let string = unsafe { std::slice::from_raw_parts(address, count) };
-        let string = String::from_utf8_lossy(string).to_string();
-        print!("{}", string);
-    }),
     ("'", |env| {
         let name = env.read_name_from_input_buffer().unwrap();
         let entry = search_dictionary(&env.dictionary, &name).unwrap();
