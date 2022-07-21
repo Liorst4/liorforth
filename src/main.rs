@@ -747,15 +747,6 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
             env.data_stack.push(length as Cell);
         }
     }),
-    ("[']", |env| {
-        let name = env.read_name_from_input_buffer().unwrap();
-        let entry = search_dictionary(&env.dictionary, &name).unwrap();
-        env.latest()
-            .body
-            .push(ForthOperation::PushCellToDataStack(unsafe {
-                std::mem::transmute(entry)
-            }));
-    }),
     ("abort\"", |env| {
         let (offset, length) = env.next_token(false, '"' as Byte);
         let abort_message_in_input_buffer = &env.input_buffer[offset..offset + length];

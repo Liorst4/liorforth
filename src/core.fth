@@ -61,3 +61,5 @@
 
 : char bl word count drop c@ ;
 : [char] char postpone literal ; immediate
+
+: ['] ' postpone literal ; immediate
