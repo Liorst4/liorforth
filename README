@@ -86,7 +86,7 @@ Implemented words:
 		move
 		cell+
 		depth
-		quit
+		quit (partial, displays a ". ok" message)
 		>in
 		state
 		source
@@ -135,9 +135,9 @@ Implemented words:
 		2swap
 		abort
 		abort"
-		environment? (partial)
+		environment? (partial, not all queries are available)
 		recurse
-		evaluate (partial)
+		evaluate (partial, temporarily overwirtes input buffer instead of replacing it with the given string)
 	Extra:
 		words
 		dump
