@@ -61,8 +61,13 @@ type Primitive = fn(&mut Environment);
 enum ForthOperation {
     PushCellToDataStack(Cell),
     CallAnotherDictionaryEntry(*const DictionaryEntry),
+
+    // TODO: Implement as a primitive
     BranchOnFalse(Option<isize /* offset */> /* None for unresolved */),
+
     CallPrimitive(Primitive),
+
+    // TODO: Implement as a primitive
     Return,
 }
 
@@ -690,6 +695,8 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
         *unresolved_branch = ForthOperation::BranchOnFalse(Some(false_jump_offset));
     }),
     ("exit", |env| {
+        // TODO: Don't implement as an immediate word
+        //       Control the flow of execution
         env.latest().body.push(ForthOperation::Return);
     }),
     ("literal", |env| {
