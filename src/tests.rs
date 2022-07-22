@@ -15,6 +15,8 @@ mod tests {
         }
         // TODO: Print code when assert is false
         assert_eq!(env.data_stack, expected_result);
+
+        assert!(env.runtime_loops.is_empty());
     }
 
     fn test_stack_effects(code_and_effects: &[(&str, Vec<Cell>)]) {
@@ -35,6 +37,15 @@ mod tests {
             ("%1111", vec![0b1111]),
             ("1234 #1234 $1234 %1111", vec![1234, 1234, 0x1234, 0b1111]),
         ];
+        test_stack_effects(code_result_map.as_slice());
+    }
+
+    #[test]
+    fn test_loop() {
+        let code_result_map: Vec<(&str, Vec<Cell>)> = vec![(
+            ": test 10 0 do 1 loop ; see test test",
+            vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        )];
         test_stack_effects(code_result_map.as_slice());
     }
 

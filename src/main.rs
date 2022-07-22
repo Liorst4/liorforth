@@ -80,6 +80,11 @@ struct DictionaryEntry {
 
 type Dictionary = std::collections::LinkedList<DictionaryEntry>;
 
+struct LoopState {
+    iteration_index: Cell,
+    limit: Cell,
+}
+
 struct Environment<'a> {
     data_space_pointer: std::slice::IterMut<'a, Byte>,
 
@@ -97,6 +102,8 @@ struct Environment<'a> {
     control_flow_stack: Vec<usize>,
 
     parsed_word: Vec<Byte>,
+
+    runtime_loops: Vec<LoopState>,
 }
 
 macro_rules! binary_operator_native_word {
@@ -719,6 +726,50 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
         let call_self = ForthOperation::CallAnotherDictionaryEntry(latest);
         latest.body.push(call_self);
     }),
+    ("do", |env| {
+        if env.compile_mode() {
+            let self_ = search_dictionary(&env.dictionary, "do").unwrap();
+            env.latest()
+                .body
+                .push(ForthOperation::CallAnotherDictionaryEntry(self_));
+
+            let len = env.latest().body.len();
+            env.control_flow_stack.push(len);
+        } else {
+            let initial_index = env.data_stack.pop().unwrap();
+            let limit = env.data_stack.pop().unwrap();
+            env.runtime_loops.push(LoopState {
+                iteration_index: initial_index,
+                limit,
+            });
+        }
+    }),
+    ("loop", |env| {
+        if env.compile_mode() {
+            // TODO: Resolve instances of `leave`
+
+            let self_ = search_dictionary(&env.dictionary, "loop").unwrap();
+            env.latest()
+                .body
+                .push(ForthOperation::CallAnotherDictionaryEntry(self_));
+
+            let do_offset = env.latest().body.len() - env.control_flow_stack.pop().unwrap();
+            let do_offset = do_offset as isize;
+            let do_offset = -do_offset;
+            env.latest()
+                .body
+                .push(ForthOperation::BranchOnFalse(Some(do_offset)));
+        } else {
+            let mut loop_state = env.runtime_loops.pop().unwrap();
+            loop_state.iteration_index += 1;
+            if loop_state.iteration_index == loop_state.limit {
+                env.data_stack.push(Flag::True as Cell);
+            } else {
+                env.runtime_loops.push(loop_state);
+                env.data_stack.push(Flag::False as Cell);
+            }
+        }
+    }),
 ];
 
 fn search_dictionary(dict: &Dictionary, name: &str) -> Option<*const DictionaryEntry> {
@@ -850,6 +901,7 @@ impl<'a> Environment<'a> {
             currently_compiling: Flag::False as Cell,
             control_flow_stack: Vec::new(),
             parsed_word: Default::default(),
+            runtime_loops: Default::default(),
         };
 
         for line in CORE_WORDS_INIT.lines() {
