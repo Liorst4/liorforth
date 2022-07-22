@@ -86,3 +86,9 @@
   postpone s"
   s" postpone abort-with-message" evaluate
 ; immediate
+
+: spaces ( n -- )
+  dup 0= if drop exit then
+  begin space 1- dup 0= until
+  drop
+;

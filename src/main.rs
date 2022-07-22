@@ -463,14 +463,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         });
     }),
     ("align", |env| env.align_data_pointer()),
-    ("spaces", |env| {
-        let amount = env.data_stack.pop().unwrap();
-        if amount > 0 {
-            for _ in 0..amount {
-                print!(" ");
-            }
-        }
-    }),
     ("word", |env| {
         let delimiter = env.data_stack.pop().unwrap();
         let (offset, length) = env.next_token(true, delimiter as Byte);
