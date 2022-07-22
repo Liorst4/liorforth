@@ -72,3 +72,17 @@
     type
   then
 ; immediate
+
+: abort-with-message ( f c-addr u -- )
+  rot
+  if
+    type abort
+  else
+    2drop
+  then
+;
+
+: abort"
+  postpone s"
+  s" postpone abort-with-message" evaluate
+; immediate

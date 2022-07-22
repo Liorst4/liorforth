@@ -145,6 +145,7 @@ Implemented words:
 		sizeof-char
 		nl
 		see
+		abort-with-message (used for abort")
 
 Core words to implement:
 	do

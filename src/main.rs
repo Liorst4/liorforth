@@ -722,35 +722,6 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
             env.data_stack.push(length as Cell);
         }
     }),
-    ("abort\"", |env| {
-        let (offset, length) = env.next_token(false, '"' as Byte);
-        let abort_message_in_input_buffer = &env.input_buffer[offset..offset + length];
-
-        // Copy to data space
-        let abort_message: *const u8 = env.data_space_pointer.as_ref().as_ptr();
-        let abort_message: Cell = unsafe { std::mem::transmute(abort_message) };
-        for byte in abort_message_in_input_buffer {
-            **env.data_space_pointer.nth(0).as_mut().unwrap() = *byte;
-        }
-
-        let abort_entry = search_dictionary(&env.dictionary, "abort").unwrap();
-        let type_entry = search_dictionary(&env.dictionary, "type").unwrap();
-
-        let mut failure_section = vec![
-            ForthOperation::PushCellToDataStack(abort_message),
-            ForthOperation::PushCellToDataStack(length as Cell),
-            ForthOperation::CallAnotherDictionaryEntry(type_entry),
-            ForthOperation::CallAnotherDictionaryEntry(abort_entry),
-        ];
-
-        let mut to_append = vec![ForthOperation::BranchOnFalse(Some(
-            (failure_section.len() + 1) as isize,
-        ))];
-
-        to_append.append(&mut failure_section);
-
-        env.latest().body.append(&mut to_append);
-    }),
     ("recurse", |env| {
         let latest = env.latest();
         let call_self = ForthOperation::CallAnotherDictionaryEntry(latest);
