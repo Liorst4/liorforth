@@ -699,31 +699,6 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
     ("(", |env| {
         env.next_token(true, ')' as Byte);
     }),
-    (".\"", |env| {
-        let (offset, length) = env.next_token(false, '"' as Byte);
-        let string = &env.input_buffer[offset..offset + length];
-
-        if env.compile_mode() {
-            // Write string to data space
-            let data_space_string_address: *const u8 = env.data_space_pointer.as_ref().as_ptr();
-            for byte in string {
-                **env.data_space_pointer.nth(0).as_mut().unwrap() = *byte;
-            }
-
-            // TODO: Don't search every single time?
-            let type_entry = search_dictionary(&env.dictionary, "type").unwrap();
-
-            env.latest().body.append(&mut vec![
-                ForthOperation::PushCellToDataStack(unsafe {
-                    std::mem::transmute(data_space_string_address)
-                }),
-                ForthOperation::PushCellToDataStack(length as Cell),
-                ForthOperation::CallAnotherDictionaryEntry(type_entry),
-            ]);
-        } else {
-            print!("{}", String::from_utf8_lossy(string).to_string());
-        }
-    }),
     ("s\"", |env| {
         let (offset, length) = env.next_token(false, '"' as Byte);
         let string = &env.input_buffer[offset..offset + length];

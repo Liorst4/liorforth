@@ -63,3 +63,12 @@
 : [char] char postpone literal ; immediate
 
 : ['] ' postpone literal ; immediate
+
+: ."
+  postpone s"
+  state @ if
+    s" postpone type" evaluate ( TODO: anyway better? )
+  else
+    type
+  then
+; immediate
