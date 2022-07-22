@@ -140,6 +140,7 @@ Implemented words:
 		evaluate (partial, temporarily overwirtes input buffer instead of replacing it with the given string)
 		do (ealry stages of implementation)
 		loop (early stages of implementation)
+		unloop
 	Extra:
 		words
 		dump
@@ -150,7 +151,6 @@ Implemented words:
 		abort-with-message (used for abort")
 
 Core words to implement:
-	unloop
 	+loop
 	i
 	j

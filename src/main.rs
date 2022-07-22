@@ -608,6 +608,9 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             *env.input_buffer.get_mut(i).unwrap() = *input_buffer_backup.get(i).unwrap();
         }
     }),
+    ("unloop", |env| {
+        env.runtime_loops.pop().unwrap();
+    }),
 ];
 
 const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[

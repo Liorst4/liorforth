@@ -42,10 +42,32 @@ mod tests {
 
     #[test]
     fn test_loop() {
-        let code_result_map: Vec<(&str, Vec<Cell>)> = vec![(
-            ": test 10 0 do 1 loop ; see test test",
-            vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-        )];
+        let code_result_map: Vec<(&str, Vec<Cell>)> = vec![
+            (
+                ": test 10 0 do 1 loop ; see test test",
+                vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+            ),
+            (
+                // TODO: Remove counter when I and J are implemented
+                "
+variable counter
+0 counter !
+: test2
+  10 0 do
+       1 counter +!
+       counter @ 5 > if
+                     counter @
+                     unloop
+                     exit
+       then
+  loop
+;
+see test2
+test2
+",
+                vec![6],
+            ),
+        ];
         test_stack_effects(code_result_map.as_slice());
     }
 
