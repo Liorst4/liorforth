@@ -67,6 +67,25 @@ test2
 ",
                 vec![6],
             ),
+            (
+                "
+variable leave-counter
+0 leave-counter !
+: test-leave
+  10 0 do
+       1 leave-counter +!
+       leave-counter @ 5 > if
+                     .\" leavening! \" cr
+                     leave-counter @
+                     leave
+       then
+  loop
+;
+see test-leave
+test-leave
+",
+                vec![6],
+            ),
         ];
         test_stack_effects(code_result_map.as_slice());
     }

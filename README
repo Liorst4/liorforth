@@ -140,7 +140,8 @@ Implemented words:
 		evaluate (partial, temporarily overwirtes input buffer instead of replacing it with the given string)
 		do (ealry stages of implementation)
 		loop (early stages of implementation)
-		unloop
+		unloop (early stages of implementation)
+		leave (early stages of implementation)
 	Extra:
 		words
 		dump
@@ -154,7 +155,6 @@ Core words to implement:
 	+loop
 	i
 	j
-	leave
 
 	does>
 	

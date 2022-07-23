@@ -73,6 +73,7 @@ enum ForthOperation {
     UnresolvedIf,
     UnresolvedElse,
     UnresolvedWhile,
+    UnresolvedLeave,
 }
 
 #[derive(Clone)]
@@ -752,9 +753,17 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
             });
         }
     }),
+    ("leave", |env| {
+        let unloop = search_dictionary(&env.dictionary, "unloop").unwrap();
+        env.latest_mut().body.append(&mut vec![
+            ForthOperation::CallAnotherDictionaryEntry(unloop),
+            ForthOperation::PushCellToDataStack(Flag::False as Cell),
+            ForthOperation::UnresolvedLeave,
+        ]);
+    }),
     ("loop", |env| {
         if env.compile_mode() {
-            // TODO: Resolve instances of `leave`
+            let do_index = env.control_flow_stack.pop().unwrap();
 
             // TODO: Find a better solution, `loop` can be re-defined
             let self_ = search_dictionary(&env.dictionary, "loop").unwrap();
@@ -762,12 +771,29 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
                 .body
                 .push(ForthOperation::CallAnotherDictionaryEntry(self_));
 
-            let do_offset = env.latest_mut().body.len() - env.control_flow_stack.pop().unwrap();
+            let do_offset = env.latest_mut().body.len() - do_index;
             let do_offset = do_offset as isize;
             let do_offset = -do_offset;
             env.latest_mut()
                 .body
                 .push(ForthOperation::BranchOnFalse(do_offset));
+
+            let len = env.latest().body.len();
+            for index in do_index..env.latest().body.len() {
+                let item = env.latest_mut().body.get_mut(index).unwrap();
+                match item {
+                    ForthOperation::UnresolvedLeave => {
+                        let branch_offset = len - index;
+                        let branch_offset = branch_offset as isize;
+                        println!(
+                            "len {} index {} branch offset {}",
+                            len, index, branch_offset
+                        );
+                        *item = ForthOperation::BranchOnFalse(branch_offset);
+                    }
+                    _ => {}
+                }
+            }
         } else {
             let mut loop_state = env.runtime_loops.pop().unwrap();
             loop_state.iteration_index += 1;
@@ -1089,7 +1115,8 @@ impl<'a> Environment<'a> {
                 },
                 ForthOperation::UnresolvedWhile
                 | ForthOperation::UnresolvedIf
-                | ForthOperation::UnresolvedElse => {
+                | ForthOperation::UnresolvedElse
+                | ForthOperation::UnresolvedLeave => {
                     panic!("Unresolved branch!")
                 }
             }
