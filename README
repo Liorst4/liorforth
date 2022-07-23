@@ -142,6 +142,7 @@ Implemented words:
 		loop (early stages of implementation)
 		unloop (early stages of implementation)
 		leave (early stages of implementation)
+		+loop (early stages of implementation)
 	Extra:
 		words
 		dump
@@ -152,7 +153,6 @@ Implemented words:
 		abort-with-message (used for abort")
 
 Core words to implement:
-	+loop
 	i
 	j
 

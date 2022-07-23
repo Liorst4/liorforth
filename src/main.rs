@@ -761,12 +761,12 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
             ForthOperation::UnresolvedLeave,
         ]);
     }),
-    ("loop", |env| {
+    ("+loop", |env| {
         if env.compile_mode() {
             let do_index = env.control_flow_stack.pop().unwrap();
 
-            // TODO: Find a better solution, `loop` can be re-defined
-            let self_ = search_dictionary(&env.dictionary, "loop").unwrap();
+            // TODO: Find a better solution, `+loop` can be re-defined
+            let self_ = search_dictionary(&env.dictionary, "+loop").unwrap();
             env.latest_mut()
                 .body
                 .push(ForthOperation::CallAnotherDictionaryEntry(self_));
@@ -796,8 +796,9 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
             }
         } else {
             let mut loop_state = env.runtime_loops.pop().unwrap();
-            loop_state.iteration_index += 1;
-            if loop_state.iteration_index == loop_state.limit {
+            let addition = env.data_stack.pop().unwrap();
+            loop_state.iteration_index += addition;
+            if loop_state.iteration_index >= loop_state.limit {
                 env.data_stack.push(Flag::True as Cell);
             } else {
                 env.runtime_loops.push(loop_state);

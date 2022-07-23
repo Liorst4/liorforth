@@ -92,3 +92,5 @@
   begin space 1- dup 0= until
   drop
 ;
+
+: loop 1 postpone literal postpone +loop ; immediate
