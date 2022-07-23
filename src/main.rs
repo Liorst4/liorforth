@@ -439,7 +439,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.data_stack.push(size);
     }),
     ("immediate", |env| {
-        env.latest().immediate = true;
+        env.latest_mut().immediate = true;
     }),
     ("create", |env| {
         env.align_data_pointer();
@@ -615,21 +615,25 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
 
 const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
     (";", |env| {
-        env.latest().body.push(ForthOperation::Return);
+        env.latest_mut().body.push(ForthOperation::Return);
         env.currently_compiling = Flag::False as Cell;
     }),
     ("if", |env| {
-        env.latest().body.push(ForthOperation::BranchOnFalse(None));
+        env.latest_mut()
+            .body
+            .push(ForthOperation::BranchOnFalse(None));
     }),
     ("else", |env| {
         let unresolved_if_branch_index = env.index_of_last_unresolved_branch().unwrap();
-        env.latest()
+        env.latest_mut()
             .body
             .push(ForthOperation::PushCellToDataStack(Flag::False as Cell));
-        env.latest().body.push(ForthOperation::BranchOnFalse(None));
-        let branch_offset = env.latest().body.len() - unresolved_if_branch_index;
+        env.latest_mut()
+            .body
+            .push(ForthOperation::BranchOnFalse(None));
+        let branch_offset = env.latest_mut().body.len() - unresolved_if_branch_index;
         let unresolved_branch: &mut ForthOperation = env
-            .latest()
+            .latest_mut()
             .body
             .get_mut(unresolved_if_branch_index)
             .unwrap();
@@ -637,44 +641,46 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
     }),
     ("then", |env| {
         let unresolved_branch_index = env.index_of_last_unresolved_branch().unwrap();
-        let latest = env.latest();
+        let latest = env.latest_mut();
         let branch_offset = latest.body.len() - unresolved_branch_index;
         let unresolved_branch: &mut ForthOperation =
             latest.body.get_mut(unresolved_branch_index).unwrap();
         *unresolved_branch = ForthOperation::BranchOnFalse(Some(branch_offset as isize));
     }),
     ("begin", |env| {
-        let len = env.latest().body.len();
+        let len = env.latest_mut().body.len();
         env.control_flow_stack.push(len);
     }),
     ("until", |env| {
-        let branch_offset = env.latest().body.len() - env.control_flow_stack.pop().unwrap();
+        let branch_offset = env.latest_mut().body.len() - env.control_flow_stack.pop().unwrap();
         let branch_offset = branch_offset as isize;
         let branch_offset = -branch_offset;
-        env.latest()
+        env.latest_mut()
             .body
             .push(ForthOperation::BranchOnFalse(Some(branch_offset)));
     }),
     ("while", |env| {
-        env.latest().body.push(ForthOperation::BranchOnFalse(None));
+        env.latest_mut()
+            .body
+            .push(ForthOperation::BranchOnFalse(None));
     }),
     ("repeat", |env| {
         let begin_index = env.control_flow_stack.pop().unwrap();
-        env.latest()
+        env.latest_mut()
             .body
             .push(ForthOperation::PushCellToDataStack(Flag::False as Cell));
-        let true_jump_offset = env.latest().body.len() - begin_index;
+        let true_jump_offset = env.latest_mut().body.len() - begin_index;
         let true_jump_offset = true_jump_offset as isize;
         let true_jump_offset = -true_jump_offset;
-        env.latest()
+        env.latest_mut()
             .body
             .push(ForthOperation::BranchOnFalse(Some(true_jump_offset)));
 
         let unresolved_while_branch_index = env.index_of_last_unresolved_branch().unwrap();
-        let false_jump_offset = env.latest().body.len() - unresolved_while_branch_index;
+        let false_jump_offset = env.latest_mut().body.len() - unresolved_while_branch_index;
         let false_jump_offset = false_jump_offset as isize;
         let unresolved_branch: &mut ForthOperation = env
-            .latest()
+            .latest_mut()
             .body
             .get_mut(unresolved_while_branch_index)
             .unwrap();
@@ -683,18 +689,18 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
     ("exit", |env| {
         // TODO: Don't implement as an immediate word
         //       Control the flow of execution
-        env.latest().body.push(ForthOperation::Return);
+        env.latest_mut().body.push(ForthOperation::Return);
     }),
     ("literal", |env| {
         let data = env.data_stack.pop().unwrap();
         let literal = ForthOperation::PushCellToDataStack(data);
-        env.latest().body.push(literal);
+        env.latest_mut().body.push(literal);
     }),
     ("postpone", |env| {
         let name = env.read_name_from_input_buffer().unwrap();
         let entry = search_dictionary(&env.dictionary, &name).unwrap();
         let entry = unsafe { entry.as_ref() }.unwrap();
-        env.latest()
+        env.latest_mut()
             .body
             .push(ForthOperation::CallAnotherDictionaryEntry(entry));
     }),
@@ -712,7 +718,7 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
         }
 
         if env.compile_mode() {
-            env.latest().body.append(&mut vec![
+            env.latest_mut().body.append(&mut vec![
                 ForthOperation::PushCellToDataStack(unsafe {
                     std::mem::transmute(data_space_string_address)
                 }),
@@ -725,18 +731,18 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
         }
     }),
     ("recurse", |env| {
-        let latest = env.latest();
+        let latest = env.latest_mut();
         let call_self = ForthOperation::CallAnotherDictionaryEntry(latest);
         latest.body.push(call_self);
     }),
     ("do", |env| {
         if env.compile_mode() {
             let self_ = search_dictionary(&env.dictionary, "do").unwrap();
-            env.latest()
+            env.latest_mut()
                 .body
                 .push(ForthOperation::CallAnotherDictionaryEntry(self_));
 
-            let len = env.latest().body.len();
+            let len = env.latest_mut().body.len();
             env.control_flow_stack.push(len);
         } else {
             let initial_index = env.data_stack.pop().unwrap();
@@ -752,14 +758,14 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
             // TODO: Resolve instances of `leave`
 
             let self_ = search_dictionary(&env.dictionary, "loop").unwrap();
-            env.latest()
+            env.latest_mut()
                 .body
                 .push(ForthOperation::CallAnotherDictionaryEntry(self_));
 
-            let do_offset = env.latest().body.len() - env.control_flow_stack.pop().unwrap();
+            let do_offset = env.latest_mut().body.len() - env.control_flow_stack.pop().unwrap();
             let do_offset = do_offset as isize;
             let do_offset = -do_offset;
-            env.latest()
+            env.latest_mut()
                 .body
                 .push(ForthOperation::BranchOnFalse(Some(do_offset)));
         } else {
@@ -918,7 +924,11 @@ impl<'a> Environment<'a> {
         return self.currently_compiling == Flag::True as Cell;
     }
 
-    fn latest(&mut self) -> &mut DictionaryEntry {
+    fn latest(&self) -> &DictionaryEntry {
+        return self.dictionary.front().unwrap();
+    }
+
+    fn latest_mut(&mut self) -> &mut DictionaryEntry {
         return self.dictionary.front_mut().unwrap();
     }
 
@@ -1026,7 +1036,7 @@ impl<'a> Environment<'a> {
     fn handle_number_token(&mut self, token: Cell) {
         if self.compile_mode() {
             let literal = ForthOperation::PushCellToDataStack(token);
-            self.latest().body.push(literal);
+            self.latest_mut().body.push(literal);
         } else {
             self.data_stack.push(token);
         }
@@ -1037,7 +1047,7 @@ impl<'a> Environment<'a> {
         let dict_entry = unsafe { dict_entry.as_ref() }.unwrap();
 
         if self.compile_mode() && !dict_entry.immediate {
-            self.latest()
+            self.latest_mut()
                 .body
                 .push(ForthOperation::CallAnotherDictionaryEntry(dict_entry));
         } else {
@@ -1094,7 +1104,7 @@ impl<'a> Environment<'a> {
 
     fn index_of_last_unresolved_branch(&self) -> Option<usize> {
         let mut index_from_the_end = 0;
-        for item in self.dictionary.front().unwrap().body.iter().rev() {
+        for item in self.latest().body.iter().rev() {
             index_from_the_end += 1;
             match item {
                 ForthOperation::BranchOnFalse(b) => match b {
