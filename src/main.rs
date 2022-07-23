@@ -737,6 +737,7 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
     }),
     ("do", |env| {
         if env.compile_mode() {
+            // TODO: Find a better solution, `do` can be re-defined
             let self_ = search_dictionary(&env.dictionary, "do").unwrap();
             env.latest_mut()
                 .body
@@ -757,6 +758,7 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
         if env.compile_mode() {
             // TODO: Resolve instances of `leave`
 
+            // TODO: Find a better solution, `loop` can be re-defined
             let self_ = search_dictionary(&env.dictionary, "loop").unwrap();
             env.latest_mut()
                 .body
