@@ -147,6 +147,7 @@ Implemented words:
 		j
 	Extra:
 		words
+		dump-row-size
 		dump
 		sizeof-cell
 		sizeof-char

@@ -316,32 +316,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("=", compare_operator_native_word!(==)),
     ("<", compare_operator_native_word!(<)),
     (">", compare_operator_native_word!(>)),
-    (
-        // Not a part of the core words, but its useful for debugging
-        // TODO: Replace with a threaded word once compilation fully is working
-        "dump",
-        |env| {
-            const ROW_SIZE: usize = 0x10;
-            let byte_count: usize = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
-            let address: usize = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
-
-            for i in 0..byte_count {
-                if i % ROW_SIZE == 0 {
-                    print!("{:X}: ", address + i);
-                }
-
-                let ptr: *const Byte = unsafe { std::mem::transmute(address + i) };
-
-                print!("{:02X} ", unsafe { *ptr });
-
-                if i % ROW_SIZE == ROW_SIZE - 1 {
-                    println!("");
-                }
-            }
-
-            println!("");
-        },
-    ),
     (":", |env| {
         let name = env.read_name_from_input_buffer().unwrap();
         env.dictionary.push_front(DictionaryEntry {
@@ -908,6 +882,7 @@ fn initial_dictionary() -> Dictionary {
 }
 
 const CORE_WORDS_INIT: &str = include_str!("core.fth");
+const TOOLS_WORDS_INIT: &str = include_str!("tools.fth");
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
     if word.is_empty() {
@@ -949,6 +924,10 @@ impl<'a> Environment<'a> {
         };
 
         for line in CORE_WORDS_INIT.lines() {
+            env.interpret_line(line.as_bytes());
+        }
+
+        for line in TOOLS_WORDS_INIT.lines() {
             env.interpret_line(line.as_bytes());
         }
 
