@@ -48,17 +48,13 @@ mod tests {
                 vec![1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
             ),
             (
-                // TODO: Remove counter when I and J are implemented
                 "
-variable counter
-0 counter !
 : test2
   10 0 do
-       1 counter +!
-       counter @ 5 > if
-                     counter @
-                     unloop
-                     exit
+       i 5 > if
+             i
+             unloop
+             exit
        then
   loop
 ;
@@ -69,15 +65,12 @@ test2
             ),
             (
                 "
-variable leave-counter
-0 leave-counter !
 : test-leave
   10 0 do
-       1 leave-counter +!
-       leave-counter @ 5 > if
-                     .\" leavening! \" cr
-                     leave-counter @
-                     leave
+       i 5 > if
+             i
+             .\" leavening! \" cr
+             leave
        then
   loop
 ;

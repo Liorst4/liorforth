@@ -616,6 +616,14 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("unloop", |env| {
         env.runtime_loops.pop().unwrap();
     }),
+    ("i", |env| {
+        env.data_stack
+            .push(env.runtime_loops.get(0).unwrap().iteration_index);
+    }),
+    ("j", |env| {
+        env.data_stack
+            .push(env.runtime_loops.get(1).unwrap().iteration_index);
+    }),
 ];
 
 const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[

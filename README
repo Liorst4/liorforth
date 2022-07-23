@@ -138,11 +138,13 @@ Implemented words:
 		environment? (partial, not all queries are available)
 		recurse
 		evaluate (partial, temporarily overwirtes input buffer instead of replacing it with the given string)
-		do (ealry stages of implementation)
-		loop (early stages of implementation)
-		unloop (early stages of implementation)
-		leave (early stages of implementation)
-		+loop (early stages of implementation)
+		do
+		loop
+		unloop
+		leave
+		+loop
+		i
+		j
 	Extra:
 		words
 		dump
@@ -153,9 +155,6 @@ Implemented words:
 		abort-with-message (used for abort")
 
 Core words to implement:
-	i
-	j
-
 	does>
 	
 	s>d
