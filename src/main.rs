@@ -452,7 +452,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let data: Cell = unsafe { std::mem::transmute(data) };
 
         let name = env.read_name_from_input_buffer().unwrap();
-        env.dictionary.push_back(DictionaryEntry {
+        env.dictionary.push_front(DictionaryEntry {
             name,
             immediate: false,
             body: vec![
@@ -465,7 +465,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let data = env.data_stack.pop().unwrap();
 
         let name = env.read_name_from_input_buffer().unwrap();
-        env.dictionary.push_back(DictionaryEntry {
+        env.dictionary.push_front(DictionaryEntry {
             name,
             immediate: false,
             body: vec![
