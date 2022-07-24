@@ -30,6 +30,8 @@
 : ?dup dup dup 0= if drop then ;
 : 2drop drop drop ;
 : 2dup over over ;
+: constant : postpone literal postpone ; ;
+: create here postpone constant ;
 : variable create 0 , ;
 : aligned
   dup sizeof-cell mod dup 0= if

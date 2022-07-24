@@ -472,34 +472,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("immediate", |env| {
         env.latest_mut().immediate = true;
     }),
-    ("create", |env| {
-        env.align_data_pointer();
-        let data = env.data_space_pointer.as_ref().as_ptr();
-        let data: Cell = unsafe { std::mem::transmute(data) };
-
-        let name = env.read_name_from_input_buffer().unwrap();
-        env.dictionary.push_front(DictionaryEntry {
-            name,
-            immediate: false,
-            body: vec![
-                ForthOperation::PushCellToDataStack(data),
-                ForthOperation::Return,
-            ],
-        });
-    }),
-    ("constant", |env| {
-        let data = env.data_stack.pop().unwrap();
-
-        let name = env.read_name_from_input_buffer().unwrap();
-        env.dictionary.push_front(DictionaryEntry {
-            name,
-            immediate: false,
-            body: vec![
-                ForthOperation::PushCellToDataStack(data),
-                ForthOperation::Return,
-            ],
-        });
-    }),
     ("align", |env| env.align_data_pointer()),
     ("word", |env| {
         let delimiter = env.data_stack.pop().unwrap();
