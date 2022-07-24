@@ -94,3 +94,16 @@
 ;
 
 : loop 1 postpone literal postpone +loop ; immediate
+
+: fill ( c-addr u char -- )
+  over 0= if 2drop drop exit then
+  swap 0 do
+    ( c-addr char )
+    over ( c-addr char c-addr )
+    i +  ( c-addr char c-addr+i )
+    over ( c-addr char c-addr+i char )
+    swap ( c-addr char char c-addr+i )
+    c!   ( c-addr char )
+  loop
+  2drop
+;

@@ -412,14 +412,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
 
         env.return_stack.push(calling_word_return_address);
     }),
-    ("fill", |env| {
-        let c = env.data_stack.pop().unwrap() as Byte;
-        let amount = env.data_stack.pop().unwrap();
-        let addr = env.data_stack.pop().unwrap();
-        let addr: *mut Byte = unsafe { std::mem::transmute(addr) };
-        let range: &mut [Byte] = unsafe { std::slice::from_raw_parts_mut(addr, amount as usize) };
-        range.fill(c);
-    }),
     ("u.", |env| {
         let s = env.data_stack.pop().unwrap();
         let u: usize = s as usize;
