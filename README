@@ -14,7 +14,7 @@ License:
 	for more details.
 
 Project structure:
-	src -> rust source code
+	src -> source code
 	examples -> example forth code
 
 Building:
