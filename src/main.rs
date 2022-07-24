@@ -43,6 +43,65 @@ type DoubleCell = i32;
 #[cfg(target_pointer_width = "8")]
 type DoubleCell = i16;
 
+type EncodedDoubleCell = [Cell; 2];
+type CellBytes = [u8; std::mem::size_of::<Cell>()];
+type DoubleCellBytes = [u8; std::mem::size_of::<DoubleCell>()];
+
+fn encode_double_cell(value: DoubleCell) -> EncodedDoubleCell {
+    let mut first = CellBytes::default();
+    let mut second = CellBytes::default();
+
+    let value_bytes = value.to_ne_bytes();
+    let src_iter = value_bytes.iter();
+    let dst_iter = first.iter_mut().chain(second.iter_mut());
+
+    for (src, dst) in std::iter::zip(src_iter, dst_iter) {
+        *dst = *src;
+    }
+
+    return [Cell::from_ne_bytes(first), Cell::from_ne_bytes(second)];
+}
+
+fn decode_double_cell(encoded: EncodedDoubleCell) -> DoubleCell {
+    let mut result_bytes = DoubleCellBytes::default();
+    let first = encoded.get(0).unwrap().to_ne_bytes();
+    let second = encoded.get(1).unwrap().to_ne_bytes();
+
+    let src_iter = first.iter().chain(second.iter());
+    let dst_iter = result_bytes.iter_mut();
+
+    for (src, dst) in std::iter::zip(src_iter, dst_iter) {
+        *dst = *src;
+    }
+
+    return DoubleCell::from_ne_bytes(result_bytes);
+}
+
+fn push_encoded_double_cell(stack: &mut Vec<Cell>, value: EncodedDoubleCell) {
+    stack.push(*value.get(0).unwrap());
+    stack.push(*value.get(1).unwrap());
+}
+
+fn pop_encoded_double_cell(stack: &mut Vec<Cell>) -> Option<EncodedDoubleCell> {
+    if stack.len() < 2 {
+        return None;
+    }
+
+    let mut result = EncodedDoubleCell::default();
+    *result.get_mut(1).unwrap() = stack.pop().unwrap();
+    *result.get_mut(0).unwrap() = stack.pop().unwrap();
+
+    return Some(result);
+}
+
+fn push_double_cell(stack: &mut Vec<Cell>, value: DoubleCell) {
+    push_encoded_double_cell(stack, encode_double_cell(value))
+}
+
+fn pop_double_cell(stack: &mut Vec<Cell>) -> Option<DoubleCell> {
+    pop_encoded_double_cell(stack).map(decode_double_cell)
+}
+
 type Byte = u8;
 
 fn encode_counted_string(src: &[Byte]) -> Vec<Byte> {
@@ -614,6 +673,15 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let destination: *mut Byte = unsafe { std::mem::transmute(destination) };
         let buffer = unsafe { std::slice::from_raw_parts_mut(destination, max_length) };
         std::io::stdin().read(buffer).unwrap();
+    }),
+    ("s>d", |env| {
+        let single = env.data_stack.pop().unwrap();
+        push_double_cell(&mut env.data_stack, single as DoubleCell);
+    }),
+    ("m*", |env| {
+        let x = env.data_stack.pop().unwrap() as DoubleCell;
+        let y = env.data_stack.pop().unwrap() as DoubleCell;
+        push_double_cell(&mut env.data_stack, x * y);
     }),
 ];
 

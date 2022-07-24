@@ -121,4 +121,28 @@ b";
             _ => assert!(false),
         }
     }
+
+    #[test]
+    fn test_double_cell_encoding() {
+        let numbers = [
+            0,
+            1,
+            2,
+            -1,
+            -2,
+            DoubleCell::MAX,
+            DoubleCell::MAX / 2,
+            DoubleCell::MIN,
+            DoubleCell::MIN / 2,
+            0x1122334455,
+        ];
+        for number in numbers {
+            assert_eq!(number, decode_double_cell(encode_double_cell(number)));
+
+            let mut stack = Vec::new();
+            push_double_cell(&mut stack, number);
+            let number2 = pop_double_cell(&mut stack).unwrap();
+            assert_eq!(number, number2);
+        }
+    }
 }

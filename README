@@ -148,6 +148,8 @@ Implemented words:
 		does> (experimental)
 		key (partial, requires the user to hit enter to register the input :\)
 		accept
+		s>d
+		m*
 	Extra:
 		words
 		dump-row-size
@@ -159,13 +161,10 @@ Implemented words:
 		abort-with-message (used for abort")
 
 Core words to implement:
-	s>d
-	
 	fm/mod
 	sm/rem
 	um*
 	um/mod
-	m*
 	
 	#
 	#>
