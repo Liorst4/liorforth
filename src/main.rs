@@ -683,6 +683,19 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let y = env.data_stack.pop().unwrap() as DoubleCell;
         push_double_cell(&mut env.data_stack, x * y);
     }),
+    ("fm/mod", |env| {
+        let n = env.data_stack.pop().unwrap();
+        let d = pop_double_cell(&mut env.data_stack).unwrap();
+
+        let floored_quotient = d / (n as DoubleCell);
+        let floored_quotient = floored_quotient as Cell;
+
+        let remainder = d % (n as DoubleCell);
+        let remainder = remainder as Cell;
+
+        env.data_stack.push(remainder);
+        env.data_stack.push(floored_quotient);
+    }),
 ];
 
 const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[

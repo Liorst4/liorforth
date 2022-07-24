@@ -150,6 +150,7 @@ Implemented words:
 		accept
 		s>d
 		m*
+		fm/mod
 	Extra:
 		words
 		dump-row-size
@@ -161,7 +162,6 @@ Implemented words:
 		abort-with-message (used for abort")
 
 Core words to implement:
-	fm/mod
 	sm/rem
 	um*
 	um/mod
