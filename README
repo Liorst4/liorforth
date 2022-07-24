@@ -145,6 +145,7 @@ Implemented words:
 		+loop
 		i
 		j
+		does> (experimental)
 	Extra:
 		words
 		dump-row-size
@@ -156,8 +157,6 @@ Implemented words:
 		abort-with-message (used for abort")
 
 Core words to implement:
-	does>
-	
 	s>d
 	
 	fm/mod

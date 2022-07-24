@@ -64,6 +64,7 @@ enum ForthOperation {
 
     // TODO: Implement as a primitive
     BranchOnFalse(isize /* offset */),
+    Branch(*const ForthOperation), /* TODO: Merge with BranchOnFalse? */
 
     CallPrimitive(Primitive),
 
@@ -596,6 +597,11 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.data_stack
             .push(env.runtime_loops.get(1).unwrap().iteration_index);
     }),
+    ("does>", |env| {
+        let calling_word_return_address = env.return_stack.pop().unwrap();
+        *env.latest_mut().body.last_mut().unwrap() =
+            ForthOperation::Branch(calling_word_return_address);
+    }),
 ];
 
 const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
@@ -823,12 +829,19 @@ fn see(dict: &Dictionary, name: &str) {
                 let dest: usize = ((address as isize) + byte_offset) as usize;
                 print!("F-BR\t{} (${:x})", offset, dest);
             }
+            ForthOperation::Branch(destination) => {
+                let destination_address: Cell = unsafe { std::mem::transmute(*destination) };
+                print!("BR\t${:x}", destination_address);
+            }
             ForthOperation::CallPrimitive(primitive) => {
                 let primitive: usize = unsafe { std::mem::transmute(primitive) };
                 print!("PRIM\t${:x}", primitive);
             }
             ForthOperation::Return => print!("RTN"),
-            _ => panic!("Unresolved entry!"),
+            ForthOperation::UnresolvedWhile
+            | ForthOperation::UnresolvedIf
+            | ForthOperation::UnresolvedElse
+            | ForthOperation::UnresolvedLeave => panic!("Unresolved entry!"),
         }
         println!("");
     }
@@ -1091,6 +1104,10 @@ impl<'a> Environment<'a> {
                         instruction_pointer = unsafe { instruction_pointer.offset(*offset) };
                         continue;
                     }
+                }
+                ForthOperation::Branch(destination) => {
+                    instruction_pointer = *destination;
+                    continue;
                 }
                 ForthOperation::CallPrimitive(func) => func(self),
                 ForthOperation::Return => match self.return_stack.pop() {
