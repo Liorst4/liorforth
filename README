@@ -147,6 +147,7 @@ Implemented words:
 		j
 		does> (experimental)
 		key (partial, requires the user to hit enter to register the input :\)
+		accept
 	Extra:
 		words
 		dump-row-size
@@ -173,6 +174,4 @@ Core words to implement:
 	hold
 	sign
 	
-	accept
-
 	>number

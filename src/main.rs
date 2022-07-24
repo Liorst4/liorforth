@@ -607,6 +607,14 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         std::io::stdin().read_exact(&mut key_buffer).unwrap();
         env.data_stack.push(*key_buffer.get(0).unwrap() as Cell);
     }),
+    ("accept", |env| {
+        let max_length = env.data_stack.pop().unwrap();
+        let max_length = max_length as usize;
+        let destination = env.data_stack.pop().unwrap();
+        let destination: *mut Byte = unsafe { std::mem::transmute(destination) };
+        let buffer = unsafe { std::slice::from_raw_parts_mut(destination, max_length) };
+        std::io::stdin().read(buffer).unwrap();
+    }),
 ];
 
 const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
