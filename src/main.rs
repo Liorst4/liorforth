@@ -12,7 +12,7 @@
 // You should have received a copy of the GNU General Public License along with
 // liorforth. If not, see <https://www.gnu.org/licenses/>.
 
-use std::io::Write;
+use std::io::{Read, Write};
 use std::ops::*;
 
 type Cell = isize;
@@ -601,6 +601,11 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let calling_word_return_address = env.return_stack.pop().unwrap();
         *env.latest_mut().body.last_mut().unwrap() =
             ForthOperation::Branch(calling_word_return_address);
+    }),
+    ("key", |env| {
+        let mut key_buffer: [Byte; 1] = [0; 1];
+        std::io::stdin().read_exact(&mut key_buffer).unwrap();
+        env.data_stack.push(*key_buffer.get(0).unwrap() as Cell);
     }),
 ];
 
