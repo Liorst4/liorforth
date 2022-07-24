@@ -494,7 +494,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             Some(entry) => {
                 env.data_stack.push(unsafe { std::mem::transmute(entry) });
                 let immediate;
-                if unsafe { entry.as_ref() }.unwrap().immediate {
+                if entry.immediate {
                     immediate = 1;
                 } else {
                     immediate = -1;
@@ -684,10 +684,8 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
     ("postpone", |env| {
         let name = env.read_name_from_input_buffer().unwrap();
         let entry = search_dictionary(&env.dictionary, &name).unwrap();
-        let entry = unsafe { entry.as_ref() }.unwrap();
-        env.latest_mut()
-            .body
-            .push(ForthOperation::CallAnotherDictionaryEntry(entry));
+        let operation = ForthOperation::CallAnotherDictionaryEntry(entry);
+        env.latest_mut().body.push(operation);
     }),
     ("(", |env| {
         env.next_token(true, ')' as Byte);
@@ -797,11 +795,11 @@ fn loop_plus_primitive(env: &mut Environment) {
     }
 }
 
-fn search_dictionary(dict: &Dictionary, name: &str) -> Option<*const DictionaryEntry> {
+fn search_dictionary<'a>(dict: &'a Dictionary, name: &str) -> Option<&'a DictionaryEntry> {
     let name = name.to_lowercase();
     for item in dict {
         if item.name == *name {
-            return Some(item.deref());
+            return Some(item);
         }
     }
     return None;
@@ -809,7 +807,6 @@ fn search_dictionary(dict: &Dictionary, name: &str) -> Option<*const DictionaryE
 
 fn see(dict: &Dictionary, name: &str) {
     let item = search_dictionary(dict, name).unwrap();
-    let item = unsafe { item.as_ref() }.unwrap();
     println!(": {} ", item.name);
     for threaded_word_entry in &item.body {
         let address = &*threaded_word_entry;
@@ -1072,20 +1069,18 @@ impl<'a> Environment<'a> {
 
     fn handle_text_token(&mut self, token: &str) {
         let dict_entry = search_dictionary(&self.dictionary, token).unwrap();
-        let dict_entry = unsafe { dict_entry.as_ref() }.unwrap();
 
         if self.compile_mode() && !dict_entry.immediate {
-            self.latest_mut()
-                .body
-                .push(ForthOperation::CallAnotherDictionaryEntry(dict_entry));
+            let operation = ForthOperation::CallAnotherDictionaryEntry(dict_entry);
+            self.latest_mut().body.push(operation);
         } else {
             let next_word = &dict_entry.body;
             self.execute_word(next_word.first().unwrap());
         }
     }
 
-    fn execute_word(&mut self, entry: &ForthOperation) {
-        let mut instruction_pointer: *const ForthOperation = entry;
+    fn execute_word(&mut self, entry: *const ForthOperation) {
+        let mut instruction_pointer = entry;
         loop {
             match unsafe { instruction_pointer.as_ref() }.unwrap() {
                 ForthOperation::CallAnotherDictionaryEntry(w) => {
