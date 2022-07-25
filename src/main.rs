@@ -831,10 +831,6 @@ fn loop_plus_primitive(env: &mut Environment) {
                 ForthOperation::UnresolvedLeave => {
                     let branch_offset = len - index;
                     let branch_offset = branch_offset as isize;
-                    println!(
-                        "len {} index {} branch offset {}",
-                        len, index, branch_offset
-                    );
                     *item = ForthOperation::BranchOnFalse(branch_offset);
                 }
                 _ => {}
