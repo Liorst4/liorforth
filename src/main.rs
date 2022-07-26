@@ -648,14 +648,11 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         push_double_cell(&mut env.data_stack, x * y);
     }),
     ("fm/mod", |env| {
-        let n = env.data_stack.pop().unwrap();
-        let d = pop_double_cell(&mut env.data_stack).unwrap();
+        let divisor = env.data_stack.pop().unwrap() as DoubleCell;
+        let divided = pop_double_cell(&mut env.data_stack).unwrap();
 
-        let floored_quotient = d / (n as DoubleCell);
-        let floored_quotient = floored_quotient as Cell;
-
-        let remainder = d % (n as DoubleCell);
-        let remainder = remainder as Cell;
+        let floored_quotient = (divided / divisor) as Cell;
+        let remainder = (divided % divisor) as Cell;
 
         env.data_stack.push(remainder);
         env.data_stack.push(floored_quotient);
