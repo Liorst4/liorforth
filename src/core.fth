@@ -111,3 +111,9 @@
   loop
   2drop
 ;
+
+: abs ( n -- n )
+  dup 0 < if
+    negate
+  then
+;
