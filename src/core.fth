@@ -30,6 +30,8 @@
 : ?dup dup dup 0= if drop then ;
 : 2drop drop drop ;
 : 2dup over over ;
+: 2swap rot >r rot >r r> r> ;
+: 2over >r >r 2dup r> r> 2swap ;
 : constant : postpone literal postpone ; ;
 : create here postpone constant ;
 : variable create 0 , ;

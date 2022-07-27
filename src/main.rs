@@ -530,24 +530,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             }
         }
     }),
-    ("2over", |env| {
-        let len = env.data_stack.len();
-        let x = *env.data_stack.get(len - 4).unwrap();
-        let y = *env.data_stack.get(len - 3).unwrap();
-        env.data_stack.push(x);
-        env.data_stack.push(y);
-    }),
-    ("2swap", |env| {
-        let x4 = env.data_stack.pop().unwrap();
-        let x3 = env.data_stack.pop().unwrap();
-        let x2 = env.data_stack.pop().unwrap();
-        let x1 = env.data_stack.pop().unwrap();
-
-        env.data_stack.push(x3);
-        env.data_stack.push(x4);
-        env.data_stack.push(x1);
-        env.data_stack.push(x2);
-    }),
     ("see", |env| {
         let name = env.read_name_from_input_buffer().unwrap();
         see(&env.dictionary, &name);
