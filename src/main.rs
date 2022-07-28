@@ -363,7 +363,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("<", compare_operator_native_word!(<)),
     (">", compare_operator_native_word!(>)),
     (":", |env| {
-        let name = env.read_name_from_input_buffer().unwrap();
+        let name = env.read_name_from_input_buffer().unwrap().to_lowercase();
         env.dictionary.push_front(DictionaryEntry {
             name,
             immediate: false,
