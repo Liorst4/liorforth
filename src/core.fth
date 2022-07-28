@@ -117,3 +117,18 @@
     negate
   then
 ;
+
+: select-compare ( x1 x2 xt -- x1|x2 )
+  >r 2dup r> ( x1 x2 x1 x2 xt )
+  execute if
+  else
+    swap
+  then
+  drop
+;
+: min ( x1 x2 -- x1|x2 )
+  ['] < select-compare
+;
+: max ( x1 x2 -- x1|x2 )
+  ['] > select-compare
+;

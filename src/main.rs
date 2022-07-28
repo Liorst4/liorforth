@@ -257,16 +257,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.data_stack.push(a);
         env.data_stack.push(c);
     }),
-    ("min", |env| {
-        let a = env.data_stack.pop().unwrap();
-        let b = env.data_stack.pop().unwrap();
-        env.data_stack.push(std::cmp::min(a, b));
-    }),
-    ("max", |env| {
-        let a = env.data_stack.pop().unwrap();
-        let b = env.data_stack.pop().unwrap();
-        env.data_stack.push(std::cmp::max(a, b));
-    }),
     ("/mod", |env| {
         let divisor = env.data_stack.pop().unwrap();
         let divided = env.data_stack.pop().unwrap();

@@ -160,6 +160,7 @@ Implemented words:
 		nl
 		see
 		abort-with-message (used for abort")
+		select-compare (used for min and max)
 
 Core words to implement:
 	sm/rem
