@@ -171,6 +171,8 @@ struct Environment<'a> {
     runtime_loops: Vec<LoopState>,
 }
 
+const USUAL_LEADING_DELIMITERS_TO_IGNORE: &[Byte] = &[' ' as Byte, '\t' as Byte];
+
 macro_rules! binary_operator_native_word {
     ($method:tt) => {
         |env| {
@@ -461,7 +463,8 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("align", |env| env.align_data_pointer()),
     ("word", |env| {
         let delimiter = env.data_stack.pop().unwrap();
-        let (offset, length) = env.next_token(true, delimiter as Byte);
+        let (offset, length) =
+            env.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, delimiter as Byte);
         env.parsed_word = encode_counted_string(&env.input_buffer[offset..offset + length]);
         env.data_stack
             .push(unsafe { std::mem::transmute(env.parsed_word.as_ptr()) });
@@ -711,10 +714,10 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
         env.latest_mut().body.push(operation);
     }),
     ("(", |env| {
-        env.next_token(true, ')' as Byte);
+        env.next_token(&[], ')' as Byte);
     }),
     ("s\"", |env| {
-        let (offset, length) = env.next_token(false, '"' as Byte);
+        let (offset, length) = env.next_token(&[], '"' as Byte);
         let string = &env.input_buffer[offset..offset + length];
 
         // Copy to data space
@@ -978,13 +981,13 @@ impl<'a> Environment<'a> {
 
     fn next_token(
         &mut self,
-        skip_leading_delimiters: bool,
+        leading_delimiters: &[Byte],
         delimiter: Byte,
     ) -> (
         usize, /* input buffer offset */
         usize, /* token size */
     ) {
-        if skip_leading_delimiters {
+        if !leading_delimiters.is_empty() {
             'find_first_char: loop {
                 if self.input_buffer_head as usize >= self.input_buffer.len() {
                     return (0, 0);
@@ -999,12 +1002,11 @@ impl<'a> Environment<'a> {
                     return (0, 0);
                 }
 
-                if *self
-                    .input_buffer
-                    .get(self.input_buffer_head as usize)
-                    .unwrap()
-                    != delimiter
-                {
+                if !leading_delimiters.contains(
+                    self.input_buffer
+                        .get(self.input_buffer_head as usize)
+                        .unwrap(),
+                ) {
                     break 'find_first_char;
                 }
 
@@ -1056,7 +1058,8 @@ impl<'a> Environment<'a> {
         }
 
         'empty_input_buffer: loop {
-            let (token_begin, token_size) = self.next_token(true, ' ' as Byte);
+            let (token_begin, token_size) =
+                self.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, ' ' as Byte);
 
             if token_size == 0 {
                 break 'empty_input_buffer;
@@ -1190,7 +1193,8 @@ impl<'a> Environment<'a> {
     }
 
     fn read_name_from_input_buffer(&mut self) -> Option<String> {
-        let (token_offset, token_size) = self.next_token(true, ' ' as Byte);
+        let (token_offset, token_size) =
+            self.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, ' ' as Byte);
         if token_size == 0 {
             return None;
         }
