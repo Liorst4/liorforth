@@ -41,7 +41,7 @@ mod tests {
     }
 
     #[test]
-    fn test_loop() {
+    fn test_do_loop() {
         let code_result_map: Vec<(&str, Vec<Cell>)> = vec![
             (
                 ": test 10 0 do 1 loop ; see test test",
@@ -144,5 +144,77 @@ b";
             let number2 = pop_double_cell(&mut stack).unwrap();
             assert_eq!(number, number2);
         }
+    }
+
+    #[test]
+    fn test_begin_loop() {
+        let code_result_map: Vec<(&str, Vec<Cell>)> = vec![
+            (
+                "
+: test1
+  0
+  begin
+   1+
+   dup 5 > until
+;
+test1
+",
+                vec![6],
+            ),
+            (
+                "
+: test2
+  0
+  begin
+   1+
+   dup 5 > if
+    exit
+   then
+  true while
+  repeat
+;
+test2
+",
+                vec![6],
+            ),
+            (
+                "
+: test3
+  0
+  begin
+   1+
+  dup 5 < while
+   dup
+  repeat
+;
+
+test3
+",
+                vec![1, 2, 3, 4, 5],
+            ),
+            (
+                "
+variable test4-counter
+: should-continue
+  test4-counter @
+  1 +
+  test4-counter !
+  test4-counter @ 5 <
+;
+
+: test4
+  begin
+  0
+  should-continue while
+   drop
+  repeat
+;
+
+test4
+",
+                vec![0],
+            ),
+        ];
+        test_stack_effects(code_result_map.as_slice());
     }
 }
