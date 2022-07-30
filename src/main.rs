@@ -150,13 +150,13 @@ struct LoopState {
     limit: Cell,
 }
 
-struct Environment<'a> {
-    data_space_pointer: std::slice::IterMut<'a, Byte>,
+struct Environment<'data_space_life_time, 'input_buffer_life_time> {
+    data_space_pointer: std::slice::IterMut<'data_space_life_time, Byte>,
 
     data_stack: Vec<Cell>,
     return_stack: Vec<*const ForthOperation>,
 
-    input_buffer: &'a mut [Byte],
+    input_buffer: &'input_buffer_life_time mut [Byte],
     input_buffer_head: Cell,
 
     dictionary: Dictionary,
@@ -940,8 +940,13 @@ fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
     };
 }
 
-impl<'a> Environment<'a> {
-    fn new(data_space: &'a mut [Byte], input_buffer: &'a mut [Byte]) -> Environment<'a> {
+impl<'data_space_life_time, 'input_buffer_life_time>
+    Environment<'data_space_life_time, 'input_buffer_life_time>
+{
+    fn new(
+        data_space: &'data_space_life_time mut [Byte],
+        input_buffer: &'input_buffer_life_time mut [Byte],
+    ) -> Environment<'data_space_life_time, 'input_buffer_life_time> {
         let mut env = Environment {
             data_space_pointer: data_space.iter_mut(),
             data_stack: Vec::new(),
