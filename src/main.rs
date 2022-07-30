@@ -463,9 +463,8 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("align", |env| env.align_data_pointer()),
     ("word", |env| {
         let delimiter = env.data_stack.pop().unwrap();
-        let (offset, length) =
-            env.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, delimiter as Byte);
-        env.parsed_word = encode_counted_string(&env.input_buffer[offset..offset + length]);
+        let token = env.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, delimiter as Byte);
+        env.parsed_word = encode_counted_string(token);
         env.data_stack
             .push(unsafe { std::mem::transmute(env.parsed_word.as_ptr()) });
     }),
@@ -718,13 +717,13 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
         env.next_token(&[], ')' as Byte);
     }),
     ("s\"", |env| {
-        let (offset, length) = env.next_token(&[], '"' as Byte);
-        let string = &env.input_buffer[offset..offset + length];
+        let string = env.next_token(&[], '"' as Byte).to_owned(); // TODO: Possible without copying to heap?
+        let length = string.len();
 
         // Copy to data space
         let data_space_string_address: *const u8 = env.data_space_pointer.as_ref().as_ptr();
         for byte in string {
-            **env.data_space_pointer.nth(0).as_mut().unwrap() = *byte;
+            **env.data_space_pointer.nth(0).as_mut().unwrap() = byte;
         }
 
         if env.compile_mode() {
@@ -980,27 +979,17 @@ impl<'a> Environment<'a> {
         return self.dictionary.front_mut().unwrap();
     }
 
-    fn next_token(
-        &mut self,
-        leading_delimiters: &[Byte],
-        delimiter: Byte,
-    ) -> (
-        usize, /* input buffer offset */
-        usize, /* token size */
-    ) {
+    fn next_token(&mut self, leading_delimiters: &[Byte], delimiter: Byte) -> &[Byte] {
         if !leading_delimiters.is_empty() {
             'find_first_char: loop {
-                if self.input_buffer_head as usize >= self.input_buffer.len() {
-                    return (0, 0);
-                }
-
-                if *self
-                    .input_buffer
-                    .get(self.input_buffer_head as usize)
-                    .unwrap()
-                    == 0
+                if self.input_buffer_head as usize >= self.input_buffer.len()
+                    || *self
+                        .input_buffer
+                        .get(self.input_buffer_head as usize)
+                        .unwrap()
+                        == 0
                 {
-                    return (0, 0);
+                    return &self.input_buffer[0..0];
                 }
 
                 if !leading_delimiters.contains(
@@ -1044,7 +1033,7 @@ impl<'a> Environment<'a> {
             self.input_buffer_head += 1;
         }
 
-        return (token_begin, token_size);
+        return &self.input_buffer[token_begin..token_begin + token_size];
     }
 
     fn interpret_line(&mut self, line: &[Byte]) {
@@ -1059,16 +1048,13 @@ impl<'a> Environment<'a> {
         }
 
         'empty_input_buffer: loop {
-            let (token_begin, token_size) =
-                self.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, ' ' as Byte);
+            let token = self.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, ' ' as Byte);
 
-            if token_size == 0 {
+            if token.len() == 0 {
                 break 'empty_input_buffer;
             }
 
-            let token: String =
-                String::from_utf8_lossy(&self.input_buffer[token_begin..token_begin + token_size])
-                    .to_string();
+            let token: String = String::from_utf8_lossy(token).to_string();
 
             self.handle_token(&token);
         }
@@ -1194,15 +1180,12 @@ impl<'a> Environment<'a> {
     }
 
     fn read_name_from_input_buffer(&mut self) -> Option<String> {
-        let (token_offset, token_size) =
-            self.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, ' ' as Byte);
-        if token_size == 0 {
+        let name = self.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, ' ' as Byte);
+        if name.len() == 0 {
             return None;
         }
 
-        let name =
-            String::from_utf8_lossy(&self.input_buffer[token_offset..(token_offset + token_size)])
-                .to_string();
+        let name = String::from_utf8_lossy(name).to_string();
         return Some(name);
     }
 }
