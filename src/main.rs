@@ -117,6 +117,14 @@ unsafe fn decode_counted_string(src: *const Byte) -> (usize, *const Byte) {
 type Primitive = fn(&mut Environment);
 
 #[derive(Clone)]
+enum UnresolvedOperation {
+    If,
+    Else,
+    While,
+    Leave,
+}
+
+#[derive(Clone)]
 enum ForthOperation {
     PushCellToDataStack(Cell),
     CallAnotherDictionaryEntry(*const DictionaryEntry),
@@ -130,10 +138,7 @@ enum ForthOperation {
     // TODO: Implement as a primitive
     Return,
 
-    UnresolvedIf,
-    UnresolvedElse,
-    UnresolvedWhile,
-    UnresolvedLeave,
+    Unresolved(UnresolvedOperation),
 }
 
 #[derive(Clone)]
@@ -636,14 +641,18 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
         env.currently_compiling = Flag::False as Cell;
     }),
     ("if", |env| {
-        env.latest_mut().body.push(ForthOperation::UnresolvedIf);
+        env.latest_mut()
+            .body
+            .push(ForthOperation::Unresolved(UnresolvedOperation::If));
     }),
     ("else", |env| {
         let unresolved_if_branch_index = env.index_of_last_unresolved_if_or_else().unwrap();
         env.latest_mut()
             .body
             .push(ForthOperation::PushCellToDataStack(Flag::False as Cell));
-        env.latest_mut().body.push(ForthOperation::UnresolvedElse);
+        env.latest_mut()
+            .body
+            .push(ForthOperation::Unresolved(UnresolvedOperation::Else));
         let branch_offset = env.latest().body.len() - unresolved_if_branch_index;
         let unresolved_branch: &mut ForthOperation = env
             .latest_mut()
@@ -673,7 +682,9 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
             .push(ForthOperation::BranchOnFalse(branch_offset));
     }),
     ("while", |env| {
-        env.latest_mut().body.push(ForthOperation::UnresolvedWhile);
+        env.latest_mut()
+            .body
+            .push(ForthOperation::Unresolved(UnresolvedOperation::While));
     }),
     ("repeat", |env| {
         let begin_index = env.control_flow_stack.pop().unwrap();
@@ -749,7 +760,7 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
         env.latest_mut().body.append(&mut vec![
             ForthOperation::CallPrimitive(unloop_primitive),
             ForthOperation::PushCellToDataStack(Flag::False as Cell),
-            ForthOperation::UnresolvedLeave,
+            ForthOperation::Unresolved(UnresolvedOperation::Leave),
         ]);
     }),
     ("+loop", loop_plus_primitive),
@@ -796,7 +807,7 @@ fn loop_plus_primitive(env: &mut Environment) {
         for index in do_index..env.latest().body.len() {
             let item = env.latest_mut().body.get_mut(index).unwrap();
             match item {
-                ForthOperation::UnresolvedLeave => {
+                ForthOperation::Unresolved(UnresolvedOperation::Leave) => {
                     let branch_offset = len - index;
                     let branch_offset = branch_offset as isize;
                     *item = ForthOperation::BranchOnFalse(branch_offset);
@@ -857,10 +868,7 @@ fn see(dict: &Dictionary, name: &str) {
                 print!("PRIM\t${:x}", primitive);
             }
             ForthOperation::Return => print!("RTN"),
-            ForthOperation::UnresolvedWhile
-            | ForthOperation::UnresolvedIf
-            | ForthOperation::UnresolvedElse
-            | ForthOperation::UnresolvedLeave => panic!("Unresolved entry!"),
+            ForthOperation::Unresolved(_) => panic!("Unresolved entry!"),
         }
         println!("");
     }
@@ -1128,10 +1136,7 @@ impl<'data_space_life_time, 'input_buffer_life_time>
                         break; // Nothing left to execute
                     }
                 },
-                ForthOperation::UnresolvedWhile
-                | ForthOperation::UnresolvedIf
-                | ForthOperation::UnresolvedElse
-                | ForthOperation::UnresolvedLeave => {
+                ForthOperation::Unresolved(_) => {
                     panic!("Unresolved branch!")
                 }
             }
@@ -1161,14 +1166,14 @@ impl<'data_space_life_time, 'input_buffer_life_time>
 
     fn index_of_last_unresolved_if_or_else(&self) -> Option<usize> {
         return self.reverse_find_in_latest(|item| match item {
-            ForthOperation::UnresolvedIf | ForthOperation::UnresolvedElse => true,
+            ForthOperation::Unresolved(UnresolvedOperation::If | UnresolvedOperation::Else) => true,
             _ => false,
         });
     }
 
     fn index_of_last_unresolved_while(&self) -> Option<usize> {
         return self.reverse_find_in_latest(|item| match item {
-            ForthOperation::UnresolvedWhile => true,
+            ForthOperation::Unresolved(UnresolvedOperation::While) => true,
             _ => false,
         });
     }
