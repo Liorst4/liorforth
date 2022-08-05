@@ -44,10 +44,9 @@ type DoubleCell = i32;
 type DoubleCell = i16;
 
 type EncodedDoubleCell = [Cell; 2];
-type CellBytes = [u8; std::mem::size_of::<Cell>()];
-type DoubleCellBytes = [u8; std::mem::size_of::<DoubleCell>()];
 
 fn encode_double_cell(value: DoubleCell) -> EncodedDoubleCell {
+    type CellBytes = [u8; std::mem::size_of::<Cell>()];
     let mut first = CellBytes::default();
     let mut second = CellBytes::default();
 
@@ -63,6 +62,7 @@ fn encode_double_cell(value: DoubleCell) -> EncodedDoubleCell {
 }
 
 fn decode_double_cell(encoded: EncodedDoubleCell) -> DoubleCell {
+    type DoubleCellBytes = [u8; std::mem::size_of::<DoubleCell>()];
     let mut result_bytes = DoubleCellBytes::default();
     let first = encoded.get(0).unwrap().to_ne_bytes();
     let second = encoded.get(1).unwrap().to_ne_bytes();
