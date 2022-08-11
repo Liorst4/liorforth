@@ -43,63 +43,19 @@ type DoubleCell = i32;
 #[cfg(target_pointer_width = "8")]
 type DoubleCell = i16;
 
-type EncodedDoubleCell = [Cell; 2];
-
-fn encode_double_cell(value: DoubleCell) -> EncodedDoubleCell {
-    type CellBytes = [u8; std::mem::size_of::<Cell>()];
-    let mut first = CellBytes::default();
-    let mut second = CellBytes::default();
-
-    let value_bytes = value.to_ne_bytes();
-    let src_iter = value_bytes.iter();
-    let dst_iter = first.iter_mut().chain(second.iter_mut());
-
-    for (src, dst) in std::iter::zip(src_iter, dst_iter) {
-        *dst = *src;
-    }
-
-    return [Cell::from_ne_bytes(first), Cell::from_ne_bytes(second)];
+fn push_double_cell(stack: &mut Vec<Cell>, value: DoubleCell) {
+    let cells: &[Cell; 2] = unsafe { std::mem::transmute(&value) };
+    stack.extend_from_slice(cells);
 }
 
-fn decode_double_cell(encoded: EncodedDoubleCell) -> DoubleCell {
-    type DoubleCellBytes = [u8; std::mem::size_of::<DoubleCell>()];
-    let mut result_bytes = DoubleCellBytes::default();
-    let first = encoded.get(0).unwrap().to_ne_bytes();
-    let second = encoded.get(1).unwrap().to_ne_bytes();
-
-    let src_iter = first.iter().chain(second.iter());
-    let dst_iter = result_bytes.iter_mut();
-
-    for (src, dst) in std::iter::zip(src_iter, dst_iter) {
-        *dst = *src;
-    }
-
-    return DoubleCell::from_ne_bytes(result_bytes);
-}
-
-fn push_encoded_double_cell(stack: &mut Vec<Cell>, value: EncodedDoubleCell) {
-    stack.push(*value.get(0).unwrap());
-    stack.push(*value.get(1).unwrap());
-}
-
-fn pop_encoded_double_cell(stack: &mut Vec<Cell>) -> Option<EncodedDoubleCell> {
+fn pop_double_cell(stack: &mut Vec<Cell>) -> Option<DoubleCell> {
     if stack.len() < 2 {
         return None;
     }
 
-    let mut result = EncodedDoubleCell::default();
-    *result.get_mut(1).unwrap() = stack.pop().unwrap();
-    *result.get_mut(0).unwrap() = stack.pop().unwrap();
-
+    let result = *unsafe { std::mem::transmute::<&Cell, &DoubleCell>(&stack[stack.len() - 2]) };
+    stack.resize(stack.len() - 2, 0);
     return Some(result);
-}
-
-fn push_double_cell(stack: &mut Vec<Cell>, value: DoubleCell) {
-    push_encoded_double_cell(stack, encode_double_cell(value))
-}
-
-fn pop_double_cell(stack: &mut Vec<Cell>) -> Option<DoubleCell> {
-    pop_encoded_double_cell(stack).map(decode_double_cell)
 }
 
 type Byte = u8;

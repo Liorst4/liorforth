@@ -137,8 +137,6 @@ b";
             0x1122334455,
         ];
         for number in numbers {
-            assert_eq!(number, decode_double_cell(encode_double_cell(number)));
-
             let mut stack = Vec::new();
             push_double_cell(&mut stack, number);
             let number2 = pop_double_cell(&mut stack).unwrap();
