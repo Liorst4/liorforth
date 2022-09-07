@@ -215,4 +215,33 @@ test4
         ];
         test_stack_effects(code_result_map.as_slice());
     }
+
+    #[test]
+    fn test_does() {
+        let script = "
+: <= ( n n -- f ) 2dup = rot rot < or ;
+: array create allot does> + ;
+10 array thing
+
+0 thing
+1 thing
+2 thing
+3 thing
+";
+
+        let mut data_space = [0; 10 * 1024];
+        let mut input_buffer = [0; 1024];
+        let mut environment = Environment::new(&mut data_space, &mut input_buffer);
+
+        for line in script.lines() {
+            environment.interpret_line(line.as_bytes());
+        }
+
+        let first = *environment.data_stack.get(0).unwrap();
+        for i in environment.data_stack.iter_mut() {
+            *i -= first;
+        }
+
+        assert_eq!(environment.data_stack, vec![0, 1, 2, 3]);
+    }
 }
