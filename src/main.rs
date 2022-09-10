@@ -878,8 +878,7 @@ fn initial_dictionary() -> Dictionary {
     return std::collections::LinkedList::from_iter(entries);
 }
 
-const CORE_WORDS_INIT: &str = include_str!("core.fth");
-const TOOLS_WORDS_INIT: &str = include_str!("tools.fth");
+const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
     if word.is_empty() {
@@ -925,11 +924,7 @@ impl<'data_space_life_time, 'input_buffer_life_time>
             runtime_loops: Default::default(),
         };
 
-        for line in CORE_WORDS_INIT.lines() {
-            env.interpret_line(line.as_bytes());
-        }
-
-        for line in TOOLS_WORDS_INIT.lines() {
+        for line in FORTH_RUNTIME_INIT.lines() {
             env.interpret_line(line.as_bytes());
         }
 
