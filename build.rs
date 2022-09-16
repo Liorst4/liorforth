@@ -54,6 +54,8 @@ fn concat_files(paths: &[std::path::PathBuf]) -> String {
 }
 
 fn main() {
+    // TODO: Re-run when new fth files are added to the project
+
     let mut fth_files = find_forth_runtime_sources();
     fth_files.sort_by(|a, b| forth_runtime_priority(a).cmp(&forth_runtime_priority(b)));
 
