@@ -192,4 +192,9 @@ What's next:
        Floating point word set
        Exception word set
 
+       Image system:
+       	     Save and load the state of the current running program from disk.
+	     Textual image format, for version control!
+
+       Debugger
        FFI
