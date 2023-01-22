@@ -70,8 +70,10 @@ unsafe fn decode_counted_string(src: *const Byte) -> (usize, *const Byte) {
     return (*src as usize, src.add(1));
 }
 
+/// Native code to execute from the forth environment
 type Primitive = fn(&mut Environment);
 
+/// Used when compiling conditionals and loops
 #[derive(Clone)]
 enum UnresolvedOperation {
     If,
@@ -94,13 +96,19 @@ enum ForthOperation {
     // TODO: Implement as a primitive
     Return,
 
+    /// Used when compiling conditionals and loops
     Unresolved(UnresolvedOperation),
 }
 
+/// A forth word
 #[derive(Clone)]
 struct DictionaryEntry {
     name: String,
+
+    /// Execute word during compilation
     immediate: bool,
+
+    /// Operations to perform when executing
     body: Vec<ForthOperation>,
 }
 
