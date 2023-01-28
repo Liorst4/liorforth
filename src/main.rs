@@ -60,10 +60,9 @@ fn pop_double_cell(stack: &mut Vec<Cell>) -> Option<DoubleCell> {
 
 type Byte = u8;
 
-fn encode_counted_string(src: &[Byte]) -> Vec<Byte> {
-    let mut result = src.to_vec();
-    result.insert(0, src.len() as Byte);
-    return result;
+fn encode_counted_string(src: &[Byte], dst: &mut [Byte]) {
+    dst[0] = src.len() as Byte;
+    dst[1..][..src.len()].copy_from_slice(src);
 }
 
 unsafe fn decode_counted_string(src: *const Byte) -> (usize, *const Byte) {
@@ -135,7 +134,7 @@ struct Environment<'a> {
     currently_compiling: Cell,
     control_flow_stack: Vec<usize>,
 
-    parsed_word: Vec<Byte>,
+    parsed_word: &'a mut [Byte],
 
     runtime_loops: Vec<LoopState>,
 }
@@ -433,7 +432,8 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("word", |env| {
         let delimiter = env.data_stack.pop().unwrap();
         let token = env.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, delimiter as Byte);
-        env.parsed_word = encode_counted_string(token);
+        let token = token.to_owned(); // TODO: Copy into stack instead of heap (use alloca?)
+        encode_counted_string(&token, env.parsed_word);
         env.data_stack
             .push(unsafe { std::mem::transmute(env.parsed_word.as_ptr()) });
     }),
@@ -912,7 +912,11 @@ fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
 }
 
 impl<'a> Environment<'a> {
-    fn new(data_space: &'a mut [Byte], input_buffer: &'a mut [Byte]) -> Environment<'a> {
+    fn new(
+        data_space: &'a mut [Byte],
+        input_buffer: &'a mut [Byte],
+        parsed_word_buffer: &'a mut [Byte],
+    ) -> Environment<'a> {
         let mut env = Environment {
             data_space_pointer: data_space.iter_mut(),
             data_stack: Vec::new(),
@@ -923,7 +927,7 @@ impl<'a> Environment<'a> {
             base: 10,
             currently_compiling: Flag::False as Cell,
             control_flow_stack: Vec::new(),
-            parsed_word: Default::default(),
+            parsed_word: parsed_word_buffer,
             runtime_loops: Default::default(),
         };
 
@@ -1157,7 +1161,9 @@ impl<'a> Environment<'a> {
 fn main() {
     let mut data_space = [0; 10 * 1024];
     let mut input_buffer = [0; 1024];
-    let mut environment = Environment::new(&mut data_space, &mut input_buffer);
+    let mut parsed_word_buffer = [0; 100];
+    let mut environment =
+        Environment::new(&mut data_space, &mut input_buffer, &mut parsed_word_buffer);
     loop {
         let mut line_buffer = String::new();
         std::io::stdin().read_line(&mut line_buffer).unwrap();

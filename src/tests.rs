@@ -6,7 +6,9 @@ mod tests {
     fn initialization() {
         let mut data_space = [0; 10 * 1024];
         let mut input_buffer = [0; 1024];
-        let mut _environment = Environment::new(&mut data_space, &mut input_buffer);
+        let mut parsed_word_buffer = [0; 100];
+        let mut _environment =
+            Environment::new(&mut data_space, &mut input_buffer, &mut parsed_word_buffer);
     }
 
     fn test_stack_effect(code: &str, env: &mut Environment, expected_result: Vec<Cell>) {
@@ -23,7 +25,9 @@ mod tests {
         for (code, expected_result) in code_and_effects {
             let mut data_space = [0; 10 * 1024];
             let mut input_buffer = [0; 1024];
-            let mut environment = Environment::new(&mut data_space, &mut input_buffer);
+            let mut parsed_word_buffer = [0; 100];
+            let mut environment =
+                Environment::new(&mut data_space, &mut input_buffer, &mut parsed_word_buffer);
             test_stack_effect(code, &mut environment, expected_result.clone());
         }
     }
@@ -87,7 +91,9 @@ test-leave
     fn return_stack_sanity() {
         let mut data_space = [0; 10 * 1024];
         let mut input_buffer = [0; 1024];
-        let mut environment = Environment::new(&mut data_space, &mut input_buffer);
+        let mut parsed_word_buffer = [0; 100];
+        let mut environment =
+            Environment::new(&mut data_space, &mut input_buffer, &mut parsed_word_buffer);
 
         let script = "
 : a r> dup >r ;
@@ -231,7 +237,9 @@ test4
 
         let mut data_space = [0; 10 * 1024];
         let mut input_buffer = [0; 1024];
-        let mut environment = Environment::new(&mut data_space, &mut input_buffer);
+        let mut parsed_word_buffer = [0; 100];
+        let mut environment =
+            Environment::new(&mut data_space, &mut input_buffer, &mut parsed_word_buffer);
 
         for line in script.lines() {
             environment.interpret_line(line.as_bytes());
