@@ -1158,12 +1158,21 @@ impl<'a> Environment<'a> {
     }
 }
 
+/// Create a forth environment with stack buffers
+macro_rules! fixed_sized_buffers_environment {
+    ($name:ident, $data_space_size:expr, $input_buffer_size:expr, $parsed_word_buffer_size:expr) => {
+        // TODO: Unique identifiers for these buffers
+        let mut data_space = [0; $data_space_size];
+        let mut input_buffer = [0; $input_buffer_size];
+        let mut parsed_word_buffer = [0; $parsed_word_buffer_size];
+
+        let mut $name =
+            Environment::new(&mut data_space, &mut input_buffer, &mut parsed_word_buffer);
+    };
+}
+
 fn main() {
-    let mut data_space = [0; 10 * 1024];
-    let mut input_buffer = [0; 1024];
-    let mut parsed_word_buffer = [0; 100];
-    let mut environment =
-        Environment::new(&mut data_space, &mut input_buffer, &mut parsed_word_buffer);
+    fixed_sized_buffers_environment!(environment, 10 * 1024, 1024, 100);
     loop {
         let mut line_buffer = String::new();
         std::io::stdin().read_line(&mut line_buffer).unwrap();

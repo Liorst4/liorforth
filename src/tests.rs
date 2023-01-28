@@ -4,11 +4,7 @@ mod tests {
 
     #[test]
     fn initialization() {
-        let mut data_space = [0; 10 * 1024];
-        let mut input_buffer = [0; 1024];
-        let mut parsed_word_buffer = [0; 100];
-        let mut _environment =
-            Environment::new(&mut data_space, &mut input_buffer, &mut parsed_word_buffer);
+        fixed_sized_buffers_environment!(_environment, 10 * 1024, 1024, 100);
     }
 
     fn test_stack_effect(code: &str, env: &mut Environment, expected_result: Vec<Cell>) {
@@ -23,11 +19,7 @@ mod tests {
 
     fn test_stack_effects(code_and_effects: &[(&str, Vec<Cell>)]) {
         for (code, expected_result) in code_and_effects {
-            let mut data_space = [0; 10 * 1024];
-            let mut input_buffer = [0; 1024];
-            let mut parsed_word_buffer = [0; 100];
-            let mut environment =
-                Environment::new(&mut data_space, &mut input_buffer, &mut parsed_word_buffer);
+            fixed_sized_buffers_environment!(environment, 10 * 1024, 1024, 100);
             test_stack_effect(code, &mut environment, expected_result.clone());
         }
     }
@@ -89,11 +81,7 @@ test-leave
 
     #[test]
     fn return_stack_sanity() {
-        let mut data_space = [0; 10 * 1024];
-        let mut input_buffer = [0; 1024];
-        let mut parsed_word_buffer = [0; 100];
-        let mut environment =
-            Environment::new(&mut data_space, &mut input_buffer, &mut parsed_word_buffer);
+        fixed_sized_buffers_environment!(environment, 10 * 1024, 1024, 100);
 
         let script = "
 : a r> dup >r ;
@@ -235,11 +223,7 @@ test4
 3 thing
 ";
 
-        let mut data_space = [0; 10 * 1024];
-        let mut input_buffer = [0; 1024];
-        let mut parsed_word_buffer = [0; 100];
-        let mut environment =
-            Environment::new(&mut data_space, &mut input_buffer, &mut parsed_word_buffer);
+        fixed_sized_buffers_environment!(environment, 10 * 1024, 1024, 100);
 
         for line in script.lines() {
             environment.interpret_line(line.as_bytes());
