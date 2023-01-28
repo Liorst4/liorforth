@@ -7,5 +7,10 @@ edition = "2021"
 
 [dependencies]
 
-[profile.release]
+[profile.small]
+inherits = "release"
 opt-level = "s"
+strip = "symbols"
+panic = "abort"
+lto = true
+codegen-units = 1
