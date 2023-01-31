@@ -1171,8 +1171,15 @@ macro_rules! fixed_sized_buffers_environment {
     };
 }
 
+/// Create a static environment
+macro_rules! default_fixed_sized_environment {
+    ($name:ident) => {
+        fixed_sized_buffers_environment!($name, 10 * 1024, 1024, 100)
+    };
+}
+
 fn main() {
-    fixed_sized_buffers_environment!(environment, 10 * 1024, 1024, 100);
+    default_fixed_sized_environment!(environment);
     loop {
         let mut line_buffer = String::new();
         std::io::stdin().read_line(&mut line_buffer).unwrap();

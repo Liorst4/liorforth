@@ -4,7 +4,7 @@ mod tests {
 
     #[test]
     fn initialization() {
-        fixed_sized_buffers_environment!(_environment, 10 * 1024, 1024, 100);
+        default_fixed_sized_environment!(_environment);
     }
 
     fn test_stack_effect(code: &str, env: &mut Environment, expected_result: Vec<Cell>) {
@@ -19,7 +19,7 @@ mod tests {
 
     fn test_stack_effects(code_and_effects: &[(&str, Vec<Cell>)]) {
         for (code, expected_result) in code_and_effects {
-            fixed_sized_buffers_environment!(environment, 10 * 1024, 1024, 100);
+            default_fixed_sized_environment!(environment);
             test_stack_effect(code, &mut environment, expected_result.clone());
         }
     }
@@ -81,7 +81,7 @@ test-leave
 
     #[test]
     fn return_stack_sanity() {
-        fixed_sized_buffers_environment!(environment, 10 * 1024, 1024, 100);
+        default_fixed_sized_environment!(environment);
 
         let script = "
 : a r> dup >r ;
@@ -223,7 +223,7 @@ test4
 3 thing
 ";
 
-        fixed_sized_buffers_environment!(environment, 10 * 1024, 1024, 100);
+        default_fixed_sized_environment!(environment);
 
         for line in script.lines() {
             environment.interpret_line(line.as_bytes());
