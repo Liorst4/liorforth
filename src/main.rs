@@ -173,7 +173,6 @@ enum ForthOperation {
 }
 
 /// A forth word
-#[derive(Clone)]
 struct DictionaryEntry {
     name: String,
 
