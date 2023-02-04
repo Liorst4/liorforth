@@ -43,19 +43,92 @@ type DoubleCell = i32;
 #[cfg(target_pointer_width = "8")]
 type DoubleCell = i16;
 
-fn push_double_cell(stack: &mut Vec<Cell>, value: DoubleCell) {
-    let cells: &[Cell; 2] = unsafe { std::mem::transmute(&value) };
-    stack.extend_from_slice(cells);
+struct Stack<'a, T>
+where
+    T: Copy,
+{
+    head: usize,
+    data: &'a mut [T],
 }
 
-fn pop_double_cell(stack: &mut Vec<Cell>) -> Option<DoubleCell> {
-    if stack.len() < 2 {
-        return None;
+#[derive(Debug)]
+enum StackError {
+    Overflow,
+    Underflow,
+}
+
+impl<'a, T> Stack<'a, T>
+where
+    T: Copy,
+{
+    fn new(data: &'a mut [T]) -> Stack<'a, T> {
+        Stack { head: 0, data }
     }
 
-    let result = *unsafe { std::mem::transmute::<&Cell, &DoubleCell>(&stack[stack.len() - 2]) };
-    stack.resize(stack.len() - 2, 0);
-    return Some(result);
+    fn push(&mut self, x: T) -> Result<(), StackError> {
+        if self.head + 1 >= self.data.len() {
+            return Err(StackError::Overflow);
+        }
+
+        self.data[self.head] = x;
+        self.head += 1;
+        return Ok(());
+    }
+
+    fn pop(&mut self) -> Result<T, StackError> {
+        if self.head == 0 {
+            return Err(StackError::Underflow);
+        }
+
+        let result = self.data[self.head - 1];
+        self.head -= 1;
+        return Ok(result);
+    }
+
+    fn last(&self) -> Option<&T> {
+        if self.head == 0 {
+            return None;
+        }
+
+        return Some(&self.data[self.head - 1]);
+    }
+
+    fn len(&self) -> usize {
+        return self.head;
+    }
+
+    fn clear(&mut self) {
+        self.head = 0;
+    }
+
+    #[allow(unused)]
+    fn is_empty(&self) -> bool {
+        self.head == 0
+    }
+}
+
+fn push_double_cell(stack: &mut Stack<Cell>, value: DoubleCell) -> Result<(), StackError> {
+    let cells: &[Cell; 2] = unsafe { std::mem::transmute(&value) };
+    stack.push(cells[0])?;
+    return match stack.push(cells[1]) {
+        Ok(_) => Ok(()),
+        Err(error) => {
+            stack.pop().unwrap();
+            Err(error)
+        }
+    };
+}
+
+fn pop_double_cell(stack: &mut Stack<Cell>) -> Result<DoubleCell, StackError> {
+    if stack.len() < 2 {
+        return Err(StackError::Underflow);
+    }
+
+    let result =
+        *unsafe { std::mem::transmute::<&Cell, &DoubleCell>(&stack.data[stack.len() - 2]) };
+    stack.pop().unwrap();
+    stack.pop().unwrap();
+    return Ok(result);
 }
 
 type Byte = u8;
@@ -113,6 +186,7 @@ struct DictionaryEntry {
 
 type Dictionary = std::collections::LinkedList<DictionaryEntry>;
 
+#[derive(Copy, Clone, Default)]
 struct LoopState {
     iteration_index: Cell,
     limit: Cell,
@@ -121,8 +195,8 @@ struct LoopState {
 struct Environment<'a> {
     data_space_pointer: std::slice::IterMut<'a, Byte>,
 
-    data_stack: Vec<Cell>,
-    return_stack: Vec<*const ForthOperation>,
+    data_stack: Stack<'a, Cell>,
+    return_stack: Stack<'a, *const ForthOperation>,
 
     input_buffer: &'a mut [Byte],
     input_buffer_head: Cell,
@@ -132,11 +206,11 @@ struct Environment<'a> {
     base: Cell,
 
     currently_compiling: Cell,
-    control_flow_stack: Vec<usize>,
+    control_flow_stack: Stack<'a, usize>,
 
     parsed_word: &'a mut [Byte],
 
-    runtime_loops: Vec<LoopState>,
+    runtime_loops: Stack<'a, LoopState>,
 }
 
 const USUAL_LEADING_DELIMITERS_TO_IGNORE: &[Byte] = &[' ' as Byte, '\t' as Byte];
@@ -147,7 +221,7 @@ macro_rules! binary_operator_native_word {
             let b = env.data_stack.pop().unwrap();
             let a = env.data_stack.pop().unwrap();
             let c = a.$method(b);
-            env.data_stack.push(c);
+            env.data_stack.push(c).unwrap();
         }
     };
 }
@@ -157,7 +231,7 @@ macro_rules! unary_operator_native_word {
 	|env| {
             let a = env.data_stack.pop().unwrap();
 	    let b = $operator a;
-            env.data_stack.push(b);
+            env.data_stack.push(b).unwrap();
 	}
     }
 }
@@ -169,7 +243,7 @@ macro_rules! compare_operator_native_word {
             let a = env.data_stack.pop().unwrap();
             let c = a $operator b;
 	    let f : Flag = c.into();
-            env.data_stack.push(f as Cell);
+            env.data_stack.push(f as Cell).unwrap();
 	}
     }
 }
@@ -185,7 +259,7 @@ const CONSTANT_PRIMITIVES: &[(&str, Cell)] = &[
 const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     (".s", |env| {
         print!("<{}> ", env.data_stack.len());
-        for i in env.data_stack.iter() {
+        for i in env.data_stack.data.iter() {
             env.print_number(*i);
         }
     }),
@@ -197,7 +271,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     }),
     ("dup", |env| {
         let x = *env.data_stack.last().unwrap();
-        env.data_stack.push(x)
+        env.data_stack.push(x).unwrap()
     }),
     ("drop", |env| {
         env.data_stack.pop().unwrap();
@@ -209,31 +283,31 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("swap", |env| {
         let a = env.data_stack.pop().unwrap();
         let b = env.data_stack.pop().unwrap();
-        env.data_stack.push(a);
-        env.data_stack.push(b);
+        env.data_stack.push(a).unwrap();
+        env.data_stack.push(b).unwrap();
     }),
     ("over", |env| {
         let a = env.data_stack.pop().unwrap();
         let b = env.data_stack.pop().unwrap();
-        env.data_stack.push(b);
-        env.data_stack.push(a);
-        env.data_stack.push(b);
+        env.data_stack.push(b).unwrap();
+        env.data_stack.push(a).unwrap();
+        env.data_stack.push(b).unwrap();
     }),
     ("rot", |env| {
         let a = env.data_stack.pop().unwrap();
         let b = env.data_stack.pop().unwrap();
         let c = env.data_stack.pop().unwrap();
-        env.data_stack.push(b);
-        env.data_stack.push(a);
-        env.data_stack.push(c);
+        env.data_stack.push(b).unwrap();
+        env.data_stack.push(a).unwrap();
+        env.data_stack.push(c).unwrap();
     }),
     ("/mod", |env| {
         let divisor = env.data_stack.pop().unwrap();
         let divided = env.data_stack.pop().unwrap();
         let remainder = divided % divisor;
         let quotient = divided / divisor; // TODO: Handle 0?
-        env.data_stack.push(remainder);
-        env.data_stack.push(quotient);
+        env.data_stack.push(remainder).unwrap();
+        env.data_stack.push(quotient).unwrap();
     }),
     ("*/", |env| {
         let n3 = env.data_stack.pop().unwrap();
@@ -243,7 +317,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let double_mul_result: DoubleCell = (n1 as DoubleCell) * (n2 as DoubleCell);
         let double_div_result: DoubleCell = double_mul_result / (n3 as DoubleCell);
         let result: Cell = double_div_result.try_into().unwrap();
-        env.data_stack.push(result);
+        env.data_stack.push(result).unwrap();
     }),
     ("*/mod", |env| {
         let n3 = env.data_stack.pop().unwrap();
@@ -255,12 +329,14 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let double_mod_result: DoubleCell = double_mul_result % (n3 as DoubleCell);
         let n4: Cell = double_mod_result.try_into().unwrap();
         let n5: Cell = double_div_result.try_into().unwrap();
-        env.data_stack.push(n4);
-        env.data_stack.push(n5);
+        env.data_stack.push(n4).unwrap();
+        env.data_stack.push(n5).unwrap();
     }),
     ("here", |env| {
         let address: *const Byte = env.data_space_pointer.as_ref().as_ptr();
-        env.data_stack.push(unsafe { std::mem::transmute(address) });
+        env.data_stack
+            .push(unsafe { std::mem::transmute(address) })
+            .unwrap();
     }),
     ("allot", |env| {
         let n = env.data_stack.pop().unwrap();
@@ -279,7 +355,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             address = std::mem::transmute(n);
             data = *address;
         }
-        env.data_stack.push(data);
+        env.data_stack.push(data).unwrap();
     }),
     ("!", |env| {
         let n = env.data_stack.pop().unwrap();
@@ -298,7 +374,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             address = std::mem::transmute(n);
             data = *address;
         }
-        env.data_stack.push(data as Cell);
+        env.data_stack.push(data as Cell).unwrap();
     }),
     ("c!", |env| {
         let n = env.data_stack.pop().unwrap();
@@ -316,7 +392,8 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     }),
     ("base", |env| {
         env.data_stack
-            .push(unsafe { std::mem::transmute(&env.base) });
+            .push(unsafe { std::mem::transmute(&env.base) })
+            .unwrap();
     }),
     ("+", binary_operator_native_word!(wrapping_add)),
     ("-", binary_operator_native_word!(wrapping_sub)),
@@ -346,27 +423,30 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
 
         let from_return_stack = env.return_stack.pop().unwrap();
         env.data_stack
-            .push(unsafe { std::mem::transmute(from_return_stack) });
+            .push(unsafe { std::mem::transmute(from_return_stack) })
+            .unwrap();
 
-        env.return_stack.push(calling_word_return_address);
+        env.return_stack.push(calling_word_return_address).unwrap();
     }),
     (">r", |env| {
         let calling_word_return_address = env.return_stack.pop().unwrap();
 
         let from_data_stack = env.data_stack.pop().unwrap();
         env.return_stack
-            .push(unsafe { std::mem::transmute(from_data_stack) });
+            .push(unsafe { std::mem::transmute(from_data_stack) })
+            .unwrap();
 
-        env.return_stack.push(calling_word_return_address);
+        env.return_stack.push(calling_word_return_address).unwrap();
     }),
     ("r@", |env| {
         let calling_word_return_address = env.return_stack.pop().unwrap();
 
         let from_return_stack = env.return_stack.last().unwrap().clone();
         env.data_stack
-            .push(unsafe { std::mem::transmute(from_return_stack) });
+            .push(unsafe { std::mem::transmute(from_return_stack) })
+            .unwrap();
 
-        env.return_stack.push(calling_word_return_address);
+        env.return_stack.push(calling_word_return_address).unwrap();
     }),
     ("u.", |env| {
         let s = env.data_stack.pop().unwrap();
@@ -380,7 +460,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let u1 = s1 as usize;
         let result: bool = u1 < u2;
         let result: Flag = result.into();
-        env.data_stack.push(result as Cell);
+        env.data_stack.push(result as Cell).unwrap();
     }),
     ("move", |env| {
         let length = env.data_stack.pop().unwrap() as usize;
@@ -394,7 +474,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         dest.copy_from_slice(src);
     }),
     ("depth", |env| {
-        env.data_stack.push(env.data_stack.len() as Cell);
+        env.data_stack.push(env.data_stack.len() as Cell).unwrap();
     }),
     ("quit", |env| {
         env.return_stack.clear();
@@ -402,11 +482,11 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     }),
     (">in", |env| {
         let address: Cell = unsafe { std::mem::transmute(&env.input_buffer_head) };
-        env.data_stack.push(address);
+        env.data_stack.push(address).unwrap();
     }),
     ("state", |env| {
         let address: Cell = unsafe { std::mem::transmute(&env.currently_compiling) };
-        env.data_stack.push(address);
+        env.data_stack.push(address).unwrap();
     }),
     ("source", |env| {
         let address: Cell = unsafe { std::mem::transmute(env.input_buffer.as_ptr()) };
@@ -422,8 +502,8 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             }
             size += 1;
         }
-        env.data_stack.push(address);
-        env.data_stack.push(size);
+        env.data_stack.push(address).unwrap();
+        env.data_stack.push(size).unwrap();
     }),
     ("immediate", |env| {
         env.latest_mut().immediate = true;
@@ -435,19 +515,24 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let token = token.to_owned(); // TODO: Copy into stack instead of heap (use alloca?)
         encode_counted_string(&token, env.parsed_word);
         env.data_stack
-            .push(unsafe { std::mem::transmute(env.parsed_word.as_ptr()) });
+            .push(unsafe { std::mem::transmute(env.parsed_word.as_ptr()) })
+            .unwrap();
     }),
     ("count", |env| {
         let address = env.data_stack.pop().unwrap();
         let address: *const u8 = unsafe { std::mem::transmute(address) };
         let (count, start) = unsafe { decode_counted_string(address) };
-        env.data_stack.push(unsafe { std::mem::transmute(start) });
-        env.data_stack.push(count as Cell);
+        env.data_stack
+            .push(unsafe { std::mem::transmute(start) })
+            .unwrap();
+        env.data_stack.push(count as Cell).unwrap();
     }),
     ("'", |env| {
         let name = env.read_name_from_input_buffer().unwrap();
         let entry = search_dictionary(&env.dictionary, &name).unwrap();
-        env.data_stack.push(unsafe { std::mem::transmute(entry) });
+        env.data_stack
+            .push(unsafe { std::mem::transmute(entry) })
+            .unwrap();
     }),
     ("execute", |env| {
         let entry = env.data_stack.pop().unwrap();
@@ -460,7 +545,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let entry: *const DictionaryEntry = unsafe { std::mem::transmute(entry) };
         let entry = unsafe { entry.as_ref() }.unwrap();
         match entry.body.get(0).unwrap() {
-            ForthOperation::PushCellToDataStack(result) => env.data_stack.push(*result),
+            ForthOperation::PushCellToDataStack(result) => env.data_stack.push(*result).unwrap(),
             _ => panic!("Invalid argument given to >body"),
         }
     }),
@@ -472,18 +557,20 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let name = String::from_utf8_lossy(name).to_string();
         match search_dictionary(&env.dictionary, &name) {
             Some(entry) => {
-                env.data_stack.push(unsafe { std::mem::transmute(entry) });
+                env.data_stack
+                    .push(unsafe { std::mem::transmute(entry) })
+                    .unwrap();
                 let immediate;
                 if entry.immediate {
                     immediate = 1;
                 } else {
                     immediate = -1;
                 }
-                env.data_stack.push(immediate);
+                env.data_stack.push(immediate).unwrap();
             }
             _ => {
-                env.data_stack.push(name_conuted_string);
-                env.data_stack.push(0);
+                env.data_stack.push(name_conuted_string).unwrap();
+                env.data_stack.push(0).unwrap();
             }
         }
     }),
@@ -512,26 +599,28 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         // TODO: MAX-UD
 
         if string == "/COUNTED-STRING".as_bytes() || string == "MAX-CHAR".as_bytes() {
-            env.data_stack.push(Byte::MAX as Cell);
+            env.data_stack.push(Byte::MAX as Cell).unwrap();
         } else if string == "ADDRESS-UNIT-BITS".as_bytes() {
-            env.data_stack.push(Cell::BITS as Cell);
+            env.data_stack.push(Cell::BITS as Cell).unwrap();
         } else if string == "MAX-N".as_bytes()
             || string == "RETURN-STACK-CELLS".as_bytes()
             || string == "STACK-CELLS".as_bytes()
         {
-            env.data_stack.push(Cell::MAX as Cell);
+            env.data_stack.push(Cell::MAX as Cell).unwrap();
         } else if string == "MAX-U".as_bytes() {
-            env.data_stack.push(usize::MAX as Cell);
+            env.data_stack.push(usize::MAX as Cell).unwrap();
         } else if string == "MAX-D".as_bytes() {
-            push_double_cell(&mut env.data_stack, DoubleCell::MAX);
+            push_double_cell(&mut env.data_stack, DoubleCell::MAX).unwrap();
         } else {
             found = false;
         }
 
-        env.data_stack.push(match found {
-            true => Flag::True,
-            _ => Flag::False,
-        } as Cell);
+        env.data_stack
+            .push(match found {
+                true => Flag::True,
+                _ => Flag::False,
+            } as Cell)
+            .unwrap();
     }),
     ("evaluate", |env| {
         let string_byte_count = env.data_stack.pop().unwrap() as usize;
@@ -554,11 +643,13 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("unloop", unloop_primitive),
     ("i", |env| {
         env.data_stack
-            .push(env.runtime_loops.get(0).unwrap().iteration_index);
+            .push(env.runtime_loops.data.get(0).unwrap().iteration_index)
+            .unwrap();
     }),
     ("j", |env| {
         env.data_stack
-            .push(env.runtime_loops.get(1).unwrap().iteration_index);
+            .push(env.runtime_loops.data.get(1).unwrap().iteration_index)
+            .unwrap();
     }),
     ("does>", |env| {
         let calling_word_return_address = env.return_stack.pop().unwrap();
@@ -568,7 +659,9 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("key", |env| {
         let mut key_buffer: [Byte; 1] = [0; 1];
         std::io::stdin().read_exact(&mut key_buffer).unwrap();
-        env.data_stack.push(*key_buffer.get(0).unwrap() as Cell);
+        env.data_stack
+            .push(*key_buffer.get(0).unwrap() as Cell)
+            .unwrap();
     }),
     ("accept", |env| {
         let max_length = env.data_stack.pop().unwrap();
@@ -580,12 +673,12 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     }),
     ("s>d", |env| {
         let single = env.data_stack.pop().unwrap();
-        push_double_cell(&mut env.data_stack, single as DoubleCell);
+        push_double_cell(&mut env.data_stack, single as DoubleCell).unwrap();
     }),
     ("m*", |env| {
         let x = env.data_stack.pop().unwrap() as DoubleCell;
         let y = env.data_stack.pop().unwrap() as DoubleCell;
-        push_double_cell(&mut env.data_stack, x * y);
+        push_double_cell(&mut env.data_stack, x * y).unwrap();
     }),
     ("fm/mod", |env| {
         let divisor = env.data_stack.pop().unwrap() as DoubleCell;
@@ -594,8 +687,8 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let floored_quotient = (divided / divisor) as Cell;
         let remainder = (divided % divisor) as Cell;
 
-        env.data_stack.push(remainder);
-        env.data_stack.push(floored_quotient);
+        env.data_stack.push(remainder).unwrap();
+        env.data_stack.push(floored_quotient).unwrap();
     }),
 ];
 
@@ -635,7 +728,7 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
     }),
     ("begin", |env| {
         let len = env.latest_mut().body.len();
-        env.control_flow_stack.push(len);
+        env.control_flow_stack.push(len).unwrap();
     }),
     ("until", |env| {
         let branch_offset = env.latest_mut().body.len() - env.control_flow_stack.pop().unwrap();
@@ -710,8 +803,9 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
             ]);
         } else {
             env.data_stack
-                .push(unsafe { std::mem::transmute(data_space_string_address) });
-            env.data_stack.push(length as Cell);
+                .push(unsafe { std::mem::transmute(data_space_string_address) })
+                .unwrap();
+            env.data_stack.push(length as Cell).unwrap();
         }
     }),
     ("recurse", |env| {
@@ -741,14 +835,16 @@ fn do_primitive(env: &mut Environment) {
             .push(ForthOperation::CallPrimitive(do_primitive));
 
         let len = env.latest_mut().body.len();
-        env.control_flow_stack.push(len);
+        env.control_flow_stack.push(len).unwrap();
     } else {
         let initial_index = env.data_stack.pop().unwrap();
         let limit = env.data_stack.pop().unwrap();
-        env.runtime_loops.push(LoopState {
-            iteration_index: initial_index,
-            limit,
-        });
+        env.runtime_loops
+            .push(LoopState {
+                iteration_index: initial_index,
+                limit,
+            })
+            .unwrap();
     }
 }
 
@@ -784,10 +880,10 @@ fn loop_plus_primitive(env: &mut Environment) {
         let addition = env.data_stack.pop().unwrap();
         loop_state.iteration_index += addition;
         if loop_state.iteration_index >= loop_state.limit {
-            env.data_stack.push(Flag::True as Cell);
+            env.data_stack.push(Flag::True as Cell).unwrap();
         } else {
-            env.runtime_loops.push(loop_state);
-            env.data_stack.push(Flag::False as Cell);
+            env.runtime_loops.push(loop_state).unwrap();
+            env.data_stack.push(Flag::False as Cell).unwrap();
         }
     }
 }
@@ -916,19 +1012,23 @@ impl<'a> Environment<'a> {
         data_space: &'a mut [Byte],
         input_buffer: &'a mut [Byte],
         parsed_word_buffer: &'a mut [Byte],
+        data_stack_buffer: &'a mut [Cell],
+        return_stack_buffer: &'a mut [*const ForthOperation],
+        control_flow_stack_buffer: &'a mut [usize],
+        runtime_loops_buffer: &'a mut [LoopState],
     ) -> Environment<'a> {
         let mut env = Environment {
             data_space_pointer: data_space.iter_mut(),
-            data_stack: Vec::new(),
-            return_stack: Vec::new(),
+            data_stack: Stack::new(data_stack_buffer),
+            return_stack: Stack::new(return_stack_buffer),
             input_buffer,
             input_buffer_head: 0,
             dictionary: initial_dictionary(),
             base: 10,
             currently_compiling: Flag::False as Cell,
-            control_flow_stack: Vec::new(),
+            control_flow_stack: Stack::new(control_flow_stack_buffer),
             parsed_word: parsed_word_buffer,
-            runtime_loops: Default::default(),
+            runtime_loops: Stack::new(runtime_loops_buffer),
         };
 
         for line in FORTH_RUNTIME_INIT.lines() {
@@ -1043,7 +1143,7 @@ impl<'a> Environment<'a> {
             let literal = ForthOperation::PushCellToDataStack(token);
             self.latest_mut().body.push(literal);
         } else {
-            self.data_stack.push(token);
+            self.data_stack.push(token).unwrap();
         }
     }
 
@@ -1068,11 +1168,11 @@ impl<'a> Environment<'a> {
                     let to_execute = &w.body;
 
                     let next = unsafe { instruction_pointer.add(1) };
-                    self.return_stack.push(next);
+                    self.return_stack.push(next).unwrap();
                     instruction_pointer = to_execute.first().unwrap();
                     continue;
                 }
-                ForthOperation::PushCellToDataStack(l) => self.data_stack.push(*l),
+                ForthOperation::PushCellToDataStack(l) => self.data_stack.push(*l).unwrap(),
                 ForthOperation::BranchOnFalse(offset) => {
                     let cond = self.data_stack.pop().unwrap();
                     if cond == Flag::False as Cell {
@@ -1085,13 +1185,13 @@ impl<'a> Environment<'a> {
                     continue;
                 }
                 ForthOperation::CallPrimitive(func) => func(self),
-                ForthOperation::Return => match self.return_stack.pop() {
-                    Some(next) => {
-                        instruction_pointer = next;
-                        continue;
+                ForthOperation::Return => match self.return_stack.len() {
+                    0 => {
+                        break; // Nothing left to execute
                     }
                     _ => {
-                        break; // Nothing left to execute
+                        instruction_pointer = self.return_stack.pop().unwrap();
+                        continue;
                     }
                 },
                 ForthOperation::Unresolved(_) => {
@@ -1165,9 +1265,20 @@ macro_rules! fixed_sized_buffers_environment {
         let mut data_space = [0; $data_space_size];
         let mut input_buffer = [0; $input_buffer_size];
         let mut parsed_word_buffer = [0; $parsed_word_buffer_size];
+        let mut a = [Default::default(); 100];
+        let mut b = [std::ptr::null(); 100];
+        let mut c = [Default::default(); 100];
+        let mut d = [Default::default(); 100];
 
-        let mut $name =
-            Environment::new(&mut data_space, &mut input_buffer, &mut parsed_word_buffer);
+        let mut $name = Environment::new(
+            &mut data_space,
+            &mut input_buffer,
+            &mut parsed_word_buffer,
+            &mut a,
+            &mut b,
+            &mut c,
+            &mut d,
+        );
     };
 }
 

@@ -12,7 +12,10 @@ mod tests {
             env.interpret_line(line.as_bytes());
         }
         // TODO: Print code when assert is false
-        assert_eq!(env.data_stack, expected_result);
+        assert_eq!(
+            env.data_stack.data[0..expected_result.len()],
+            expected_result
+        );
 
         assert!(env.runtime_loops.is_empty());
     }
@@ -131,8 +134,9 @@ b";
             0x1122334455,
         ];
         for number in numbers {
-            let mut stack = Vec::new();
-            push_double_cell(&mut stack, number);
+            let mut stack_buffer = [0; 100];
+            let mut stack = Stack::new(&mut stack_buffer);
+            push_double_cell(&mut stack, number).unwrap();
             let number2 = pop_double_cell(&mut stack).unwrap();
             assert_eq!(number, number2);
         }
@@ -229,11 +233,11 @@ test4
             environment.interpret_line(line.as_bytes());
         }
 
-        let first = *environment.data_stack.get(0).unwrap();
-        for i in environment.data_stack.iter_mut() {
+        let first = *environment.data_stack.data.get(0).unwrap();
+        for i in environment.data_stack.data.iter_mut() {
             *i -= first;
         }
 
-        assert_eq!(environment.data_stack, vec![0, 1, 2, 3]);
+        assert_eq!(environment.data_stack.data[0..4], vec![0, 1, 2, 3]);
     }
 }
