@@ -172,9 +172,34 @@ enum ForthOperation {
     Unresolved(UnresolvedOperation),
 }
 
+const NAME_BYTE_COUNT: usize = 31;
+
+#[derive(Default, PartialEq)]
+struct Name {
+    value: [Byte; NAME_BYTE_COUNT],
+}
+
+impl Name {
+    fn from_ascii(s: &[Byte]) -> Name {
+        let mut n = Name::default();
+
+        for i in 0..s.len() {
+            n.value[i] = s[i].to_ascii_lowercase();
+        }
+
+        return n;
+    }
+}
+
+impl std::fmt::Display for Name {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", core::str::from_utf8(&self.value).unwrap())
+    }
+}
+
 /// A forth word
 struct DictionaryEntry {
-    name: String,
+    name: Name,
 
     /// Execute word during compilation
     immediate: bool,
@@ -409,7 +434,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("<", compare_operator_native_word!(<)),
     (">", compare_operator_native_word!(>)),
     (":", |env| {
-        let name = env.read_name_from_input_buffer().unwrap().to_lowercase();
+        let name = env.read_name_from_input_buffer().unwrap();
         env.dictionary.push_front(DictionaryEntry {
             name,
             immediate: false,
@@ -553,7 +578,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let (name_bytecount, name_begin) =
             unsafe { decode_counted_string(std::mem::transmute(name_conuted_string)) };
         let name = unsafe { std::slice::from_raw_parts(name_begin, name_bytecount) };
-        let name = String::from_utf8_lossy(name).to_string();
+        let name = Name::from_ascii(name);
         match search_dictionary(&env.dictionary, &name) {
             Some(entry) => {
                 env.data_stack
@@ -887,8 +912,7 @@ fn loop_plus_primitive(env: &mut Environment) {
     }
 }
 
-fn search_dictionary<'a>(dict: &'a Dictionary, name: &str) -> Option<&'a DictionaryEntry> {
-    let name = name.to_lowercase();
+fn search_dictionary<'a>(dict: &'a Dictionary, name: &Name) -> Option<&'a DictionaryEntry> {
     for item in dict {
         if item.name == *name {
             return Some(item);
@@ -897,7 +921,7 @@ fn search_dictionary<'a>(dict: &'a Dictionary, name: &str) -> Option<&'a Diction
     return None;
 }
 
-fn see(dict: &Dictionary, name: &str) {
+fn see(dict: &Dictionary, name: &Name) {
     let item = search_dictionary(dict, name).unwrap();
     println!(": {} ", item.name);
     for threaded_word_entry in &item.body {
@@ -942,7 +966,7 @@ fn initial_dictionary() -> Dictionary {
     let constant_entries = CONSTANT_PRIMITIVES
         .iter()
         .map(|(name, value)| DictionaryEntry {
-            name: name.to_string(),
+            name: Name::from_ascii(name.as_bytes()),
             immediate: false,
             body: vec![
                 ForthOperation::PushCellToDataStack(*value),
@@ -954,7 +978,7 @@ fn initial_dictionary() -> Dictionary {
         EXECUTION_PRIMITIVES
             .iter()
             .map(|(name, exec_ptr)| DictionaryEntry {
-                name: name.to_string(),
+                name: Name::from_ascii(name.as_bytes()),
                 immediate: false,
                 body: vec![
                     ForthOperation::CallPrimitive(exec_ptr.clone()),
@@ -966,7 +990,7 @@ fn initial_dictionary() -> Dictionary {
         IMMEDIATE_PRIMITIVES
             .iter()
             .map(|(name, comp_ptr)| DictionaryEntry {
-                name: name.to_string(),
+                name: Name::from_ascii(name.as_bytes()),
                 immediate: true,
                 body: vec![
                     ForthOperation::CallPrimitive(comp_ptr.clone()),
@@ -1147,7 +1171,8 @@ impl<'a> Environment<'a> {
     }
 
     fn handle_text_token(&mut self, token: &str) {
-        let dict_entry = search_dictionary(&self.dictionary, token).unwrap();
+        let dict_entry =
+            search_dictionary(&self.dictionary, &Name::from_ascii(token.as_bytes())).unwrap();
 
         if self.compile_mode() && !dict_entry.immediate {
             let operation = ForthOperation::CallAnotherDictionaryEntry(dict_entry);
@@ -1246,14 +1271,13 @@ impl<'a> Environment<'a> {
         }
     }
 
-    fn read_name_from_input_buffer(&mut self) -> Option<String> {
+    fn read_name_from_input_buffer(&mut self) -> Option<Name> {
         let name = self.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, ' ' as Byte);
         if name.len() == 0 {
             return None;
         }
 
-        let name = String::from_utf8_lossy(name).to_string();
-        return Some(name);
+        return Some(Name::from_ascii(name));
     }
 }
 

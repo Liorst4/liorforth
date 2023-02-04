@@ -100,7 +100,8 @@ b";
 
         let something_from_return_stack = environment.data_stack.pop().unwrap();
 
-        let b = search_dictionary(&environment.dictionary, "b").unwrap();
+        let b =
+            search_dictionary(&environment.dictionary, &Name::from_ascii("b".as_bytes())).unwrap();
 
         let after_a_call = b.body.get(1).unwrap();
         match *after_a_call {
