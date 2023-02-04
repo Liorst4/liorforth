@@ -1283,24 +1283,31 @@ impl<'a> Environment<'a> {
 
 /// Create a forth environment with stack buffers
 macro_rules! fixed_sized_buffers_environment {
-    ($name:ident, $data_space_size:expr, $input_buffer_size:expr, $parsed_word_buffer_size:expr) => {
+    ($name:ident,
+     $data_space_size:expr,
+     $input_buffer_size:expr,
+     $parsed_word_buffer_size:expr,
+     $data_stack_size:expr,
+     $return_stack_size:expr,
+     $control_flow_stack_size:expr,
+     $runtime_loops_stack_size:expr) => {
         // TODO: Unique identifiers for these buffers
         let mut data_space = [0; $data_space_size];
         let mut input_buffer = [0; $input_buffer_size];
         let mut parsed_word_buffer = [0; $parsed_word_buffer_size];
-        let mut a = [Default::default(); 100];
-        let mut b = [std::ptr::null(); 100];
-        let mut c = [Default::default(); 100];
-        let mut d = [Default::default(); 100];
+        let mut data_stack_buffer = [Default::default(); $data_stack_size];
+        let mut return_stack_buffer = [std::ptr::null(); $return_stack_size];
+        let mut control_flow_stack_buffer = [Default::default(); $control_flow_stack_size];
+        let mut runtime_loops_stack_buffer = [Default::default(); $runtime_loops_stack_size];
 
         let mut $name = Environment::new(
             &mut data_space,
             &mut input_buffer,
             &mut parsed_word_buffer,
-            &mut a,
-            &mut b,
-            &mut c,
-            &mut d,
+            &mut data_stack_buffer,
+            &mut return_stack_buffer,
+            &mut control_flow_stack_buffer,
+            &mut runtime_loops_stack_buffer,
         );
     };
 }
@@ -1308,7 +1315,7 @@ macro_rules! fixed_sized_buffers_environment {
 /// Create a static environment
 macro_rules! default_fixed_sized_environment {
     ($name:ident) => {
-        fixed_sized_buffers_environment!($name, 10 * 1024, 1024, 100)
+        fixed_sized_buffers_environment!($name, 10 * 1024, 1024, 100, 100, 100, 100, 100)
     };
 }
 
