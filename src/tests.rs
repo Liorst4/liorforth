@@ -4,7 +4,8 @@ mod tests {
 
     #[test]
     fn initialization() {
-        default_fixed_sized_environment!(_environment);
+        default_fixed_sized_environment!(environment);
+        environment.load_runtime();
     }
 
     fn test_stack_effect(code: &str, env: &mut Environment, expected_result: Vec<Cell>) {
@@ -23,6 +24,7 @@ mod tests {
     fn test_stack_effects(code_and_effects: &[(&str, Vec<Cell>)]) {
         for (code, expected_result) in code_and_effects {
             default_fixed_sized_environment!(environment);
+            environment.load_runtime();
             test_stack_effect(code, &mut environment, expected_result.clone());
         }
     }
@@ -85,6 +87,7 @@ test-leave
     #[test]
     fn return_stack_sanity() {
         default_fixed_sized_environment!(environment);
+        environment.load_runtime();
 
         let script = "
 : a r> dup >r ;
@@ -229,6 +232,7 @@ test4
 ";
 
         default_fixed_sized_environment!(environment);
+        environment.load_runtime();
 
         for line in script.lines() {
             environment.interpret_line(line.as_bytes());

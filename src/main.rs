@@ -962,51 +962,6 @@ fn see(dict: &Dictionary, name: &Name) {
     println!("");
 }
 
-fn initial_dictionary() -> Dictionary {
-    let constant_entries = CONSTANT_PRIMITIVES
-        .iter()
-        .map(|(name, value)| DictionaryEntry {
-            name: Name::from_ascii(name.as_bytes()),
-            immediate: false,
-            body: vec![
-                ForthOperation::PushCellToDataStack(*value),
-                ForthOperation::Return,
-            ],
-        });
-
-    let execute_only_entries =
-        EXECUTION_PRIMITIVES
-            .iter()
-            .map(|(name, exec_ptr)| DictionaryEntry {
-                name: Name::from_ascii(name.as_bytes()),
-                immediate: false,
-                body: vec![
-                    ForthOperation::CallPrimitive(exec_ptr.clone()),
-                    ForthOperation::Return,
-                ],
-            });
-
-    let compile_only_entries =
-        IMMEDIATE_PRIMITIVES
-            .iter()
-            .map(|(name, comp_ptr)| DictionaryEntry {
-                name: Name::from_ascii(name.as_bytes()),
-                immediate: true,
-                body: vec![
-                    ForthOperation::CallPrimitive(comp_ptr.clone()),
-                    ForthOperation::Return,
-                ],
-            });
-
-    let entries = constant_entries
-        .chain(execute_only_entries)
-        .chain(compile_only_entries);
-
-    return std::collections::LinkedList::from_iter(entries);
-}
-
-const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
-
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
     if word.is_empty() {
         return None;
@@ -1040,25 +995,67 @@ impl<'a> Environment<'a> {
         control_flow_stack_buffer: &'a mut [usize],
         runtime_loops_buffer: &'a mut [LoopState],
     ) -> Environment<'a> {
-        let mut env = Environment {
+        Environment {
             data_space_pointer: data_space.iter_mut(),
             data_stack: Stack::new(data_stack_buffer),
             return_stack: Stack::new(return_stack_buffer),
             input_buffer,
             input_buffer_head: 0,
-            dictionary: initial_dictionary(),
+            dictionary: Default::default(),
             base: 10,
             currently_compiling: Flag::False as Cell,
             control_flow_stack: Stack::new(control_flow_stack_buffer),
             parsed_word: parsed_word_buffer,
             runtime_loops: Stack::new(runtime_loops_buffer),
-        };
-
-        for line in FORTH_RUNTIME_INIT.lines() {
-            env.interpret_line(line.as_bytes());
         }
+    }
 
-        return env;
+    fn load_runtime(&mut self) {
+        let constant_entries = CONSTANT_PRIMITIVES
+            .iter()
+            .map(|(name, value)| DictionaryEntry {
+                name: Name::from_ascii(name.as_bytes()),
+                immediate: false,
+                body: vec![
+                    ForthOperation::PushCellToDataStack(*value),
+                    ForthOperation::Return,
+                ],
+            });
+
+        let execute_only_entries =
+            EXECUTION_PRIMITIVES
+                .iter()
+                .map(|(name, exec_ptr)| DictionaryEntry {
+                    name: Name::from_ascii(name.as_bytes()),
+                    immediate: false,
+                    body: vec![
+                        ForthOperation::CallPrimitive(exec_ptr.clone()),
+                        ForthOperation::Return,
+                    ],
+                });
+
+        let compile_only_entries =
+            IMMEDIATE_PRIMITIVES
+                .iter()
+                .map(|(name, comp_ptr)| DictionaryEntry {
+                    name: Name::from_ascii(name.as_bytes()),
+                    immediate: true,
+                    body: vec![
+                        ForthOperation::CallPrimitive(comp_ptr.clone()),
+                        ForthOperation::Return,
+                    ],
+                });
+
+        let entries = constant_entries
+            .chain(execute_only_entries)
+            .chain(compile_only_entries);
+
+        self.dictionary = std::collections::LinkedList::from_iter(entries);
+
+        const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
+        for line in FORTH_RUNTIME_INIT.lines() {
+            self.interpret_line(line.as_bytes());
+        }
     }
 
     fn compile_mode(&self) -> bool {
@@ -1321,6 +1318,7 @@ macro_rules! default_fixed_sized_environment {
 
 fn main() {
     default_fixed_sized_environment!(environment);
+    environment.load_runtime();
     loop {
         let mut line_buffer = String::new();
         std::io::stdin().read_line(&mut line_buffer).unwrap();
