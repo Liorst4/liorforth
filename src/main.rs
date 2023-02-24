@@ -172,6 +172,41 @@ enum ForthOperation {
     Unresolved(UnresolvedOperation),
 }
 
+impl std::fmt::Display for ForthOperation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let address = &self;
+        let address: usize = unsafe { std::mem::transmute(address) };
+        write!(f, "${:x}:\t", address)?;
+        match self {
+            ForthOperation::PushCellToDataStack(literal) => write!(f, "PUSH\t{}", literal),
+            ForthOperation::CallAnotherDictionaryEntry(another_entry) => {
+                let another_entry = unsafe { another_entry.as_ref() }.unwrap();
+                let another_entry_addr: usize = unsafe { std::mem::transmute(another_entry) };
+                write!(
+                    f,
+                    "CALL\t${:x} ({})",
+                    another_entry_addr, another_entry.name
+                )
+            }
+            ForthOperation::BranchOnFalse(offset) => {
+                let byte_offset = offset * (std::mem::size_of::<ForthOperation>() as isize);
+                let dest: usize = ((address as isize) + byte_offset) as usize;
+                write!(f, "F-BR\t{} (${:x})", offset, dest)
+            }
+            ForthOperation::Branch(destination) => {
+                let destination_address: Cell = unsafe { std::mem::transmute(*destination) };
+                write!(f, "BR\t${:x}", destination_address)
+            }
+            ForthOperation::CallPrimitive(primitive) => {
+                let primitive: usize = unsafe { std::mem::transmute(primitive) };
+                write!(f, "PRIM\t${:x}", primitive)
+            }
+            ForthOperation::Return => write!(f, "RTN"),
+            ForthOperation::Unresolved(x) => write!(f, "UNR\t{:?}", x),
+        }
+    }
+}
+
 const NAME_BYTE_COUNT: usize = 31;
 
 #[derive(Default, PartialEq)]
@@ -219,37 +254,7 @@ impl std::fmt::Display for DictionaryEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, ": {} ", self.name)?;
         for threaded_word_entry in &self.body {
-            let address = &*threaded_word_entry;
-            let address: usize = unsafe { std::mem::transmute(address) };
-            write!(f, "\t${:x}:\t", address)?;
-            match threaded_word_entry {
-                ForthOperation::PushCellToDataStack(literal) => write!(f, "PUSH\t{}", literal)?,
-                ForthOperation::CallAnotherDictionaryEntry(another_entry) => {
-                    let another_entry = unsafe { another_entry.as_ref() }.unwrap();
-                    let another_entry_addr: usize = unsafe { std::mem::transmute(another_entry) };
-                    write!(
-                        f,
-                        "CALL\t${:x} ({})",
-                        another_entry_addr, another_entry.name
-                    )?
-                }
-                ForthOperation::BranchOnFalse(offset) => {
-                    let byte_offset = offset * (std::mem::size_of::<ForthOperation>() as isize);
-                    let dest: usize = ((address as isize) + byte_offset) as usize;
-                    write!(f, "F-BR\t{} (${:x})", offset, dest)?
-                }
-                ForthOperation::Branch(destination) => {
-                    let destination_address: Cell = unsafe { std::mem::transmute(*destination) };
-                    write!(f, "BR\t${:x}", destination_address)?
-                }
-                ForthOperation::CallPrimitive(primitive) => {
-                    let primitive: usize = unsafe { std::mem::transmute(primitive) };
-                    write!(f, "PRIM\t${:x}", primitive)?
-                }
-                ForthOperation::Return => write!(f, "RTN")?,
-                ForthOperation::Unresolved(x) => write!(f, "UNR\t{:?}", x)?,
-            }
-            writeln!(f, "")?;
+            writeln!(f, "\t{}", threaded_word_entry)?
         }
         write!(f, ";")?;
         if self.immediate {
