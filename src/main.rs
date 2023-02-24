@@ -146,7 +146,7 @@ unsafe fn decode_counted_string(src: *const Byte) -> (usize, *const Byte) {
 type Primitive = fn(&mut Environment);
 
 /// Used when compiling conditionals and loops
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum UnresolvedOperation {
     If,
     Else,
@@ -247,7 +247,7 @@ impl std::fmt::Display for DictionaryEntry {
                     write!(f, "PRIM\t${:x}", primitive)?
                 }
                 ForthOperation::Return => write!(f, "RTN")?,
-                ForthOperation::Unresolved(_) => panic!("Unresolved entry!"),
+                ForthOperation::Unresolved(x) => write!(f, "UNR\t{:?}", x)?,
             }
             writeln!(f, "")?;
         }
