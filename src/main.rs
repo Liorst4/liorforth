@@ -338,9 +338,10 @@ const CONSTANT_PRIMITIVES: &[(&str, Cell)] = &[
 
 const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     (".s", |env| {
-        print!("<{}> ", env.data_stack.len());
-        for i in env.data_stack.data.iter() {
-            env.print_number(*i);
+        let len = env.data_stack.len();
+        print!("<{}> ", len);
+        for i in &env.data_stack.data[0..len] {
+            env.print_number(i);
         }
     }),
     ("bye", |_env| std::process::exit(0)),
