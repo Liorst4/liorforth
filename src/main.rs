@@ -133,13 +133,30 @@ fn pop_double_cell(stack: &mut Stack<Cell>) -> Result<DoubleCell, StackError> {
 
 type Byte = u8;
 
-fn encode_counted_string(src: &[Byte], dst: &mut [Byte]) {
-    dst[0] = src.len() as Byte;
-    dst[1..][..src.len()].copy_from_slice(src);
+#[repr(C)]
+struct CountedString {
+    len: Byte,
+    data: [Byte; 0],
 }
 
-unsafe fn decode_counted_string(src: *const Byte) -> (usize, *const Byte) {
-    return (*src as usize, src.add(1));
+unsafe fn encode_counted_string(src: &[Byte], dst: &mut [Byte]) {
+    let dst_as_counted_string: *mut CountedString = std::mem::transmute(dst.as_mut_ptr());
+    let dst_as_counted_string = dst_as_counted_string.as_mut().unwrap();
+    dst_as_counted_string.len = src.len() as Byte;
+    let counted_string_data = std::slice::from_raw_parts_mut(
+        dst_as_counted_string.data.as_mut_ptr(),
+        dst_as_counted_string.len as usize,
+    );
+    counted_string_data.copy_from_slice(src);
+}
+
+unsafe fn decode_counted_string(src: *const Byte) -> &'static [Byte] {
+    let src_as_counted_string: *const CountedString = std::mem::transmute(src);
+    let src_as_counted_string = src_as_counted_string.as_ref().unwrap();
+    return std::slice::from_raw_parts(
+        src_as_counted_string.data.as_ptr(),
+        src_as_counted_string.len as usize,
+    );
 }
 
 /// Native code to execute from the forth environment
@@ -594,7 +611,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let delimiter = env.data_stack.pop().unwrap();
         let token = env.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, delimiter as Byte);
         let token = token.to_owned(); // TODO: Copy into stack instead of heap (use alloca?)
-        encode_counted_string(&token, env.parsed_word);
+        unsafe { encode_counted_string(&token, env.parsed_word) };
         env.data_stack
             .push(unsafe { std::mem::transmute(env.parsed_word.as_ptr()) })
             .unwrap();
@@ -602,11 +619,11 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("count", |env| {
         let address = env.data_stack.pop().unwrap();
         let address: *const u8 = unsafe { std::mem::transmute(address) };
-        let (count, start) = unsafe { decode_counted_string(address) };
+        let s = unsafe { decode_counted_string(address) };
         env.data_stack
-            .push(unsafe { std::mem::transmute(start) })
+            .push(unsafe { std::mem::transmute(s.as_ptr()) })
             .unwrap();
-        env.data_stack.push(count as Cell).unwrap();
+        env.data_stack.push(s.len() as Cell).unwrap();
     }),
     ("'", |env| {
         let name = env.read_name_from_input_buffer().unwrap();
@@ -632,9 +649,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     }),
     ("find", |env| {
         let name_conuted_string = env.data_stack.pop().unwrap();
-        let (name_bytecount, name_begin) =
-            unsafe { decode_counted_string(std::mem::transmute(name_conuted_string)) };
-        let name = unsafe { std::slice::from_raw_parts(name_begin, name_bytecount) };
+        let name = unsafe { decode_counted_string(std::mem::transmute(name_conuted_string)) };
         let name = Name::from_ascii(name);
         match search_dictionary(&env.dictionary, &name) {
             Some(entry) => {
