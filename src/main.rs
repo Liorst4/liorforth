@@ -1164,11 +1164,10 @@ impl<'a> Environment<'a> {
             return;
         }
 
+        // Reset input buffer
         self.input_buffer_head = 0;
-        self.input_buffer.fill(0);
-        for i in 0..line.len() {
-            self.input_buffer[i] = *line.get(i).unwrap();
-        }
+        self.input_buffer[0..line.len()].copy_from_slice(line);
+        self.input_buffer[line.len()..].fill(0);
 
         'empty_input_buffer: loop {
             let token = self.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, ' ' as Byte);
