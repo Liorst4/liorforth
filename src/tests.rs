@@ -245,4 +245,54 @@ test4
 
         assert_eq!(environment.data_stack.data[0..4], vec![0, 1, 2, 3]);
     }
+
+    #[test]
+    fn test_memory() {
+        default_fixed_sized_environment!(environment);
+        environment.load_runtime();
+
+        for number in [0, 1, -1, Cell::MAX / 2, Cell::MAX, Cell::MIN, Cell::MIN / 2] {
+            {
+                let cell_to_modify: Cell = 0;
+                environment
+                    .data_stack
+                    .push(unsafe { std::mem::transmute(&cell_to_modify) })
+                    .unwrap();
+                environment.interpret_line(format!("{} swap !", number).as_bytes());
+                assert_eq!(cell_to_modify, number);
+            }
+
+            {
+                let cell_to_read: Cell = number;
+                environment
+                    .data_stack
+                    .push(unsafe { std::mem::transmute(&cell_to_read) })
+                    .unwrap();
+                environment.interpret_line("@".as_bytes());
+                assert_eq!(cell_to_read, environment.data_stack.pop().unwrap());
+            }
+        }
+
+        for number in [0, 1, 26, Byte::MAX, Byte::MAX / 2] {
+            {
+                let byte_to_modify: Byte = 0;
+                environment
+                    .data_stack
+                    .push(unsafe { std::mem::transmute(&byte_to_modify) })
+                    .unwrap();
+                environment.interpret_line(format!("{} swap c!", number).as_bytes());
+                assert_eq!(byte_to_modify, number);
+            }
+
+            {
+                let byte_to_read: Byte = number;
+                environment
+                    .data_stack
+                    .push(unsafe { std::mem::transmute(&byte_to_read) })
+                    .unwrap();
+                environment.interpret_line("c@".as_bytes());
+                assert_eq!(byte_to_read as Cell, environment.data_stack.pop().unwrap());
+            }
+        }
+    }
 }
