@@ -236,7 +236,13 @@ impl Name {
         let mut n = Name::default();
 
         for i in 0..s.len() {
-            n.value[i] = s[i].to_ascii_lowercase();
+            let ascii_byte = s[i];
+
+            if ascii_byte == b'\0' {
+                break;
+            }
+
+            n.value[i] = ascii_byte.to_ascii_lowercase();
         }
 
         return n;
