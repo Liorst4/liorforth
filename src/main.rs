@@ -457,7 +457,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let data: Cell;
         unsafe {
             address = std::mem::transmute(n);
-            data = *address;
+            data = std::ptr::read_unaligned(address);
         }
         env.data_stack.push(data).unwrap();
     }),
@@ -467,7 +467,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let address: *mut Cell;
         unsafe {
             address = std::mem::transmute(n);
-            *address = data;
+            std::ptr::write_unaligned(address, data);
         }
     }),
     ("c@", |env| {
@@ -476,7 +476,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let data: Byte;
         unsafe {
             address = std::mem::transmute(n);
-            data = *address;
+            data = std::ptr::read_unaligned(address);
         }
         env.data_stack.push(data as Cell).unwrap();
     }),
@@ -486,7 +486,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let address: *mut Byte;
         unsafe {
             address = std::mem::transmute(n);
-            *address = data;
+            std::ptr::write_unaligned(address, data);
         }
     }),
     ("emit", |env| {
