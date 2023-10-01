@@ -234,17 +234,8 @@ struct Name {
 impl Name {
     fn from_ascii(s: &[Byte]) -> Name {
         let mut n = Name::default();
-
-        for i in 0..s.len() {
-            let ascii_byte = s[i];
-
-            if ascii_byte == b'\0' {
-                break;
-            }
-
-            n.value[i] = ascii_byte.to_ascii_lowercase();
-        }
-
+        n.value[0..s.len()].copy_from_slice(s);
+        n.value.make_ascii_lowercase();
         return n;
     }
 }
