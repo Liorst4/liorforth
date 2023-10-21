@@ -765,10 +765,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let buffer = unsafe { std::slice::from_raw_parts_mut(destination, max_length) };
         std::io::stdin().read(buffer).unwrap();
     }),
-    ("s>d", |env| {
-        let single = env.data_stack.pop().unwrap();
-        push_double_cell(&mut env.data_stack, single as DoubleCell).unwrap();
-    }),
     ("m*", |env| {
         let x = env.data_stack.pop().unwrap() as DoubleCell;
         let y = env.data_stack.pop().unwrap() as DoubleCell;

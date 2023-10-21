@@ -132,3 +132,7 @@
 : max ( x1 x2 -- x1|x2 )
   ['] > select-compare
 ;
+
+: s>d ( n -- d )
+  1 m*
+;
