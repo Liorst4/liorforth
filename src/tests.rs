@@ -175,6 +175,31 @@ b";
     }
 
     #[test]
+    fn test_s_to_d() {
+        const INPUT_AND_EXPECTED_OUTPUT: &[(Cell, (Cell, Cell))] = &[
+            (0, (0, 0)),
+            (1, (1, 0)),
+            (2, (2, 0)),
+            (-1, (-1, -1)),
+            (-2, (-2, -1)),
+            (Cell::MIN, (Cell::MIN, -1)),
+            (Cell::MAX, (Cell::MAX, 0)),
+        ];
+
+        default_fixed_sized_environment!(environment);
+        environment.load_runtime();
+
+        for (input, output) in INPUT_AND_EXPECTED_OUTPUT {
+            let script = format!("{} s>d", input);
+            environment.interpret_line(script.as_bytes());
+            let b = environment.data_stack.pop().unwrap();
+            let a = environment.data_stack.pop().unwrap();
+            assert!(environment.data_stack.is_empty());
+            assert_eq!(*output, (a, b));
+        }
+    }
+
+    #[test]
     fn test_begin_loop() {
         let code_result_map: Vec<(&str, Vec<Cell>)> = vec![
             (
