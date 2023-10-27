@@ -70,6 +70,51 @@ mod tests {
     }
 
     #[test]
+    fn test_double_division() {
+        default_fixed_sized_environment!(environment);
+        environment.load_runtime();
+        const TEST_PARAMETERS: &[((DoubleCell, Cell), (Cell, Cell))] = &[
+            ((10, 7), (3, 1)),
+            ((-10, 7), (-3, -1)),
+            ((10, -7), (3, -1)),
+            ((-10, -7), (-3, 1)),
+            ((Cell::MAX as DoubleCell * 2, 2), (0, Cell::MAX)),
+            (((Cell::MAX as DoubleCell * 2) + 1, 2), (1, Cell::MAX)),
+            ((Cell::MIN as DoubleCell * 2, 2), (0, Cell::MIN)),
+            (((Cell::MIN as DoubleCell * 2) - 1, 2), (-1, Cell::MIN)),
+        ];
+        for ((a, b), (expected_remainder, expected_quotient)) in TEST_PARAMETERS {
+            {
+                push_double_cell(&mut environment.data_stack, *a).unwrap();
+                environment.data_stack.push(*b).unwrap();
+                const SCRIPT: &str = "sm/rem";
+                environment.interpret_line(SCRIPT.as_bytes());
+                let quotient = environment.data_stack.pop().unwrap();
+                let remainder = environment.data_stack.pop().unwrap();
+                assert!(environment.data_stack.is_empty());
+
+                println!("a: {} b: {}", a, b);
+                println!(
+                    "expected_remainder: {} remainder: {}",
+                    expected_remainder, remainder
+                );
+                println!(
+                    "expected_quotient: {} quotient: {}",
+                    expected_quotient, quotient
+                );
+
+                assert_eq!(
+                    *a,
+                    remainder as DoubleCell + (quotient as DoubleCell * *b as DoubleCell)
+                );
+
+                assert_eq!(quotient, *expected_quotient, "quotient differ!");
+                assert_eq!(remainder, *expected_remainder, "remainder differ!");
+            }
+        }
+    }
+
+    #[test]
     fn test_do_loop() {
         let code_result_map: Vec<(&str, Vec<Cell>)> = vec![
             (

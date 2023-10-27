@@ -139,7 +139,7 @@
 
 : */mod ( n n n -- n n )
   >r m* r>
-  fm/mod
+  sm/rem
 ;
 
 : */ ( n n n -- n )

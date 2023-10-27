@@ -150,7 +150,7 @@ Implemented words:
 		accept
 		s>d
 		m*
-		fm/mod
+		sm/rem
 	Extra:
 		words
 		dump-row-size
@@ -165,7 +165,7 @@ Implemented words:
 		<=
 
 Core words to implement:
-	sm/rem
+	fm/mod
 	um*
 	um/mod
 	

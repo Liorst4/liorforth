@@ -49,9 +49,9 @@ fn non_overflowing_mul(x: Cell, y: Cell) -> DoubleCell {
 
 fn double_div(divided: DoubleCell, divisor: Cell) -> (Cell, Cell) {
     let divisor = divisor as DoubleCell;
-    let floored_quotient = (divided / divisor) as Cell;
+    let quotient = (divided / divisor) as Cell;
     let remainder = (divided % divisor) as Cell;
-    return (floored_quotient, remainder);
+    return (quotient, remainder);
 }
 
 struct Stack<'a, T>
@@ -758,12 +758,12 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let y = env.data_stack.pop().unwrap();
         push_double_cell(&mut env.data_stack, non_overflowing_mul(x, y)).unwrap();
     }),
-    ("fm/mod", |env| {
+    ("sm/rem", |env| {
         let divisor = env.data_stack.pop().unwrap();
         let divided = pop_double_cell(&mut env.data_stack).unwrap();
-        let (floored_quotient, remainder) = double_div(divided, divisor);
+        let (quotient, remainder) = double_div(divided, divisor);
         env.data_stack.push(remainder).unwrap();
-        env.data_stack.push(floored_quotient).unwrap();
+        env.data_stack.push(quotient).unwrap();
     }),
 ];
 
