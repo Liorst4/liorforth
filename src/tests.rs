@@ -42,6 +42,34 @@ mod tests {
     }
 
     #[test]
+    fn test_division() {
+        const PARAMETERS: &[(Cell, Cell)] = &[
+            (1, 1),
+            (-1, -1),
+            (10, 5),
+            (11, 5),
+            (10, 7),
+            (10, -7),
+            (-10, 7),
+            (-10, -7),
+        ];
+
+        for (a, b) in PARAMETERS {
+            default_fixed_sized_environment!(environment);
+            environment.load_runtime();
+            environment.data_stack.push(*a).unwrap();
+            environment.data_stack.push(*b).unwrap();
+            const SCRIPT: &str = "/mod";
+            environment.interpret_line(SCRIPT.as_bytes());
+            let quotient = environment.data_stack.pop().unwrap();
+            let remainder = environment.data_stack.pop().unwrap();
+            assert!(environment.data_stack.is_empty());
+            assert_eq!((b * quotient) + remainder, *a);
+            // TODO: Decide which kind of division to enforce ("Floored Division" or "Symmetric Division")
+        }
+    }
+
+    #[test]
     fn test_do_loop() {
         let code_result_map: Vec<(&str, Vec<Cell>)> = vec![
             (
