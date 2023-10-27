@@ -200,6 +200,33 @@ b";
     }
 
     #[test]
+    fn test_m_star() {
+        default_fixed_sized_environment!(environment);
+        environment.load_runtime();
+        const TEST_PARAMETERS: &[((Cell, Cell), DoubleCell)] = &[
+            ((0, 0), 0),
+            ((1, 1), 1),
+            (
+                (Cell::MAX, Cell::MAX),
+                Cell::MAX as DoubleCell * Cell::MAX as DoubleCell,
+            ),
+            (
+                (Cell::MIN, Cell::MIN),
+                Cell::MIN as DoubleCell * Cell::MIN as DoubleCell,
+            ),
+            ((Cell::MAX, 1), Cell::MAX as DoubleCell),
+            ((Cell::MAX, 2), Cell::MAX as DoubleCell * 2 as DoubleCell),
+        ];
+        for ((a, b), expected_result) in TEST_PARAMETERS {
+            let script = format!("{} {} m*", *a, *b);
+            environment.interpret_line(script.as_bytes());
+            let result: DoubleCell = pop_double_cell(&mut environment.data_stack).unwrap();
+            assert_eq!(result, *expected_result);
+            assert!(environment.data_stack.is_empty());
+        }
+    }
+
+    #[test]
     fn test_begin_loop() {
         let code_result_map: Vec<(&str, Vec<Cell>)> = vec![
             (
