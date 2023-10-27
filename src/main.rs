@@ -43,6 +43,17 @@ type DoubleCell = i32;
 #[cfg(target_pointer_width = "8")]
 type DoubleCell = i16;
 
+fn non_overflowing_mul(x: Cell, y: Cell) -> DoubleCell {
+    return (x as DoubleCell) * (y as DoubleCell);
+}
+
+fn double_div(divided: DoubleCell, divisor: Cell) -> (Cell, Cell) {
+    let divisor = divisor as DoubleCell;
+    let floored_quotient = (divided / divisor) as Cell;
+    let remainder = (divided % divisor) as Cell;
+    return (floored_quotient, remainder);
+}
+
 struct Stack<'a, T>
 where
     T: Copy,
@@ -404,29 +415,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.data_stack.push(remainder).unwrap();
         env.data_stack.push(quotient).unwrap();
     }),
-    ("*/", |env| {
-        let n3 = env.data_stack.pop().unwrap();
-        let n2 = env.data_stack.pop().unwrap();
-        let n1 = env.data_stack.pop().unwrap();
-
-        let double_mul_result: DoubleCell = (n1 as DoubleCell) * (n2 as DoubleCell);
-        let double_div_result: DoubleCell = double_mul_result / (n3 as DoubleCell);
-        let result: Cell = double_div_result.try_into().unwrap();
-        env.data_stack.push(result).unwrap();
-    }),
-    ("*/mod", |env| {
-        let n3 = env.data_stack.pop().unwrap();
-        let n2 = env.data_stack.pop().unwrap();
-        let n1 = env.data_stack.pop().unwrap();
-
-        let double_mul_result: DoubleCell = (n1 as DoubleCell) * (n2 as DoubleCell);
-        let double_div_result: DoubleCell = double_mul_result / (n3 as DoubleCell);
-        let double_mod_result: DoubleCell = double_mul_result % (n3 as DoubleCell);
-        let n4: Cell = double_mod_result.try_into().unwrap();
-        let n5: Cell = double_div_result.try_into().unwrap();
-        env.data_stack.push(n4).unwrap();
-        env.data_stack.push(n5).unwrap();
-    }),
     ("here", |env| {
         let address: *const Byte = env.data_space_pointer.as_ref().as_ptr();
         env.data_stack
@@ -766,17 +754,14 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         std::io::stdin().read(buffer).unwrap();
     }),
     ("m*", |env| {
-        let x = env.data_stack.pop().unwrap() as DoubleCell;
-        let y = env.data_stack.pop().unwrap() as DoubleCell;
-        push_double_cell(&mut env.data_stack, x * y).unwrap();
+        let x = env.data_stack.pop().unwrap();
+        let y = env.data_stack.pop().unwrap();
+        push_double_cell(&mut env.data_stack, non_overflowing_mul(x, y)).unwrap();
     }),
     ("fm/mod", |env| {
-        let divisor = env.data_stack.pop().unwrap() as DoubleCell;
+        let divisor = env.data_stack.pop().unwrap();
         let divided = pop_double_cell(&mut env.data_stack).unwrap();
-
-        let floored_quotient = (divided / divisor) as Cell;
-        let remainder = (divided % divisor) as Cell;
-
+        let (floored_quotient, remainder) = double_div(divided, divisor);
         env.data_stack.push(remainder).unwrap();
         env.data_stack.push(floored_quotient).unwrap();
     }),

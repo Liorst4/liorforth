@@ -136,3 +136,12 @@
 : s>d ( n -- d )
   1 m*
 ;
+
+: */mod ( n n n -- n n )
+  >r m* r>
+  fm/mod
+;
+
+: */ ( n n n -- n )
+  */mod nip
+;
