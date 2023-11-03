@@ -43,18 +43,18 @@ mod tests {
 
     #[test]
     fn test_division() {
-        const PARAMETERS: &[(Cell, Cell)] = &[
-            (1, 1),
-            (-1, -1),
-            (10, 5),
-            (11, 5),
-            (10, 7),
-            (10, -7),
-            (-10, 7),
-            (-10, -7),
+        const PARAMETERS: &[(Cell, Cell, Cell, Cell)] = &[
+            (1, 1, 0, 1),
+            (-1, -1, 0, 1),
+            (10, 5, 0, 2),
+            (11, 5, 1, 2),
+            (10, 7, 3, 1),
+            (10, -7, 3, -1),
+            (-10, 7, -3, -1),
+            (-10, -7, -3, 1),
         ];
 
-        for (a, b) in PARAMETERS {
+        for (a, b, expected_remainder, expected_quotient) in PARAMETERS {
             default_fixed_sized_environment!(environment);
             environment.load_runtime();
             environment.data_stack.push(*a).unwrap();
@@ -65,7 +65,8 @@ mod tests {
             let remainder = environment.data_stack.pop().unwrap();
             assert!(environment.data_stack.is_empty());
             assert_eq!((b * quotient) + remainder, *a);
-            // TODO: Decide which kind of division to enforce ("Floored Division" or "Symmetric Division")
+            assert_eq!(quotient, *expected_quotient);
+            assert_eq!(remainder, *expected_remainder);
         }
     }
 

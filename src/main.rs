@@ -677,7 +677,6 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
 
         // TODO: /HOLD
         // TODO: /PAD
-        // TODO: FLOORED
         // TODO: MAX-UD
 
         if string == "/COUNTED-STRING".as_bytes() || string == "MAX-CHAR".as_bytes() {
@@ -693,6 +692,8 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             env.data_stack.push(usize::MAX as Cell).unwrap();
         } else if string == "MAX-D".as_bytes() {
             push_double_cell(&mut env.data_stack, DoubleCell::MAX).unwrap();
+        } else if string == "FLOORED".as_bytes() {
+            env.data_stack.push(Flag::False as Cell).unwrap();
         } else {
             found = false;
         }
