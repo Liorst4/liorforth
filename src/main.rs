@@ -152,24 +152,24 @@ struct CountedString {
     data: [Byte; 0],
 }
 
-unsafe fn encode_counted_string(src: &[Byte], dst: &mut [Byte]) {
-    let dst_as_counted_string: *mut CountedString = std::mem::transmute(dst.as_mut_ptr());
-    let dst_as_counted_string = dst_as_counted_string.as_mut().unwrap();
-    dst_as_counted_string.len = src.len() as Byte;
-    let counted_string_data = std::slice::from_raw_parts_mut(
-        dst_as_counted_string.data.as_mut_ptr(),
-        dst_as_counted_string.len as usize,
-    );
-    counted_string_data.copy_from_slice(src);
-}
+impl CountedString {
+    unsafe fn as_slice<'a>(&'a self) -> &'a [Byte] {
+        return core::slice::from_raw_parts(self.data.as_ptr(), self.len as usize);
+    }
 
-unsafe fn decode_counted_string(src: *const Byte) -> &'static [Byte] {
-    let src_as_counted_string: *const CountedString = std::mem::transmute(src);
-    let src_as_counted_string = src_as_counted_string.as_ref().unwrap();
-    return std::slice::from_raw_parts(
-        src_as_counted_string.data.as_ptr(),
-        src_as_counted_string.len as usize,
-    );
+    unsafe fn from_slice<'a>(src: &[Byte], dst: &'a mut [Byte]) -> Option<&'a CountedString> {
+        if src.len() > (Byte::MAX as usize) {
+            return None;
+        }
+
+        if dst.len() < (src.len() + 1) {
+            return None;
+        }
+
+        dst[0] = src.len() as Byte;
+        dst[1..(1 + src.len())].copy_from_slice(src);
+        return Some(std::mem::transmute(dst.as_ptr()));
+    }
 }
 
 /// Native code to execute from the forth environment
@@ -598,19 +598,26 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let delimiter = env.data_stack.pop().unwrap();
         let token = env.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, delimiter as Byte);
         let token = token.to_owned(); // TODO: Copy into stack instead of heap (use alloca?)
-        unsafe { encode_counted_string(&token, env.parsed_word) };
+        let token = unsafe { CountedString::from_slice(&token, env.parsed_word).unwrap() };
         env.data_stack
-            .push(unsafe { std::mem::transmute(env.parsed_word.as_ptr()) })
+            .push(unsafe { std::mem::transmute(token) })
             .unwrap();
     }),
     ("count", |env| {
-        let address = env.data_stack.pop().unwrap();
-        let address: *const u8 = unsafe { std::mem::transmute(address) };
-        let s = unsafe { decode_counted_string(address) };
+        let counted_string_address = env.data_stack.pop().unwrap();
+        let counted_string: &CountedString = unsafe {
+            std::mem::transmute::<Cell, *const CountedString>(counted_string_address)
+                .as_ref()
+                .unwrap()
+        };
+
+        let address_of_first_character: *const Byte = counted_string.data.as_ptr();
+        let byte_count = counted_string.len;
+
         env.data_stack
-            .push(unsafe { std::mem::transmute(s.as_ptr()) })
+            .push(address_of_first_character as Cell)
             .unwrap();
-        env.data_stack.push(s.len() as Cell).unwrap();
+        env.data_stack.push(byte_count as Cell).unwrap();
     }),
     ("'", |env| {
         let name = env.read_name_from_input_buffer().unwrap();
@@ -635,9 +642,13 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         }
     }),
     ("find", |env| {
-        let name_conuted_string = env.data_stack.pop().unwrap();
-        let name = unsafe { decode_counted_string(std::mem::transmute(name_conuted_string)) };
-        let name = Name::from_ascii(name);
+        let name_address = env.data_stack.pop().unwrap();
+        let name: &CountedString = unsafe {
+            std::mem::transmute::<Cell, *const CountedString>(name_address)
+                .as_ref()
+                .unwrap()
+        };
+        let name = Name::from_ascii(unsafe { name.as_slice() });
         match search_dictionary(&env.dictionary, &name) {
             Some(entry) => {
                 env.data_stack
@@ -652,7 +663,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
                 env.data_stack.push(immediate).unwrap();
             }
             _ => {
-                env.data_stack.push(name_conuted_string).unwrap();
+                env.data_stack.push(name_address).unwrap();
                 env.data_stack.push(0).unwrap();
             }
         }

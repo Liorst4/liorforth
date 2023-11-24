@@ -421,4 +421,35 @@ test4
             }
         }
     }
+
+    #[test]
+    fn test_counted_string() {
+        const STRINGS: &[&str] = &["", "a", "hello", "aaaaaaaaaa"];
+
+        for string in STRINGS {
+            let mut buffer: Vec<Byte> = vec![];
+            let bytes = string.as_bytes();
+            buffer.resize(bytes.len() + 1, 0);
+            let counted_string = unsafe { CountedString::from_slice(bytes, &mut buffer).unwrap() };
+            assert_eq!(bytes, unsafe { counted_string.as_slice() });
+        }
+
+        for string in STRINGS {
+            default_fixed_sized_environment!(environment);
+            environment.load_runtime();
+            environment.interpret_line(format!("bl word {}", string).as_bytes());
+
+            let counted_string_address = *environment.data_stack.last().unwrap();
+            let counted_string: &CountedString = unsafe {
+                std::mem::transmute::<Cell, *const CountedString>(counted_string_address)
+                    .as_ref()
+                    .unwrap()
+            };
+            assert_eq!(string.as_bytes(), unsafe { counted_string.as_slice() });
+
+            environment.interpret_line("count".as_bytes());
+            let count = environment.data_stack.pop().unwrap();
+            assert_eq!(count, counted_string.len as Cell);
+        }
+    }
 }
