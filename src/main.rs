@@ -118,28 +118,30 @@ where
     }
 }
 
-fn push_double_cell(stack: &mut Stack<Cell>, value: DoubleCell) -> Result<(), StackError> {
-    let cells: &[Cell; 2] = unsafe { std::mem::transmute(&value) };
-    stack.push(cells[0])?;
-    return match stack.push(cells[1]) {
-        Ok(_) => Ok(()),
-        Err(error) => {
-            stack.pop().unwrap();
-            Err(error)
-        }
-    };
-}
-
-fn pop_double_cell(stack: &mut Stack<Cell>) -> Result<DoubleCell, StackError> {
-    if stack.len() < 2 {
-        return Err(StackError::Underflow);
+impl<'a> Stack<'a, Cell> {
+    fn push_double_cell(&mut self, value: DoubleCell) -> Result<(), StackError> {
+        let cells: &[Cell; 2] = unsafe { std::mem::transmute(&value) };
+        self.push(cells[0])?;
+        return match self.push(cells[1]) {
+            Ok(_) => Ok(()),
+            Err(error) => {
+                self.pop().unwrap();
+                Err(error)
+            }
+        };
     }
 
-    let result =
-        *unsafe { std::mem::transmute::<&Cell, &DoubleCell>(&stack.data[stack.len() - 2]) };
-    stack.pop().unwrap();
-    stack.pop().unwrap();
-    return Ok(result);
+    fn pop_double_cell(&mut self) -> Result<DoubleCell, StackError> {
+        if self.len() < 2 {
+            return Err(StackError::Underflow);
+        }
+
+        let result =
+            *unsafe { std::mem::transmute::<&Cell, &DoubleCell>(&self.data[self.len() - 2]) };
+        self.pop().unwrap();
+        self.pop().unwrap();
+        return Ok(result);
+    }
 }
 
 type Byte = u8;
@@ -691,7 +693,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         } else if string == "MAX-U".as_bytes() {
             env.data_stack.push(usize::MAX as Cell).unwrap();
         } else if string == "MAX-D".as_bytes() {
-            push_double_cell(&mut env.data_stack, DoubleCell::MAX).unwrap();
+            env.data_stack.push_double_cell(DoubleCell::MAX).unwrap();
         } else if string == "FLOORED".as_bytes() {
             env.data_stack.push(Flag::False as Cell).unwrap();
         } else {
@@ -758,11 +760,13 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("m*", |env| {
         let x = env.data_stack.pop().unwrap();
         let y = env.data_stack.pop().unwrap();
-        push_double_cell(&mut env.data_stack, non_overflowing_mul(x, y)).unwrap();
+        env.data_stack
+            .push_double_cell(non_overflowing_mul(x, y))
+            .unwrap();
     }),
     ("sm/rem", |env| {
         let divisor = env.data_stack.pop().unwrap();
-        let divided = pop_double_cell(&mut env.data_stack).unwrap();
+        let divided = env.data_stack.pop_double_cell().unwrap();
         let (quotient, remainder) = double_div(divided, divisor);
         env.data_stack.push(remainder).unwrap();
         env.data_stack.push(quotient).unwrap();

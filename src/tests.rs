@@ -86,7 +86,7 @@ mod tests {
         ];
         for ((a, b), (expected_remainder, expected_quotient)) in TEST_PARAMETERS {
             {
-                push_double_cell(&mut environment.data_stack, *a).unwrap();
+                environment.data_stack.push_double_cell(*a).unwrap();
                 environment.data_stack.push(*b).unwrap();
                 const SCRIPT: &str = "sm/rem";
                 environment.interpret_line(SCRIPT.as_bytes());
@@ -214,8 +214,8 @@ b";
         for number in numbers {
             let mut stack_buffer = [0; 100];
             let mut stack = Stack::new(&mut stack_buffer);
-            push_double_cell(&mut stack, number).unwrap();
-            let number2 = pop_double_cell(&mut stack).unwrap();
+            stack.push_double_cell(number).unwrap();
+            let number2 = stack.pop_double_cell().unwrap();
             assert_eq!(number, number2);
         }
     }
@@ -266,7 +266,7 @@ b";
         for ((a, b), expected_result) in TEST_PARAMETERS {
             let script = format!("{} {} m*", *a, *b);
             environment.interpret_line(script.as_bytes());
-            let result: DoubleCell = pop_double_cell(&mut environment.data_stack).unwrap();
+            let result: DoubleCell = environment.data_stack.pop_double_cell().unwrap();
             assert_eq!(result, *expected_result);
             assert!(environment.data_stack.is_empty());
         }
