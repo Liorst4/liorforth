@@ -735,6 +735,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             .unwrap();
     }),
     ("does>", |env| {
+        // The address of the first operation after the "does>" itself
         let calling_word_return_address = env.return_stack.pop().unwrap();
         *env.latest_mut().body.last_mut().unwrap() =
             ForthOperation::Branch(calling_word_return_address);
