@@ -1040,42 +1040,24 @@ impl<'a> Environment<'a> {
     fn load_runtime(&mut self) {
         let constant_entries = CONSTANT_PRIMITIVES
             .iter()
-            .map(|(name, value)| DictionaryEntry {
-                name: Name::from_ascii(name.as_bytes()),
-                immediate: false,
-                body: vec![
-                    ForthOperation::PushCellToDataStack(*value),
-                    ForthOperation::Return,
-                ],
-            });
+            .map(|(name, value)| (name, false, ForthOperation::PushCellToDataStack(*value)));
 
-        let execute_only_entries =
-            EXECUTION_PRIMITIVES
-                .iter()
-                .map(|(name, exec_ptr)| DictionaryEntry {
-                    name: Name::from_ascii(name.as_bytes()),
-                    immediate: false,
-                    body: vec![
-                        ForthOperation::CallPrimitive(exec_ptr.clone()),
-                        ForthOperation::Return,
-                    ],
-                });
+        let execute_only_entries = EXECUTION_PRIMITIVES
+            .iter()
+            .map(|(name, primitive)| (name, false, ForthOperation::CallPrimitive(*primitive)));
 
-        let compile_only_entries =
-            IMMEDIATE_PRIMITIVES
-                .iter()
-                .map(|(name, comp_ptr)| DictionaryEntry {
-                    name: Name::from_ascii(name.as_bytes()),
-                    immediate: true,
-                    body: vec![
-                        ForthOperation::CallPrimitive(comp_ptr.clone()),
-                        ForthOperation::Return,
-                    ],
-                });
+        let compile_only_entries = IMMEDIATE_PRIMITIVES
+            .iter()
+            .map(|(name, primitive)| (name, true, ForthOperation::CallPrimitive(*primitive)));
 
         let entries = constant_entries
             .chain(execute_only_entries)
-            .chain(compile_only_entries);
+            .chain(compile_only_entries)
+            .map(|(name, immediate, operation)| DictionaryEntry {
+                name: Name::from_ascii(name.as_bytes()),
+                immediate,
+                body: vec![operation, ForthOperation::Return],
+            });
 
         self.dictionary = std::collections::LinkedList::from_iter(entries);
 
