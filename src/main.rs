@@ -13,7 +13,7 @@
 // liorforth. If not, see <https://www.gnu.org/licenses/>.
 
 use std::io::{Read, Write};
-use std::ops::*;
+use std::ops::{BitAnd, BitOr, BitXor, Shl, Shr};
 
 type Cell = isize;
 
