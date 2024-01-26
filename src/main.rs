@@ -43,17 +43,6 @@ type DoubleCell = i32;
 #[cfg(target_pointer_width = "8")]
 type DoubleCell = i16;
 
-fn non_overflowing_mul(x: Cell, y: Cell) -> DoubleCell {
-    return (x as DoubleCell) * (y as DoubleCell);
-}
-
-fn double_div(divided: DoubleCell, divisor: Cell) -> (Cell, Cell) {
-    let divisor = divisor as DoubleCell;
-    let quotient = (divided / divisor) as Cell;
-    let remainder = (divided % divisor) as Cell;
-    return (quotient, remainder);
-}
-
 struct Stack<'a, T>
 where
     T: Copy,
@@ -771,14 +760,17 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
     ("m*", |env| {
         let x = env.data_stack.pop().unwrap();
         let y = env.data_stack.pop().unwrap();
-        env.data_stack
-            .push_double_cell(non_overflowing_mul(x, y))
-            .unwrap();
+        let result: DoubleCell = (x as DoubleCell) * (y as DoubleCell);
+        env.data_stack.push_double_cell(result).unwrap();
     }),
     ("sm/rem", |env| {
-        let divisor = env.data_stack.pop().unwrap();
-        let divided = env.data_stack.pop_double_cell().unwrap();
-        let (quotient, remainder) = double_div(divided, divisor);
+        let divisor: Cell = env.data_stack.pop().unwrap();
+        let divided: DoubleCell = env.data_stack.pop_double_cell().unwrap();
+
+        let divisor = divisor as DoubleCell;
+        let quotient = (divided / divisor) as Cell;
+        let remainder = (divided % divisor) as Cell;
+
         env.data_stack.push(remainder).unwrap();
         env.data_stack.push(quotient).unwrap();
     }),
