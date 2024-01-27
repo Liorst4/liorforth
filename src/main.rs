@@ -311,86 +311,120 @@ struct Environment<'a> {
 
 const USUAL_LEADING_DELIMITERS_TO_IGNORE: &[Byte] = &[' ' as Byte, '\t' as Byte];
 
+macro_rules! declare_constant {
+    ($name:literal, $value:expr) => {
+        (
+            $name,
+            false,
+            ForthOperation::PushCellToDataStack($value as Cell),
+        )
+    };
+}
+
+macro_rules! declare_primitive {
+    ($name:literal, $immediate:literal,  $arg:ident, $body:block) => {
+        (
+            $name,
+            $immediate,
+            ForthOperation::CallPrimitive({
+                #[export_name = concat!("liorforth_primitive_", $name)]
+                fn primitive($arg: &mut Environment) {
+                    $body
+                }
+                primitive
+            }),
+        )
+    };
+
+    ($name:literal, $arg:ident, $body:block) => {
+        declare_primitive!($name, false, $arg, $body)
+    };
+}
+
 macro_rules! binary_operator_native_word {
-    ($method:tt) => {
-        |env| {
+    ($name:literal, $method:tt) => {
+        declare_primitive!($name, env, {
             let b = env.data_stack.pop().unwrap();
             let a = env.data_stack.pop().unwrap();
             let c = a.$method(b);
             env.data_stack.push(c).unwrap();
-        }
+        })
     };
 }
 
 macro_rules! unary_operator_native_word {
-    ($operator:tt) => {
-	|env| {
+    ($name:literal, $operator:tt) => {
+	declare_primitive!($name, env, {
             let a = env.data_stack.pop().unwrap();
 	    let b = $operator a;
             env.data_stack.push(b).unwrap();
-	}
-    }
+	})
+    };
 }
 
 macro_rules! compare_operator_native_word {
-    ($operator:tt) => {
-	|env| {
+    ($name:literal, $operator:tt) => {
+	declare_primitive!($name, env, {
             let b = env.data_stack.pop().unwrap();
             let a = env.data_stack.pop().unwrap();
             let c = a $operator b;
 	    let f : Flag = c.into();
             env.data_stack.push(f as Cell).unwrap();
-	}
-    }
+	})
+    };
 }
-const CONSTANT_PRIMITIVES: &[(&str, Cell)] = &[
-    ("true", Flag::True as Cell),
-    ("false", Flag::False as Cell),
-    ("bl", ' ' as Cell),
-    ("nl", '\n' as Cell),
-    ("sizeof-cell", std::mem::size_of::<Cell>() as Cell),
-    ("sizeof-char", std::mem::size_of::<Byte>() as Cell),
-];
 
-const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
-    (".s", |env| {
+macro_rules! declare_immediate_primitive {
+    ($name:literal, $arg:ident, $body:block) => {
+        declare_primitive!($name, true, $arg, $body)
+    };
+}
+
+const STATIC_DICTIONARY: &[(&'static str, bool, ForthOperation)] = &[
+    declare_constant!("true", Flag::True),
+    declare_constant!("false", Flag::False),
+    declare_constant!("bl", ' '),
+    declare_constant!("nl", '\n'),
+    declare_constant!("sizeof-cell", std::mem::size_of::<Cell>()),
+    declare_constant!("sizeof-char", std::mem::size_of::<Byte>()),
+    declare_primitive!(".s", env, {
         let len = env.data_stack.len();
         print!("<{}> ", len);
         for i in &env.data_stack.data[0..len] {
             env.print_number(i);
         }
     }),
-    ("bye", |_env| std::process::exit(0)),
-    ("words", |env| {
+    declare_primitive!("bye", _env, { std::process::exit(0) }),
+    declare_primitive!("words", env, {
         for entry in env.dictionary.iter() {
             print!("{}\n", entry.name);
         }
     }),
-    ("dup", |env| {
+    declare_primitive!("dup", env, {
         let x = *env.data_stack.last().unwrap();
         env.data_stack.push(x).unwrap()
     }),
-    ("drop", |env| {
+    declare_primitive!("drop", env, {
         env.data_stack.pop().unwrap();
     }),
-    (".", |env| {
+    declare_primitive!(".", env, {
         let x = env.data_stack.pop().unwrap();
         env.print_number(x);
     }),
-    ("swap", |env| {
+    declare_primitive!("swap", env, {
         let a = env.data_stack.pop().unwrap();
         let b = env.data_stack.pop().unwrap();
         env.data_stack.push(a).unwrap();
         env.data_stack.push(b).unwrap();
     }),
-    ("over", |env| {
+    declare_primitive!("over", env, {
         let a = env.data_stack.pop().unwrap();
         let b = env.data_stack.pop().unwrap();
         env.data_stack.push(b).unwrap();
         env.data_stack.push(a).unwrap();
         env.data_stack.push(b).unwrap();
     }),
-    ("rot", |env| {
+    declare_primitive!("rot", env, {
         let a = env.data_stack.pop().unwrap();
         let b = env.data_stack.pop().unwrap();
         let c = env.data_stack.pop().unwrap();
@@ -398,7 +432,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.data_stack.push(a).unwrap();
         env.data_stack.push(c).unwrap();
     }),
-    ("/mod", |env| {
+    declare_primitive!("/mod", env, {
         let divisor = env.data_stack.pop().unwrap();
         let divided = env.data_stack.pop().unwrap();
         let remainder = divided % divisor;
@@ -406,13 +440,13 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.data_stack.push(remainder).unwrap();
         env.data_stack.push(quotient).unwrap();
     }),
-    ("here", |env| {
+    declare_primitive!("here", env, {
         let address: *const Byte = env.data_space_pointer.as_ref().as_ptr();
         env.data_stack
             .push(unsafe { std::mem::transmute(address) })
             .unwrap();
     }),
-    ("allot", |env| {
+    declare_primitive!("allot", env, {
         let n = env.data_stack.pop().unwrap();
         for _ in 0..n {
             match env.data_space_pointer.next() {
@@ -421,7 +455,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             }
         }
     }),
-    ("@", |env| {
+    declare_primitive!("@", env, {
         let n = env.data_stack.pop().unwrap();
         let address: *mut Cell;
         let data: Cell;
@@ -431,7 +465,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         }
         env.data_stack.push(data).unwrap();
     }),
-    ("!", |env| {
+    declare_primitive!("!", env, {
         let n = env.data_stack.pop().unwrap();
         let data = env.data_stack.pop().unwrap();
         let address: *mut Cell;
@@ -440,7 +474,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             std::ptr::write_unaligned(address, data);
         }
     }),
-    ("c@", |env| {
+    declare_primitive!("c@", env, {
         let n = env.data_stack.pop().unwrap();
         let address: *mut Byte;
         let data: Byte;
@@ -450,7 +484,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         }
         env.data_stack.push(data as Cell).unwrap();
     }),
-    ("c!", |env| {
+    declare_primitive!("c!", env, {
         let n = env.data_stack.pop().unwrap();
         let data = env.data_stack.pop().unwrap() as Byte;
         let address: *mut Byte;
@@ -459,31 +493,31 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             std::ptr::write_unaligned(address, data);
         }
     }),
-    ("emit", |env| {
+    declare_primitive!("emit", env, {
         let n = env.data_stack.pop().unwrap();
         let c = (n as u8) as char;
         print!("{}", c);
     }),
-    ("base", |env| {
+    declare_primitive!("base", env, {
         env.data_stack
             .push(unsafe { std::mem::transmute(&env.base) })
             .unwrap();
     }),
-    ("+", binary_operator_native_word!(wrapping_add)),
-    ("-", binary_operator_native_word!(wrapping_sub)),
-    ("*", binary_operator_native_word!(wrapping_mul)),
-    ("and", binary_operator_native_word!(bitand)),
-    ("or", binary_operator_native_word!(bitor)),
-    ("xor", binary_operator_native_word!(bitxor)),
-    ("mod", binary_operator_native_word!(wrapping_rem)),
-    ("lshift", binary_operator_native_word!(shl)),
-    ("rshift", binary_operator_native_word!(shr)),
-    ("negate", unary_operator_native_word!(-)),
-    ("invert", unary_operator_native_word!(!)),
-    ("=", compare_operator_native_word!(==)),
-    ("<", compare_operator_native_word!(<)),
-    (">", compare_operator_native_word!(>)),
-    (":", |env| {
+    binary_operator_native_word!("+", wrapping_add),
+    binary_operator_native_word!("-", wrapping_sub),
+    binary_operator_native_word!("*", wrapping_mul),
+    binary_operator_native_word!("and", bitand),
+    binary_operator_native_word!("or", bitor),
+    binary_operator_native_word!("xor", bitxor),
+    binary_operator_native_word!("mod", wrapping_rem),
+    binary_operator_native_word!("lshift", shl),
+    binary_operator_native_word!("rshift", shr),
+    unary_operator_native_word!("negate", -),
+    unary_operator_native_word!("invert", !),
+    compare_operator_native_word!("=", ==),
+    compare_operator_native_word!("<", <),
+    compare_operator_native_word!(">", >),
+    declare_primitive!(":", env, {
         let name = env.read_name_from_input_buffer().unwrap();
         env.dictionary.push_front(DictionaryEntry {
             name,
@@ -492,7 +526,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         });
         env.currently_compiling = Flag::True as Cell;
     }),
-    ("r>", |env| {
+    declare_primitive!("r>", env, {
         let calling_word_return_address = env.return_stack.pop().unwrap();
 
         let from_return_stack = env.return_stack.pop().unwrap();
@@ -502,7 +536,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
 
         env.return_stack.push(calling_word_return_address).unwrap();
     }),
-    (">r", |env| {
+    declare_primitive!(">r", env, {
         let calling_word_return_address = env.return_stack.pop().unwrap();
 
         let from_data_stack = env.data_stack.pop().unwrap();
@@ -512,7 +546,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
 
         env.return_stack.push(calling_word_return_address).unwrap();
     }),
-    ("r@", |env| {
+    declare_primitive!("r@", env, {
         let calling_word_return_address = env.return_stack.pop().unwrap();
 
         let from_return_stack = env.return_stack.last().unwrap().clone();
@@ -522,12 +556,12 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
 
         env.return_stack.push(calling_word_return_address).unwrap();
     }),
-    ("u.", |env| {
+    declare_primitive!("u.", env, {
         let s = env.data_stack.pop().unwrap();
         let u: usize = s as usize;
         env.print_number(u);
     }),
-    ("u<", |env| {
+    declare_primitive!("u<", env, {
         let s2 = env.data_stack.pop().unwrap();
         let s1 = env.data_stack.pop().unwrap();
         let u2 = s2 as usize;
@@ -536,7 +570,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let result: Flag = result.into();
         env.data_stack.push(result as Cell).unwrap();
     }),
-    ("move", |env| {
+    declare_primitive!("move", env, {
         let length = env.data_stack.pop().unwrap() as usize;
 
         let dest: *mut Byte = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
@@ -547,22 +581,22 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
 
         dest.copy_from_slice(src);
     }),
-    ("depth", |env| {
+    declare_primitive!("depth", env, {
         env.data_stack.push(env.data_stack.len() as Cell).unwrap();
     }),
-    ("quit", |env| {
+    declare_primitive!("quit", env, {
         env.return_stack.clear();
         // TODO: Don't print ok after execution
     }),
-    (">in", |env| {
+    declare_primitive!(">in", env, {
         let address: Cell = unsafe { std::mem::transmute(&env.input_buffer_head) };
         env.data_stack.push(address).unwrap();
     }),
-    ("state", |env| {
+    declare_primitive!("state", env, {
         let address: Cell = unsafe { std::mem::transmute(&env.currently_compiling) };
         env.data_stack.push(address).unwrap();
     }),
-    ("source", |env| {
+    declare_primitive!("source", env, {
         let address: Cell = unsafe { std::mem::transmute(env.input_buffer.as_ptr()) };
         let mut size: Cell = 0;
         loop {
@@ -579,11 +613,11 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.data_stack.push(address).unwrap();
         env.data_stack.push(size).unwrap();
     }),
-    ("immediate", |env| {
+    declare_primitive!("immediate", env, {
         env.latest_mut().immediate = true;
     }),
-    ("align", |env| env.align_data_pointer()),
-    ("word", |env| {
+    declare_primitive!("align", env, { env.align_data_pointer() }),
+    declare_primitive!("word", env, {
         let delimiter = env.data_stack.pop().unwrap();
         let token = env.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, delimiter as Byte);
         let token = token.to_owned(); // TODO: Copy into stack instead of heap (use alloca?)
@@ -592,7 +626,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             .push(unsafe { std::mem::transmute(token) })
             .unwrap();
     }),
-    ("count", |env| {
+    declare_primitive!("count", env, {
         let counted_string_address = env.data_stack.pop().unwrap();
         let counted_string: &CountedString = unsafe {
             std::mem::transmute::<Cell, *const CountedString>(counted_string_address)
@@ -608,20 +642,20 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             .unwrap();
         env.data_stack.push(byte_count as Cell).unwrap();
     }),
-    ("'", |env| {
+    declare_primitive!("'", env, {
         let name = env.read_name_from_input_buffer().unwrap();
         let entry = search_dictionary(&env.dictionary, &name).unwrap();
         env.data_stack
             .push(unsafe { std::mem::transmute(entry) })
             .unwrap();
     }),
-    ("execute", |env| {
+    declare_primitive!("execute", env, {
         let entry = env.data_stack.pop().unwrap();
         let entry: *const DictionaryEntry = unsafe { std::mem::transmute(entry) };
         let entry = unsafe { entry.as_ref() }.unwrap();
         env.execute_word(entry.body.first().unwrap());
     }),
-    (">body", |env| {
+    declare_primitive!(">body", env, {
         let entry = env.data_stack.pop().unwrap();
         let entry: *const DictionaryEntry = unsafe { std::mem::transmute(entry) };
         let entry = unsafe { entry.as_ref() }.unwrap();
@@ -630,7 +664,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             _ => panic!("Invalid argument given to >body"),
         }
     }),
-    ("find", |env| {
+    declare_primitive!("find", env, {
         let name_address = env.data_stack.pop().unwrap();
         let name: &CountedString = unsafe {
             std::mem::transmute::<Cell, *const CountedString>(name_address)
@@ -657,19 +691,19 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             }
         }
     }),
-    ("see", |env| {
+    declare_primitive!("see", env, {
         let name = env.read_name_from_input_buffer().unwrap();
         let item = search_dictionary(&env.dictionary, &name).unwrap();
         println!("{}", item);
     }),
-    ("abort", |env| {
+    declare_primitive!("abort", env, {
         env.data_stack.clear();
 
         // TODO: Call quit instead of copying code.
         env.return_stack.clear();
         // TODO: Don't print ok
     }),
-    ("environment?", |env| {
+    declare_primitive!("environment?", env, {
         let string_bytecount = env.data_stack.pop().unwrap() as usize;
         let string_address = env.data_stack.pop().unwrap();
         let string_address: *const u8 = unsafe { std::mem::transmute(string_address) };
@@ -707,7 +741,7 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             } as Cell)
             .unwrap();
     }),
-    ("evaluate", |env| {
+    declare_primitive!("evaluate", env, {
         let string_byte_count = env.data_stack.pop().unwrap() as usize;
         let string_address = env.data_stack.pop().unwrap();
         let string_address: *const u8 = unsafe { std::mem::transmute(string_address) };
@@ -725,31 +759,31 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
             *env.input_buffer.get_mut(i).unwrap() = *input_buffer_backup.get(i).unwrap();
         }
     }),
-    ("unloop", unloop_primitive),
-    ("i", |env| {
+    declare_primitive!("unloop", env, { unloop_primitive(env) }),
+    declare_primitive!("i", env, {
         env.data_stack
             .push(env.runtime_loops.data.get(0).unwrap().iteration_index)
             .unwrap();
     }),
-    ("j", |env| {
+    declare_primitive!("j", env, {
         env.data_stack
             .push(env.runtime_loops.data.get(1).unwrap().iteration_index)
             .unwrap();
     }),
-    ("does>", |env| {
+    declare_primitive!("does>", env, {
         // The address of the first operation after the "does>" itself
         let calling_word_return_address = env.return_stack.pop().unwrap();
         *env.latest_mut().body.last_mut().unwrap() =
             ForthOperation::Branch(calling_word_return_address);
     }),
-    ("key", |env| {
+    declare_primitive!("key", env, {
         let mut key_buffer: [Byte; 1] = [0; 1];
         std::io::stdin().read_exact(&mut key_buffer).unwrap();
         env.data_stack
             .push(*key_buffer.get(0).unwrap() as Cell)
             .unwrap();
     }),
-    ("accept", |env| {
+    declare_primitive!("accept", env, {
         let max_length = env.data_stack.pop().unwrap();
         let max_length = max_length as usize;
         let destination = env.data_stack.pop().unwrap();
@@ -757,13 +791,13 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         let buffer = unsafe { std::slice::from_raw_parts_mut(destination, max_length) };
         std::io::stdin().read(buffer).unwrap();
     }),
-    ("m*", |env| {
+    declare_primitive!("m*", env, {
         let x = env.data_stack.pop().unwrap();
         let y = env.data_stack.pop().unwrap();
         let result: DoubleCell = (x as DoubleCell) * (y as DoubleCell);
         env.data_stack.push_double_cell(result).unwrap();
     }),
-    ("sm/rem", |env| {
+    declare_primitive!("sm/rem", env, {
         let divisor: Cell = env.data_stack.pop().unwrap();
         let divided: DoubleCell = env.data_stack.pop_double_cell().unwrap();
 
@@ -774,19 +808,16 @@ const EXECUTION_PRIMITIVES: &[(&str, Primitive)] = &[
         env.data_stack.push(remainder).unwrap();
         env.data_stack.push(quotient).unwrap();
     }),
-];
-
-const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
-    (";", |env| {
+    declare_immediate_primitive!(";", env, {
         env.latest_mut().body.push(ForthOperation::Return);
         env.currently_compiling = Flag::False as Cell;
     }),
-    ("if", |env| {
+    declare_immediate_primitive!("if", env, {
         env.latest_mut()
             .body
             .push(ForthOperation::Unresolved(UnresolvedOperation::If));
     }),
-    ("else", |env| {
+    declare_immediate_primitive!("else", env, {
         let unresolved_if_branch_index = env.index_of_last_unresolved_if_or_else().unwrap();
         env.latest_mut()
             .body
@@ -802,7 +833,7 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
             .unwrap();
         *unresolved_branch = ForthOperation::BranchOnFalse(branch_offset as isize);
     }),
-    ("then", |env| {
+    declare_immediate_primitive!("then", env, {
         let unresolved_branch_index = env.index_of_last_unresolved_if_or_else().unwrap();
         let latest = env.latest_mut();
         let branch_offset = latest.body.len() - unresolved_branch_index;
@@ -810,11 +841,11 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
             latest.body.get_mut(unresolved_branch_index).unwrap();
         *unresolved_branch = ForthOperation::BranchOnFalse(branch_offset as isize);
     }),
-    ("begin", |env| {
+    declare_immediate_primitive!("begin", env, {
         let len = env.latest_mut().body.len();
         env.control_flow_stack.push(len).unwrap();
     }),
-    ("until", |env| {
+    declare_immediate_primitive!("until", env, {
         let branch_offset = env.latest_mut().body.len() - env.control_flow_stack.pop().unwrap();
         let branch_offset = branch_offset as isize;
         let branch_offset = -branch_offset;
@@ -822,12 +853,12 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
             .body
             .push(ForthOperation::BranchOnFalse(branch_offset));
     }),
-    ("while", |env| {
+    declare_immediate_primitive!("while", env, {
         env.latest_mut()
             .body
             .push(ForthOperation::Unresolved(UnresolvedOperation::While));
     }),
-    ("repeat", |env| {
+    declare_immediate_primitive!("repeat", env, {
         let begin_index = env.control_flow_stack.pop().unwrap();
         env.latest_mut()
             .body
@@ -849,26 +880,26 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
             .unwrap();
         *unresolved_branch = ForthOperation::BranchOnFalse(false_jump_offset);
     }),
-    ("exit", |env| {
+    declare_immediate_primitive!("exit", env, {
         // TODO: Don't implement as an immediate word
         //       Control the flow of execution
         env.latest_mut().body.push(ForthOperation::Return);
     }),
-    ("literal", |env| {
+    declare_immediate_primitive!("literal", env, {
         let data = env.data_stack.pop().unwrap();
         let literal = ForthOperation::PushCellToDataStack(data);
         env.latest_mut().body.push(literal);
     }),
-    ("postpone", |env| {
+    declare_immediate_primitive!("postpone", env, {
         let name = env.read_name_from_input_buffer().unwrap();
         let entry = search_dictionary(&env.dictionary, &name).unwrap();
         let operation = ForthOperation::CallAnotherDictionaryEntry(entry);
         env.latest_mut().body.push(operation);
     }),
-    ("(", |env| {
+    declare_immediate_primitive!("(", env, {
         env.next_token(&[], ')' as Byte);
     }),
-    ("s\"", |env| {
+    declare_immediate_primitive!("s\"", env, {
         let string = env.next_token(&[], '"' as Byte).to_owned(); // TODO: Possible without copying to heap?
         let length = string.len();
 
@@ -892,20 +923,20 @@ const IMMEDIATE_PRIMITIVES: &[(&str, Primitive)] = &[
             env.data_stack.push(length as Cell).unwrap();
         }
     }),
-    ("recurse", |env| {
+    declare_immediate_primitive!("recurse", env, {
         let latest = env.latest_mut();
         let call_self = ForthOperation::CallAnotherDictionaryEntry(latest);
         latest.body.push(call_self);
     }),
-    ("do", do_primitive),
-    ("leave", |env| {
+    declare_immediate_primitive!("do", env, { do_primitive(env) }),
+    declare_immediate_primitive!("leave", env, {
         env.latest_mut().body.append(&mut vec![
             ForthOperation::CallPrimitive(unloop_primitive),
             ForthOperation::PushCellToDataStack(Flag::False as Cell),
             ForthOperation::Unresolved(UnresolvedOperation::Leave),
         ]);
     }),
-    ("+loop", loop_plus_primitive),
+    declare_immediate_primitive!("+loop", env, { loop_plus_primitive(env) }),
 ];
 
 fn unloop_primitive(env: &mut Environment) {
@@ -1030,28 +1061,13 @@ impl<'a> Environment<'a> {
     }
 
     fn load_runtime(&mut self) {
-        let constant_entries = CONSTANT_PRIMITIVES
-            .iter()
-            .map(|(name, value)| (name, false, ForthOperation::PushCellToDataStack(*value)));
-
-        let execute_only_entries = EXECUTION_PRIMITIVES
-            .iter()
-            .map(|(name, primitive)| (name, false, ForthOperation::CallPrimitive(*primitive)));
-
-        let compile_only_entries = IMMEDIATE_PRIMITIVES
-            .iter()
-            .map(|(name, primitive)| (name, true, ForthOperation::CallPrimitive(*primitive)));
-
-        let entries = constant_entries
-            .chain(execute_only_entries)
-            .chain(compile_only_entries)
-            .map(|(name, immediate, operation)| DictionaryEntry {
+        self.dictionary = std::collections::LinkedList::from_iter(STATIC_DICTIONARY.iter().map(
+            |(name, immediate, operation)| DictionaryEntry {
                 name: Name::from_ascii(name.as_bytes()),
-                immediate,
-                body: vec![operation, ForthOperation::Return],
-            });
-
-        self.dictionary = std::collections::LinkedList::from_iter(entries);
+                immediate: *immediate,
+                body: vec![operation.clone(), ForthOperation::Return],
+            },
+        ));
 
         const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
         for line in FORTH_RUNTIME_INIT.lines() {
