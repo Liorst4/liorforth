@@ -727,27 +727,22 @@ const STATIC_DICTIONARY: &[(&'static str, bool, ForthOperation)] = &[
         // TODO: /HOLD
         // TODO: /PAD
 
-        if string == "/COUNTED-STRING".as_bytes() || string == "MAX-CHAR".as_bytes() {
-            env.data_stack.push(Byte::MAX as Cell).unwrap();
-        } else if string == "ADDRESS-UNIT-BITS".as_bytes() {
-            env.data_stack.push(Cell::BITS as Cell).unwrap();
-        } else if string == "MAX-N".as_bytes()
-            || string == "RETURN-STACK-CELLS".as_bytes()
-            || string == "STACK-CELLS".as_bytes()
-        {
-            env.data_stack.push(Cell::MAX as Cell).unwrap();
-        } else if string == "MAX-U".as_bytes() {
-            env.data_stack.push(usize::MAX as Cell).unwrap();
-        } else if string == "MAX-D".as_bytes() {
-            env.data_stack.push_double_cell(DoubleCell::MAX).unwrap();
-        } else if string == "FLOORED".as_bytes() {
-            env.data_stack.push(Flag::False as Cell).unwrap();
-        } else if string == "MAX-UD".as_bytes() {
-            env.data_stack
+        match string {
+            b"/COUNTED-STRING" | b"MAX-CHAR" => env.data_stack.push(Byte::MAX as Cell).unwrap(),
+            b"ADDRESS-UNIT-BITS" => env.data_stack.push(Cell::BITS as Cell).unwrap(),
+            b"MAX-N" | b"RETURN-STACK-CELLS" | b"STACK-CELLS" => {
+                env.data_stack.push(Cell::MAX as Cell).unwrap()
+            }
+            b"MAX-U" => env.data_stack.push(usize::MAX as Cell).unwrap(),
+            b"MAX-D" => env.data_stack.push_double_cell(DoubleCell::MAX).unwrap(),
+            b"FLOORED" => env.data_stack.push(Flag::False as Cell).unwrap(),
+            b"MAX-UD" => env
+                .data_stack
                 .push_double_cell(DoubleUCell::MAX as DoubleCell)
-                .unwrap();
-        } else {
-            found = Flag::False;
+                .unwrap(),
+            _ => {
+                found = Flag::False;
+            }
         }
 
         env.data_stack.push(found as Cell).unwrap();
