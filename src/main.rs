@@ -16,6 +16,7 @@ use std::io::{Read, Write};
 use std::ops::{BitAnd, BitOr, BitXor, Shl, Shr};
 
 type Cell = isize;
+type UCell = usize;
 
 enum Flag {
     False = (0 as Cell),
@@ -42,6 +43,18 @@ type DoubleCell = i32;
 
 #[cfg(target_pointer_width = "8")]
 type DoubleCell = i16;
+
+#[cfg(target_pointer_width = "64")]
+type DoubleUCell = u128;
+
+#[cfg(target_pointer_width = "32")]
+type DoubleUCell = u64;
+
+#[cfg(target_pointer_width = "16")]
+type DoubleUCell = u32;
+
+#[cfg(target_pointer_width = "8")]
+type DoubleUCell = u16;
 
 struct Stack<'a, T>
 where
@@ -564,8 +577,8 @@ const STATIC_DICTIONARY: &[(&'static str, bool, ForthOperation)] = &[
     declare_primitive!("u<", env, {
         let s2 = env.data_stack.pop().unwrap();
         let s1 = env.data_stack.pop().unwrap();
-        let u2 = s2 as usize;
-        let u1 = s1 as usize;
+        let u2 = s2 as UCell;
+        let u1 = s1 as UCell;
         let result: bool = u1 < u2;
         let result: Flag = result.into();
         env.data_stack.push(result as Cell).unwrap();
@@ -709,11 +722,10 @@ const STATIC_DICTIONARY: &[(&'static str, bool, ForthOperation)] = &[
         let string_address: *const u8 = unsafe { std::mem::transmute(string_address) };
         let string = unsafe { std::slice::from_raw_parts(string_address, string_bytecount) };
 
-        let mut found = true;
+        let mut found = Flag::True;
 
         // TODO: /HOLD
         // TODO: /PAD
-        // TODO: MAX-UD
 
         if string == "/COUNTED-STRING".as_bytes() || string == "MAX-CHAR".as_bytes() {
             env.data_stack.push(Byte::MAX as Cell).unwrap();
@@ -730,16 +742,15 @@ const STATIC_DICTIONARY: &[(&'static str, bool, ForthOperation)] = &[
             env.data_stack.push_double_cell(DoubleCell::MAX).unwrap();
         } else if string == "FLOORED".as_bytes() {
             env.data_stack.push(Flag::False as Cell).unwrap();
+        } else if string == "MAX-UD".as_bytes() {
+            env.data_stack
+                .push_double_cell(DoubleUCell::MAX as DoubleCell)
+                .unwrap();
         } else {
-            found = false;
+            found = Flag::False;
         }
 
-        env.data_stack
-            .push(match found {
-                true => Flag::True,
-                _ => Flag::False,
-            } as Cell)
-            .unwrap();
+        env.data_stack.push(found as Cell).unwrap();
     }),
     declare_primitive!("evaluate", env, {
         let string_byte_count = env.data_stack.pop().unwrap() as usize;
