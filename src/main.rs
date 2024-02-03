@@ -1025,19 +1025,20 @@ fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
         return None;
     }
 
-    let (base, has_base_indicator) = match word.chars().next().unwrap() {
-        '#' => (10, true),
-        '$' => (16, true),
-        '%' => (2, true),
-        _ => (default_base, false),
+    let mut has_base_indicator = true;
+    let base = match word.as_bytes().first().unwrap() {
+        b'#' => 10,
+        b'$' => 16,
+        b'%' => 2,
+        _ => {
+            has_base_indicator = false;
+            default_base
+        }
     };
 
-    let rest = match has_base_indicator {
-        true => word.split_at(1).1,
-        _ => word,
-    };
+    let digits = word.split_at(if has_base_indicator { 1 } else { 0 }).1;
 
-    return match Cell::from_str_radix(rest, base) {
+    return match Cell::from_str_radix(digits, base) {
         Ok(x) => Some(x),
         _ => None,
     };
