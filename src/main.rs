@@ -520,8 +520,9 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_primitive!("allot", env, {
         let n = env.data_stack.pop().unwrap();
-        for _ in 0..n {
-            if env.data_space_pointer.next().is_none() {
+        if n > 0 {
+            let pointer_moving_result = env.data_space_pointer.nth(n as usize - 1);
+            if pointer_moving_result.is_none() {
                 panic!("Not enough memory");
             }
         }
