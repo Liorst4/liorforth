@@ -393,7 +393,68 @@ macro_rules! declare_immediate_primitive {
     };
 }
 
-const STATIC_DICTIONARY: &[(&'static str, bool, ForthOperation)] = &[
+type StaticDictionaryEntry = (
+    &'static str,   /* name */
+    bool,           /* immediate */
+    ForthOperation, /* body */
+);
+
+macro_rules! get_primitive {
+    ($name:literal) => {
+        {
+            const fn const_compare_bytes(
+		a: &'static [Byte],
+		b: &'static [Byte]
+	    ) -> bool {
+                if a.len() != b.len() {
+                    return false;
+                }
+
+                if a.is_empty() {
+                    return true;
+                }
+
+                if let Some((a_first, a_rest)) = a.split_first() {
+                    if let Some((b_first, b_rest)) = b.split_first() {
+                        if *a_first != *b_first {
+                            return false;
+                        }
+
+                        return const_compare_bytes(a_rest, b_rest);
+                    }
+                    return false;
+                }
+
+                return false;
+            }
+
+            const fn get_primitive_inner(
+		name: &'static str,
+		dictionary: &'static [StaticDictionaryEntry]
+	    ) -> Primitive {
+                if let Some((first, rest)) = dictionary.split_first() {
+                    if const_compare_bytes(
+			first.0.as_bytes(),
+			name.as_bytes()
+		    ) {
+                        return match first.2 /* operation */ {
+                            ForthOperation::CallPrimitive(p) => p,
+                            _ => panic!("Given static dictionary item name isn't associated with a primitive"),
+                        };
+                    }
+
+                    return get_primitive_inner(name, rest);
+                }
+                panic!("Given name not found in static dictionary");
+            }
+
+            const ENTRY: Primitive = get_primitive_inner($name, STATIC_DICTIONARY);
+	    ENTRY
+        }
+    };
+}
+
+const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_constant!("true", Flag::True),
     declare_constant!("false", Flag::False),
     declare_constant!("bl", ' '),
@@ -765,7 +826,9 @@ const STATIC_DICTIONARY: &[(&'static str, bool, ForthOperation)] = &[
             *env.input_buffer.get_mut(i).unwrap() = *input_buffer_backup.get(i).unwrap();
         }
     }),
-    declare_primitive!("unloop", env, { unloop_primitive(env) }),
+    declare_primitive!("unloop", env, {
+        env.runtime_loops.pop().unwrap();
+    }),
     declare_primitive!("i", env, {
         env.data_stack
             .push(env.runtime_loops.data.get(0).unwrap().iteration_index)
@@ -934,80 +997,70 @@ const STATIC_DICTIONARY: &[(&'static str, bool, ForthOperation)] = &[
         let call_self = ForthOperation::CallAnotherDictionaryEntry(latest);
         latest.body.push(call_self);
     }),
-    declare_immediate_primitive!("do", env, { do_primitive(env) }),
+    declare_immediate_primitive!("do", env, {
+        if env.compile_mode() {
+            env.latest_mut()
+                .body
+                .push(ForthOperation::CallPrimitive(get_primitive!("do")));
+            let len = env.latest_mut().body.len();
+            env.control_flow_stack.push(len).unwrap();
+        } else {
+            let initial_index = env.data_stack.pop().unwrap();
+            let limit = env.data_stack.pop().unwrap();
+            env.runtime_loops
+                .push(LoopState {
+                    iteration_index: initial_index,
+                    limit,
+                })
+                .unwrap();
+        }
+    }),
     declare_immediate_primitive!("leave", env, {
         env.latest_mut().body.append(&mut vec![
-            ForthOperation::CallPrimitive(unloop_primitive),
+            ForthOperation::CallPrimitive(get_primitive!("unloop")),
             ForthOperation::PushCellToDataStack(Flag::False as Cell),
             ForthOperation::Unresolved(UnresolvedOperation::Leave),
         ]);
     }),
-    declare_immediate_primitive!("+loop", env, { loop_plus_primitive(env) }),
-];
+    declare_immediate_primitive!("+loop", env, {
+        if env.compile_mode() {
+            let do_index = env.control_flow_stack.pop().unwrap();
+            env.latest_mut()
+                .body
+                .push(ForthOperation::CallPrimitive(get_primitive!("+loop")));
 
-fn unloop_primitive(env: &mut Environment) {
-    env.runtime_loops.pop().unwrap();
-}
+            let do_offset = env.latest_mut().body.len() - do_index;
+            let do_offset = do_offset as isize;
+            let do_offset = -do_offset;
+            env.latest_mut()
+                .body
+                .push(ForthOperation::BranchOnFalse(do_offset));
 
-fn do_primitive(env: &mut Environment) {
-    if env.compile_mode() {
-        env.latest_mut()
-            .body
-            .push(ForthOperation::CallPrimitive(do_primitive));
-
-        let len = env.latest_mut().body.len();
-        env.control_flow_stack.push(len).unwrap();
-    } else {
-        let initial_index = env.data_stack.pop().unwrap();
-        let limit = env.data_stack.pop().unwrap();
-        env.runtime_loops
-            .push(LoopState {
-                iteration_index: initial_index,
-                limit,
-            })
-            .unwrap();
-    }
-}
-
-fn loop_plus_primitive(env: &mut Environment) {
-    if env.compile_mode() {
-        let do_index = env.control_flow_stack.pop().unwrap();
-
-        env.latest_mut()
-            .body
-            .push(ForthOperation::CallPrimitive(loop_plus_primitive));
-
-        let do_offset = env.latest_mut().body.len() - do_index;
-        let do_offset = do_offset as isize;
-        let do_offset = -do_offset;
-        env.latest_mut()
-            .body
-            .push(ForthOperation::BranchOnFalse(do_offset));
-
-        let len = env.latest().body.len();
-        for index in do_index..env.latest().body.len() {
-            let item = env.latest_mut().body.get_mut(index).unwrap();
-            match item {
-                ForthOperation::Unresolved(UnresolvedOperation::Leave) => {
-                    let branch_offset = len - index;
-                    let branch_offset = branch_offset as isize;
-                    *item = ForthOperation::BranchOnFalse(branch_offset);
+            let len = env.latest().body.len();
+            for index in do_index..env.latest().body.len() {
+                let item = env.latest_mut().body.get_mut(index).unwrap();
+                match item {
+                    ForthOperation::Unresolved(UnresolvedOperation::Leave) => {
+                        let branch_offset = len - index;
+                        let branch_offset = branch_offset as isize;
+                        *item = ForthOperation::BranchOnFalse(branch_offset);
+                    }
+                    _ => {}
                 }
-                _ => {}
+            }
+        } else {
+            let mut loop_state = env.runtime_loops.pop().unwrap();
+            let addition = env.data_stack.pop().unwrap();
+            loop_state.iteration_index += addition;
+            if loop_state.iteration_index >= loop_state.limit {
+                env.data_stack.push(Flag::True as Cell).unwrap();
+            } else {
+                env.runtime_loops.push(loop_state).unwrap();
+                env.data_stack.push(Flag::False as Cell).unwrap();
             }
         }
-    } else {
-        let mut loop_state = env.runtime_loops.pop().unwrap();
-        let addition = env.data_stack.pop().unwrap();
-        loop_state.iteration_index += addition;
-        if loop_state.iteration_index >= loop_state.limit {
-            env.data_stack.push(Flag::True as Cell).unwrap();
-        } else {
-            env.runtime_loops.push(loop_state).unwrap();
-            env.data_stack.push(Flag::False as Cell).unwrap();
-        }
-    }
-}
+    }),
+];
 
 fn search_dictionary<'a>(dict: &'a Dictionary, name: &Name) -> Option<&'a DictionaryEntry> {
     for item in dict {
