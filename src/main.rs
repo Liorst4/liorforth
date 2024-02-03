@@ -1258,14 +1258,15 @@ impl<'a> Environment<'a> {
     }
 
     fn reverse_find_in_latest(&self, test: fn(&ForthOperation) -> bool) -> Option<usize> {
-        let mut index_from_the_end = 0;
-        for item in self.latest().body.iter().rev() {
-            index_from_the_end += 1;
-            if test(item) {
-                return Some(self.dictionary.front().unwrap().body.len() - index_from_the_end);
-            }
-        }
-        return None;
+        let index_from_the_end = self
+            .latest()
+            .body
+            .iter()
+            .rev()
+            .enumerate()
+            .find(|(_, operation)| test(operation))?
+            .0;
+        return Some(self.latest().body.len() - index_from_the_end - 1);
     }
 
     fn index_of_last_unresolved_if_or_else(&self) -> Option<usize> {
