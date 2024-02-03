@@ -151,6 +151,7 @@ Implemented words:
 		s>d
 		m*
 		sm/rem
+		\
 	Extra:
 		words
 		dump-row-size

@@ -921,6 +921,9 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_immediate_primitive!("(", env, {
         env.next_token(&[], b')');
     }),
+    declare_immediate_primitive!("\\", env, {
+        env.input_buffer_head = env.input_buffer.len() as Cell;
+    }),
     declare_immediate_primitive!("s\"", env, {
         let string = env.next_token(&[], b'"').to_owned(); // TODO: Possible without copying to heap?
         let length = string.len();
@@ -1100,7 +1103,7 @@ impl<'a> Environment<'a> {
                         .unwrap()
                         == 0
                 {
-                    return &self.input_buffer[0..0];
+                    return &[];
                 }
 
                 if !leading_delimiters.contains(
