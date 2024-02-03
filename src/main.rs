@@ -206,8 +206,8 @@ enum ForthOperation {
 
 impl std::fmt::Display for ForthOperation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let address = &self;
-        let address: usize = unsafe { std::mem::transmute(address) };
+        let address: *const ForthOperation = self;
+        let address = address as usize;
         write!(f, "${:x}:\t", address)?;
         match self {
             ForthOperation::PushCellToDataStack(literal) => write!(f, "PUSH\t{}", literal),
