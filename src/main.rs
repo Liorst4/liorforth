@@ -414,16 +414,16 @@ macro_rules! get_primitive {
                     return true;
                 }
 
-                if let Some((a_first, a_rest)) = a.split_first() {
-                    if let Some((b_first, b_rest)) = b.split_first() {
-                        if *a_first != *b_first {
-                            return false;
-                        }
-
-                        return const_compare_bytes(a_rest, b_rest);
+		if let (
+		    Some((a_first, a_rest)),
+		    Some((b_first, b_rest))
+		) = (a.split_first(), b.split_first()) {
+                    if *a_first != *b_first {
+                        return false;
                     }
-                    return false;
-                }
+
+                    return const_compare_bytes(a_rest, b_rest);
+		}
 
                 return false;
             }
