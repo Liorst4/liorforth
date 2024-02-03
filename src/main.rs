@@ -457,8 +457,8 @@ macro_rules! get_primitive {
 const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_constant!("true", Flag::True),
     declare_constant!("false", Flag::False),
-    declare_constant!("bl", ' '),
-    declare_constant!("nl", '\n'),
+    declare_constant!("bl", b' '),
+    declare_constant!("nl", b'\n'),
     declare_constant!("sizeof-cell", std::mem::size_of::<Cell>()),
     declare_constant!("sizeof-char", std::mem::size_of::<Byte>()),
     declare_primitive!(".s", env, {
