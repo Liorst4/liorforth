@@ -661,7 +661,15 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_primitive!("immediate", env, {
         env.latest_mut().immediate = true;
     }),
-    declare_primitive!("align", env, { env.align_data_pointer() }),
+    declare_primitive!("align", env, {
+        let current_alignment =
+            (env.data_space_pointer.as_ref().as_ptr() as usize) % std::mem::size_of::<Cell>();
+
+        if current_alignment != 0 {
+            let bytes_to_add = std::mem::size_of::<Cell>() - current_alignment;
+            env.data_space_pointer.nth(bytes_to_add - 1);
+        }
+    }),
     declare_primitive!("word", env, {
         let delimiter = env.data_stack.pop().unwrap();
         let token = env.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, delimiter as Byte);
@@ -1282,18 +1290,6 @@ impl<'a> Environment<'a> {
         return self.reverse_find_in_latest(|item| {
             matches!(item, ForthOperation::Unresolved(UnresolvedOperation::While))
         });
-    }
-
-    fn align_data_pointer(&mut self) {
-        let current_alignment =
-            (self.data_space_pointer.as_ref().as_ptr() as usize) % std::mem::size_of::<Cell>();
-
-        if current_alignment == 0 {
-            return;
-        }
-
-        let bytes_to_add = std::mem::size_of::<Cell>() - current_alignment;
-        self.data_space_pointer.nth(bytes_to_add - 1);
     }
 
     fn read_name_from_input_buffer(&mut self) -> Option<Name> {
