@@ -598,12 +598,6 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             .unwrap();
         env.return_stack.push(calling_word_return_address).unwrap();
     }),
-    declare_primitive!("r@", env, {
-        let calling_word_return_address = env.return_stack.pop().unwrap();
-        let from_return_stack = *env.return_stack.last().unwrap();
-        env.data_stack.push(from_return_stack as Cell).unwrap();
-        env.return_stack.push(calling_word_return_address).unwrap();
-    }),
     declare_primitive!("u.", env, {
         let s = env.data_stack.pop().unwrap();
         let u: usize = s as usize;

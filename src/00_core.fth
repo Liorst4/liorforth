@@ -153,3 +153,8 @@
     sizeof-cell swap - allot
   then
 ;
+
+( Since invoking words effects the stack itself, )
+( the three commands r> dup and >r need to be )
+( inline-d inside the word that uses r@ )
+: r@ s" postpone r> postpone dup postpone >r " evaluate ; immediate
