@@ -212,8 +212,9 @@ impl std::fmt::Display for ForthOperation {
         match self {
             ForthOperation::PushCellToDataStack(literal) => write!(f, "PUSH\t{}", literal),
             ForthOperation::CallAnotherDictionaryEntry(another_entry) => {
+                let another_entry_addr: *const DictionaryEntry = *another_entry;
+                let another_entry_addr = another_entry_addr as usize;
                 let another_entry = unsafe { another_entry.as_ref() }.unwrap();
-                let another_entry_addr: usize = unsafe { std::mem::transmute(another_entry) };
                 write!(
                     f,
                     "CALL\t${:x} ({})",
@@ -557,9 +558,8 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         print!("{}", c);
     }),
     declare_primitive!("base", env, {
-        env.data_stack
-            .push(unsafe { std::mem::transmute(&env.base) })
-            .unwrap();
+        let base_address: *mut Cell = &mut env.base;
+        env.data_stack.push(base_address as Cell).unwrap();
     }),
     binary_operator_native_word!("+", wrapping_add),
     binary_operator_native_word!("-", wrapping_sub),
@@ -634,11 +634,13 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         // TODO: Don't print ok after execution
     }),
     declare_primitive!(">in", env, {
-        let address: Cell = unsafe { std::mem::transmute(&env.input_buffer_head) };
+        let address: *mut Cell = &mut env.input_buffer_head;
+        let address = address as Cell;
         env.data_stack.push(address).unwrap();
     }),
     declare_primitive!("state", env, {
-        let address: Cell = unsafe { std::mem::transmute(&env.currently_compiling) };
+        let address: *mut Cell = &mut env.currently_compiling;
+        let address = address as Cell;
         env.data_stack.push(address).unwrap();
     }),
     declare_primitive!("source", env, {
@@ -661,9 +663,8 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let token = env.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, delimiter as Byte);
         let token = token.to_owned(); // TODO: Copy into stack instead of heap (use alloca?)
         let token = unsafe { CountedString::from_slice(&token, env.parsed_word) }.unwrap();
-        env.data_stack
-            .push(unsafe { std::mem::transmute(token) })
-            .unwrap();
+        let token_address: *const CountedString = token;
+        env.data_stack.push(token_address as Cell).unwrap();
     }),
     declare_primitive!("count", env, {
         let counted_string_address = env.data_stack.pop().unwrap();
@@ -680,9 +681,8 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_primitive!("'", env, {
         let name = env.read_name_from_input_buffer().unwrap();
         let entry = search_dictionary(&env.dictionary, &name).unwrap();
-        env.data_stack
-            .push(unsafe { std::mem::transmute(entry) })
-            .unwrap();
+        let entry: *const DictionaryEntry = entry;
+        env.data_stack.push(entry as Cell).unwrap();
     }),
     declare_primitive!("execute", env, {
         let entry = env.data_stack.pop().unwrap();
@@ -706,10 +706,9 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let name = Name::from_ascii(unsafe { name.as_slice() });
         match search_dictionary(&env.dictionary, &name) {
             Some(entry) => {
-                env.data_stack
-                    .push(unsafe { std::mem::transmute(entry) })
-                    .unwrap();
                 let immediate = if entry.immediate { 1 } else { -1 };
+                let entry: *const DictionaryEntry = entry;
+                env.data_stack.push(entry as Cell).unwrap();
                 env.data_stack.push(immediate).unwrap();
             }
             _ => {
