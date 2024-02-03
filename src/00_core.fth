@@ -145,3 +145,11 @@
 : */ ( n n n -- n )
   */mod nip
 ;
+
+: align ( -- )
+  here sizeof-cell mod dup 0= if
+    drop
+  else
+    sizeof-cell swap - allot
+  then
+;
