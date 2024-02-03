@@ -1285,14 +1285,15 @@ impl<'a> Environment<'a> {
     }
 
     fn align_data_pointer(&mut self) {
-        loop {
-            let data = self.data_space_pointer.as_ref().as_ptr();
-            let data = data as usize;
-            if data % std::mem::size_of::<Cell>() == 0 {
-                break;
-            }
-            self.data_space_pointer.next().unwrap();
+        let current_alignment =
+            (self.data_space_pointer.as_ref().as_ptr() as usize) % std::mem::size_of::<Cell>();
+
+        if current_alignment == 0 {
+            return;
         }
+
+        let bytes_to_add = std::mem::size_of::<Cell>() - current_alignment;
+        self.data_space_pointer.nth(bytes_to_add - 1);
     }
 
     fn read_name_from_input_buffer(&mut self) -> Option<Name> {
