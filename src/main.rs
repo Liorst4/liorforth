@@ -155,7 +155,7 @@ struct CountedString {
 }
 
 impl CountedString {
-    unsafe fn as_slice<'a>(&'a self) -> &'a [Byte] {
+    unsafe fn as_slice(&self) -> &[Byte] {
         return core::slice::from_raw_parts(self.data.as_ptr(), self.len as usize);
     }
 
@@ -170,7 +170,7 @@ impl CountedString {
 
         dst[0] = src.len() as Byte;
         dst[1..(1 + src.len())].copy_from_slice(src);
-        return Some(std::mem::transmute(dst.as_ptr()));
+        return Some(&*(dst.as_ptr() as *const CountedString));
     }
 }
 
@@ -226,7 +226,7 @@ impl std::fmt::Display for ForthOperation {
                 write!(f, "F-BR\t{} (${:x})", offset, dest)
             }
             ForthOperation::Branch(destination) => {
-                let destination_address: Cell = unsafe { std::mem::transmute(*destination) };
+                let destination_address = *destination as Cell;
                 write!(f, "BR\t${:x}", destination_address)
             }
             ForthOperation::CallPrimitive(primitive) => {
@@ -289,7 +289,7 @@ impl std::fmt::Display for DictionaryEntry {
         if self.immediate {
             write!(f, " immediate")?;
         }
-        writeln!(f, "")
+        writeln!(f)
     }
 }
 
@@ -322,7 +322,7 @@ struct Environment<'a> {
     runtime_loops: Stack<'a, LoopState>,
 }
 
-const USUAL_LEADING_DELIMITERS_TO_IGNORE: &[Byte] = &[' ' as Byte, '\t' as Byte];
+const USUAL_LEADING_DELIMITERS_TO_IGNORE: &[Byte] = &[b' ', b'\t'];
 
 macro_rules! declare_constant {
     ($name:literal, $value:expr) => {
@@ -471,7 +471,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_primitive!("bye", _env, { std::process::exit(0) }),
     declare_primitive!("words", env, {
         for entry in env.dictionary.iter() {
-            print!("{}\n", entry.name);
+            println!("{}", entry.name);
         }
     }),
     declare_primitive!("dup", env, {
@@ -516,56 +516,39 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_primitive!("here", env, {
         let address: *const Byte = env.data_space_pointer.as_ref().as_ptr();
-        env.data_stack
-            .push(unsafe { std::mem::transmute(address) })
-            .unwrap();
+        env.data_stack.push(address as Cell).unwrap();
     }),
     declare_primitive!("allot", env, {
         let n = env.data_stack.pop().unwrap();
         for _ in 0..n {
-            match env.data_space_pointer.next() {
-                None => panic!("Not enough memory"),
-                _ => {}
+            if env.data_space_pointer.next().is_none() {
+                panic!("Not enough memory");
             }
         }
     }),
     declare_primitive!("@", env, {
         let n = env.data_stack.pop().unwrap();
-        let address: *mut Cell;
-        let data: Cell;
-        unsafe {
-            address = std::mem::transmute(n);
-            data = std::ptr::read_unaligned(address);
-        }
+        let address = n as *mut Cell;
+        let data = unsafe { std::ptr::read_unaligned::<Cell>(address) };
         env.data_stack.push(data).unwrap();
     }),
     declare_primitive!("!", env, {
         let n = env.data_stack.pop().unwrap();
         let data = env.data_stack.pop().unwrap();
-        let address: *mut Cell;
-        unsafe {
-            address = std::mem::transmute(n);
-            std::ptr::write_unaligned(address, data);
-        }
+        let address = n as *mut Cell;
+        unsafe { std::ptr::write_unaligned(address, data) };
     }),
     declare_primitive!("c@", env, {
         let n = env.data_stack.pop().unwrap();
-        let address: *mut Byte;
-        let data: Byte;
-        unsafe {
-            address = std::mem::transmute(n);
-            data = std::ptr::read_unaligned(address);
-        }
+        let address = n as *mut Byte;
+        let data = unsafe { std::ptr::read_unaligned::<Byte>(address) };
         env.data_stack.push(data as Cell).unwrap();
     }),
     declare_primitive!("c!", env, {
         let n = env.data_stack.pop().unwrap();
         let data = env.data_stack.pop().unwrap() as Byte;
-        let address: *mut Byte;
-        unsafe {
-            address = std::mem::transmute(n);
-            std::ptr::write_unaligned(address, data);
-        }
+        let address = n as *mut Byte;
+        unsafe { std::ptr::write_unaligned(address, data) };
     }),
     declare_primitive!("emit", env, {
         let n = env.data_stack.pop().unwrap();
@@ -602,32 +585,22 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_primitive!("r>", env, {
         let calling_word_return_address = env.return_stack.pop().unwrap();
-
         let from_return_stack = env.return_stack.pop().unwrap();
-        env.data_stack
-            .push(unsafe { std::mem::transmute(from_return_stack) })
-            .unwrap();
-
+        env.data_stack.push(from_return_stack as Cell).unwrap();
         env.return_stack.push(calling_word_return_address).unwrap();
     }),
     declare_primitive!(">r", env, {
         let calling_word_return_address = env.return_stack.pop().unwrap();
-
         let from_data_stack = env.data_stack.pop().unwrap();
         env.return_stack
-            .push(unsafe { std::mem::transmute(from_data_stack) })
+            .push(from_data_stack as *const ForthOperation)
             .unwrap();
-
         env.return_stack.push(calling_word_return_address).unwrap();
     }),
     declare_primitive!("r@", env, {
         let calling_word_return_address = env.return_stack.pop().unwrap();
-
-        let from_return_stack = env.return_stack.last().unwrap().clone();
-        env.data_stack
-            .push(unsafe { std::mem::transmute(from_return_stack) })
-            .unwrap();
-
+        let from_return_stack = *env.return_stack.last().unwrap();
+        env.data_stack.push(from_return_stack as Cell).unwrap();
         env.return_stack.push(calling_word_return_address).unwrap();
     }),
     declare_primitive!("u.", env, {
@@ -647,11 +620,14 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_primitive!("move", env, {
         let length = env.data_stack.pop().unwrap() as usize;
 
-        let dest: *mut Byte = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
-        let src: *const Byte = unsafe { std::mem::transmute(env.data_stack.pop().unwrap()) };
+        let dest = env.data_stack.pop().unwrap();
+        let src = env.data_stack.pop().unwrap();
 
-        let src: &[Byte] = unsafe { std::slice::from_raw_parts(src, length) };
+        let dest = dest as *mut Byte;
+        let src = src as *const Byte;
+
         let dest: &mut [Byte] = unsafe { std::slice::from_raw_parts_mut(dest, length) };
+        let src: &[Byte] = unsafe { std::slice::from_raw_parts(src, length) };
 
         dest.copy_from_slice(src);
     }),
@@ -671,16 +647,11 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.data_stack.push(address).unwrap();
     }),
     declare_primitive!("source", env, {
-        let address: Cell = unsafe { std::mem::transmute(env.input_buffer.as_ptr()) };
+        let address = env.input_buffer.as_ptr() as Cell;
         let mut size: Cell = 0;
-        loop {
-            match env.input_buffer.get(size as usize) {
-                Some(c) => {
-                    if *c == 0 {
-                        break;
-                    }
-                }
-                _ => break,
+        while let Some(c) = env.input_buffer.get(size as usize) {
+            if *c == 0 {
+                break;
             }
             size += 1;
         }
@@ -695,19 +666,15 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let delimiter = env.data_stack.pop().unwrap();
         let token = env.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, delimiter as Byte);
         let token = token.to_owned(); // TODO: Copy into stack instead of heap (use alloca?)
-        let token = unsafe { CountedString::from_slice(&token, env.parsed_word).unwrap() };
+        let token = unsafe { CountedString::from_slice(&token, env.parsed_word) }.unwrap();
         env.data_stack
             .push(unsafe { std::mem::transmute(token) })
             .unwrap();
     }),
     declare_primitive!("count", env, {
         let counted_string_address = env.data_stack.pop().unwrap();
-        let counted_string: &CountedString = unsafe {
-            std::mem::transmute::<Cell, *const CountedString>(counted_string_address)
-                .as_ref()
-                .unwrap()
-        };
-
+        let counted_string: &CountedString =
+            unsafe { (counted_string_address as *const CountedString).as_ref() }.unwrap();
         let address_of_first_character: *const Byte = counted_string.data.as_ptr();
         let byte_count = counted_string.len;
 
@@ -725,38 +692,30 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_primitive!("execute", env, {
         let entry = env.data_stack.pop().unwrap();
-        let entry: *const DictionaryEntry = unsafe { std::mem::transmute(entry) };
+        let entry = entry as *const DictionaryEntry;
         let entry = unsafe { entry.as_ref() }.unwrap();
         env.execute_word(entry.body.first().unwrap());
     }),
     declare_primitive!(">body", env, {
         let entry = env.data_stack.pop().unwrap();
-        let entry: *const DictionaryEntry = unsafe { std::mem::transmute(entry) };
+        let entry = entry as *const DictionaryEntry;
         let entry = unsafe { entry.as_ref() }.unwrap();
-        match entry.body.get(0).unwrap() {
+        match entry.body.first().unwrap() {
             ForthOperation::PushCellToDataStack(result) => env.data_stack.push(*result).unwrap(),
             _ => panic!("Invalid argument given to >body"),
         }
     }),
     declare_primitive!("find", env, {
         let name_address = env.data_stack.pop().unwrap();
-        let name: &CountedString = unsafe {
-            std::mem::transmute::<Cell, *const CountedString>(name_address)
-                .as_ref()
-                .unwrap()
-        };
+        let name: &CountedString =
+            unsafe { (name_address as *const CountedString).as_ref() }.unwrap();
         let name = Name::from_ascii(unsafe { name.as_slice() });
         match search_dictionary(&env.dictionary, &name) {
             Some(entry) => {
                 env.data_stack
                     .push(unsafe { std::mem::transmute(entry) })
                     .unwrap();
-                let immediate;
-                if entry.immediate {
-                    immediate = 1;
-                } else {
-                    immediate = -1;
-                }
+                let immediate = if entry.immediate { 1 } else { -1 };
                 env.data_stack.push(immediate).unwrap();
             }
             _ => {
@@ -780,7 +739,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_primitive!("environment?", env, {
         let string_bytecount = env.data_stack.pop().unwrap() as usize;
         let string_address = env.data_stack.pop().unwrap();
-        let string_address: *const u8 = unsafe { std::mem::transmute(string_address) };
+        let string_address = string_address as *const u8;
         let string = unsafe { std::slice::from_raw_parts(string_address, string_bytecount) };
 
         let mut found = Flag::True;
@@ -811,14 +770,14 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_primitive!("evaluate", env, {
         let string_byte_count = env.data_stack.pop().unwrap() as usize;
         let string_address = env.data_stack.pop().unwrap();
-        let string_address: *const u8 = unsafe { std::mem::transmute(string_address) };
+        let string_address = string_address as *const u8;
         let string = unsafe { std::slice::from_raw_parts(string_address, string_byte_count) };
         let input_buffer_head_backup = env.input_buffer_head;
         let input_buffer_backup = env.input_buffer.to_vec();
 
         // TODO: Set the input buffer to be `string`, don't just copy it.
 
-        env.interpret_line(&string);
+        env.interpret_line(string);
 
         env.input_buffer_head = input_buffer_head_backup;
         env.input_buffer.fill(0);
@@ -831,7 +790,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_primitive!("i", env, {
         env.data_stack
-            .push(env.runtime_loops.data.get(0).unwrap().iteration_index)
+            .push(env.runtime_loops.data.first().unwrap().iteration_index)
             .unwrap();
     }),
     declare_primitive!("j", env, {
@@ -849,16 +808,16 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let mut key_buffer: [Byte; 1] = [0; 1];
         std::io::stdin().read_exact(&mut key_buffer).unwrap();
         env.data_stack
-            .push(*key_buffer.get(0).unwrap() as Cell)
+            .push(*key_buffer.first().unwrap() as Cell)
             .unwrap();
     }),
     declare_primitive!("accept", env, {
         let max_length = env.data_stack.pop().unwrap();
         let max_length = max_length as usize;
         let destination = env.data_stack.pop().unwrap();
-        let destination: *mut Byte = unsafe { std::mem::transmute(destination) };
+        let destination = destination as *mut Byte;
         let buffer = unsafe { std::slice::from_raw_parts_mut(destination, max_length) };
-        std::io::stdin().read(buffer).unwrap();
+        std::io::stdin().read_exact(buffer).unwrap();
     }),
     declare_primitive!("m*", env, {
         let x = env.data_stack.pop().unwrap();
@@ -966,28 +925,26 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.latest_mut().body.push(operation);
     }),
     declare_immediate_primitive!("(", env, {
-        env.next_token(&[], ')' as Byte);
+        env.next_token(&[], b')');
     }),
     declare_immediate_primitive!("s\"", env, {
-        let string = env.next_token(&[], '"' as Byte).to_owned(); // TODO: Possible without copying to heap?
+        let string = env.next_token(&[], b'"').to_owned(); // TODO: Possible without copying to heap?
         let length = string.len();
 
         // Copy to data space
         let data_space_string_address: *const u8 = env.data_space_pointer.as_ref().as_ptr();
         for byte in string {
-            **env.data_space_pointer.nth(0).as_mut().unwrap() = byte;
+            **env.data_space_pointer.next().as_mut().unwrap() = byte;
         }
 
         if env.compile_mode() {
             env.latest_mut().body.append(&mut vec![
-                ForthOperation::PushCellToDataStack(unsafe {
-                    std::mem::transmute(data_space_string_address)
-                }),
+                ForthOperation::PushCellToDataStack(data_space_string_address as Cell),
                 ForthOperation::PushCellToDataStack(length as Cell),
             ]);
         } else {
             env.data_stack
-                .push(unsafe { std::mem::transmute(data_space_string_address) })
+                .push(data_space_string_address as Cell)
                 .unwrap();
             env.data_stack.push(length as Cell).unwrap();
         }
@@ -1039,13 +996,10 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             let len = env.latest().body.len();
             for index in do_index..env.latest().body.len() {
                 let item = env.latest_mut().body.get_mut(index).unwrap();
-                match item {
-                    ForthOperation::Unresolved(UnresolvedOperation::Leave) => {
-                        let branch_offset = len - index;
-                        let branch_offset = branch_offset as isize;
-                        *item = ForthOperation::BranchOnFalse(branch_offset);
-                    }
-                    _ => {}
+                if let ForthOperation::Unresolved(UnresolvedOperation::Leave) = item {
+                    let branch_offset = len - index;
+                    let branch_offset = branch_offset as isize;
+                    *item = ForthOperation::BranchOnFalse(branch_offset);
                 }
             }
         } else {
@@ -1063,12 +1017,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
 ];
 
 fn search_dictionary<'a>(dict: &'a Dictionary, name: &Name) -> Option<&'a DictionaryEntry> {
-    for item in dict {
-        if item.name == *name {
-            return Some(item);
-        }
-    }
-    return None;
+    return dict.iter().find(|&item| item.name == *name);
 }
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
@@ -1076,7 +1025,7 @@ fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
         return None;
     }
 
-    let (base, has_base_indicator) = match word.chars().nth(0).unwrap() {
+    let (base, has_base_indicator) = match word.chars().next().unwrap() {
         '#' => (10, true),
         '$' => (16, true),
         '%' => (2, true),
@@ -1204,7 +1153,7 @@ impl<'a> Environment<'a> {
     }
 
     fn interpret_line(&mut self, line: &[Byte]) {
-        if line.len() == 0 {
+        if line.is_empty() {
             return;
         }
 
@@ -1214,9 +1163,9 @@ impl<'a> Environment<'a> {
         self.input_buffer[line.len()..].fill(0);
 
         'empty_input_buffer: loop {
-            let token = self.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, ' ' as Byte);
+            let token = self.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, b' ');
 
-            if token.len() == 0 {
+            if token.is_empty() {
                 break 'empty_input_buffer;
             }
 
@@ -1227,7 +1176,7 @@ impl<'a> Environment<'a> {
     }
 
     fn handle_token(&mut self, token: &str) {
-        match parse_number(self.base as u32, &token) {
+        match parse_number(self.base as u32, token) {
             Some(number) => self.handle_number_token(number),
             _ => self.handle_text_token(token),
         }
@@ -1311,7 +1260,7 @@ impl<'a> Environment<'a> {
         let mut index_from_the_end = 0;
         for item in self.latest().body.iter().rev() {
             index_from_the_end += 1;
-            if test(&item) {
+            if test(item) {
                 return Some(self.dictionary.front().unwrap().body.len() - index_from_the_end);
             }
         }
@@ -1319,23 +1268,24 @@ impl<'a> Environment<'a> {
     }
 
     fn index_of_last_unresolved_if_or_else(&self) -> Option<usize> {
-        return self.reverse_find_in_latest(|item| match item {
-            ForthOperation::Unresolved(UnresolvedOperation::If | UnresolvedOperation::Else) => true,
-            _ => false,
+        return self.reverse_find_in_latest(|item| {
+            matches!(
+                item,
+                ForthOperation::Unresolved(UnresolvedOperation::If | UnresolvedOperation::Else)
+            )
         });
     }
 
     fn index_of_last_unresolved_while(&self) -> Option<usize> {
-        return self.reverse_find_in_latest(|item| match item {
-            ForthOperation::Unresolved(UnresolvedOperation::While) => true,
-            _ => false,
+        return self.reverse_find_in_latest(|item| {
+            matches!(item, ForthOperation::Unresolved(UnresolvedOperation::While))
         });
     }
 
     fn align_data_pointer(&mut self) {
         loop {
             let data = self.data_space_pointer.as_ref().as_ptr();
-            let data: usize = unsafe { std::mem::transmute(data) };
+            let data = data as usize;
             if data % std::mem::size_of::<Cell>() == 0 {
                 break;
             }
@@ -1344,8 +1294,8 @@ impl<'a> Environment<'a> {
     }
 
     fn read_name_from_input_buffer(&mut self) -> Option<Name> {
-        let name = self.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, ' ' as Byte);
-        if name.len() == 0 {
+        let name = self.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, b' ');
+        if name.is_empty() {
             return None;
         }
 
@@ -1398,7 +1348,7 @@ fn main() {
         let mut line_buffer = String::new();
         std::io::stdin().read_line(&mut line_buffer).unwrap();
         line_buffer.pop();
-        environment.interpret_line(&line_buffer.as_bytes());
+        environment.interpret_line(line_buffer.as_bytes());
         println!(" ok. ");
         std::io::stdout().flush().unwrap();
     }

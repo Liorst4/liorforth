@@ -17,28 +17,31 @@ fn find_forth_runtime_sources() -> Vec<std::path::PathBuf> {
     let project_root_directory = std::path::Path::new(&project_root_directory);
 
     let mut forth_runtime_paths = vec![];
-    for entry in project_root_directory.join("src").read_dir().unwrap() {
-        if let Ok(entry) = entry {
-            let path = entry.path();
-            if path.extension().unwrap() == "fth" {
-                forth_runtime_paths.push(path);
-            }
+    for entry in project_root_directory
+        .join("src")
+        .read_dir()
+        .unwrap()
+        .flatten()
+    {
+        let path = entry.path();
+        if path.extension().unwrap() == "fth" {
+            forth_runtime_paths.push(path);
         }
     }
 
     return forth_runtime_paths;
 }
 
-fn forth_runtime_priority(path: &std::path::PathBuf) -> usize {
+fn forth_runtime_priority(path: &std::path::Path) -> usize {
     let prefix = path
         .file_name()
         .unwrap()
         .to_str()
         .unwrap()
         .split('_')
-        .nth(0)
+        .next()
         .unwrap();
-    return usize::from_str_radix(prefix, 10).unwrap();
+    return prefix.parse::<usize>().unwrap();
 }
 
 fn concat_files(paths: &[std::path::PathBuf]) -> String {
@@ -57,7 +60,7 @@ fn main() {
     // TODO: Re-run when new fth files are added to the project
 
     let mut fth_files = find_forth_runtime_sources();
-    fth_files.sort_by(|a, b| forth_runtime_priority(a).cmp(&forth_runtime_priority(b)));
+    fth_files.sort_by_key(|a| forth_runtime_priority(a));
 
     for path in &fth_files {
         println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
