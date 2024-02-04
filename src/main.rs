@@ -1004,6 +1004,8 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
 ];
 
+const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
+
 fn search_dictionary<'a>(dict: &'a Dictionary, name: &Name) -> Option<&'a DictionaryEntry> {
     return dict.iter().find(|&item| item.name == *name);
 }
@@ -1042,23 +1044,7 @@ impl<'a> Environment<'a> {
         control_flow_stack_buffer: &'a mut [usize],
         runtime_loops_buffer: &'a mut [LoopState],
     ) -> Environment<'a> {
-        Environment {
-            data_space_pointer: data_space.iter_mut(),
-            data_stack: Stack::new(data_stack_buffer),
-            return_stack: Stack::new(return_stack_buffer),
-            input_buffer,
-            input_buffer_head: 0,
-            dictionary: Default::default(),
-            base: 10,
-            currently_compiling: Flag::False as Cell,
-            control_flow_stack: Stack::new(control_flow_stack_buffer),
-            parsed_word: parsed_word_buffer,
-            runtime_loops: Stack::new(runtime_loops_buffer),
-        }
-    }
-
-    fn load_runtime(&mut self) {
-        self.dictionary = std::collections::LinkedList::from_iter(STATIC_DICTIONARY.iter().map(
+        let dictionary = std::collections::LinkedList::from_iter(STATIC_DICTIONARY.iter().map(
             |(name, immediate, operation)| DictionaryEntry {
                 name: Name::from_ascii(name.as_bytes()),
                 immediate: *immediate,
@@ -1066,10 +1052,25 @@ impl<'a> Environment<'a> {
             },
         ));
 
-        const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
+        let mut result = Environment {
+            data_space_pointer: data_space.iter_mut(),
+            data_stack: Stack::new(data_stack_buffer),
+            return_stack: Stack::new(return_stack_buffer),
+            input_buffer,
+            input_buffer_head: 0,
+            dictionary,
+            base: 10,
+            currently_compiling: Flag::False as Cell,
+            control_flow_stack: Stack::new(control_flow_stack_buffer),
+            parsed_word: parsed_word_buffer,
+            runtime_loops: Stack::new(runtime_loops_buffer),
+        };
+
         for line in FORTH_RUNTIME_INIT.lines() {
-            self.interpret_line(line.as_bytes());
+            result.interpret_line(line.as_bytes());
         }
+
+        return result;
     }
 
     fn compile_mode(&self) -> bool {
@@ -1322,7 +1323,6 @@ macro_rules! default_fixed_sized_environment {
 
 fn main() {
     default_fixed_sized_environment!(environment);
-    environment.load_runtime();
     loop {
         let mut line_buffer = String::new();
         std::io::stdin().read_line(&mut line_buffer).unwrap();

@@ -4,8 +4,7 @@ mod tests {
 
     #[test]
     fn initialization() {
-        default_fixed_sized_environment!(environment);
-        environment.load_runtime();
+        default_fixed_sized_environment!(_environment);
     }
 
     fn test_stack_effect(code: &str, env: &mut Environment, expected_result: Vec<Cell>) {
@@ -24,7 +23,6 @@ mod tests {
     fn test_stack_effects(code_and_effects: &[(&str, Vec<Cell>)]) {
         for (code, expected_result) in code_and_effects {
             default_fixed_sized_environment!(environment);
-            environment.load_runtime();
             test_stack_effect(code, &mut environment, expected_result.clone());
         }
     }
@@ -56,7 +54,6 @@ mod tests {
 
         for (a, b, expected_remainder, expected_quotient) in PARAMETERS {
             default_fixed_sized_environment!(environment);
-            environment.load_runtime();
             environment.data_stack.push(*a).unwrap();
             environment.data_stack.push(*b).unwrap();
             const SCRIPT: &str = "/mod";
@@ -73,7 +70,6 @@ mod tests {
     #[test]
     fn test_double_division() {
         default_fixed_sized_environment!(environment);
-        environment.load_runtime();
         const TEST_PARAMETERS: &[((DoubleCell, Cell), (Cell, Cell))] = &[
             ((10, 7), (3, 1)),
             ((-10, 7), (-3, -1)),
@@ -161,7 +157,6 @@ test-leave
     #[test]
     fn return_stack_sanity() {
         default_fixed_sized_environment!(environment);
-        environment.load_runtime();
 
         let script = "
 : a r> dup >r ;
@@ -233,7 +228,6 @@ b";
         ];
 
         default_fixed_sized_environment!(environment);
-        environment.load_runtime();
 
         for (input, output) in INPUT_AND_EXPECTED_OUTPUT {
             let script = format!("{} s>d", input);
@@ -248,7 +242,6 @@ b";
     #[test]
     fn test_m_star() {
         default_fixed_sized_environment!(environment);
-        environment.load_runtime();
         const TEST_PARAMETERS: &[((Cell, Cell), DoubleCell)] = &[
             ((0, 0), 0),
             ((1, 1), 1),
@@ -358,7 +351,6 @@ test4
 ";
 
         default_fixed_sized_environment!(environment);
-        environment.load_runtime();
 
         for line in script.lines() {
             environment.interpret_line(line.as_bytes());
@@ -375,7 +367,6 @@ test4
     #[test]
     fn test_memory() {
         default_fixed_sized_environment!(environment);
-        environment.load_runtime();
 
         for number in [0, 1, -1, Cell::MAX / 2, Cell::MAX, Cell::MIN, Cell::MIN / 2] {
             {
@@ -436,7 +427,6 @@ test4
 
         for string in STRINGS {
             default_fixed_sized_environment!(environment);
-            environment.load_runtime();
             environment.interpret_line(format!("bl word {}", string).as_bytes());
 
             let counted_string_address = *environment.data_stack.last().unwrap();
@@ -456,7 +446,6 @@ test4
     #[test]
     fn test_move() {
         default_fixed_sized_environment!(environment);
-        environment.load_runtime();
         const SRC_INITIAL_VALUE: [i32; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
         let src = SRC_INITIAL_VALUE;
         let mut dest: [i32; 8] = [1; 8];
