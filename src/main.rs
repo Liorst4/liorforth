@@ -355,7 +355,7 @@ macro_rules! declare_primitive {
     };
 }
 
-macro_rules! binary_operator_native_word {
+macro_rules! declare_binary_operator_primitive {
     ($name:literal, $method:tt) => {
         declare_primitive!($name, env, {
             let b = env.data_stack.pop().unwrap();
@@ -366,7 +366,7 @@ macro_rules! binary_operator_native_word {
     };
 }
 
-macro_rules! unary_operator_native_word {
+macro_rules! declare_unary_operator_primitive {
     ($name:literal, $operator:tt) => {
 	declare_primitive!($name, env, {
             let a = env.data_stack.pop().unwrap();
@@ -376,7 +376,7 @@ macro_rules! unary_operator_native_word {
     };
 }
 
-macro_rules! compare_operator_native_word {
+macro_rules! declare_compare_operator_primitive {
     ($name:literal, $operator:tt) => {
 	declare_primitive!($name, env, {
             let b = env.data_stack.pop().unwrap();
@@ -561,20 +561,20 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let base_address: *mut Cell = &mut env.base;
         env.data_stack.push(base_address as Cell).unwrap();
     }),
-    binary_operator_native_word!("+", wrapping_add),
-    binary_operator_native_word!("-", wrapping_sub),
-    binary_operator_native_word!("*", wrapping_mul),
-    binary_operator_native_word!("and", bitand),
-    binary_operator_native_word!("or", bitor),
-    binary_operator_native_word!("xor", bitxor),
-    binary_operator_native_word!("mod", wrapping_rem),
-    binary_operator_native_word!("lshift", shl),
-    binary_operator_native_word!("rshift", shr),
-    unary_operator_native_word!("negate", -),
-    unary_operator_native_word!("invert", !),
-    compare_operator_native_word!("=", ==),
-    compare_operator_native_word!("<", <),
-    compare_operator_native_word!(">", >),
+    declare_binary_operator_primitive!("+", wrapping_add),
+    declare_binary_operator_primitive!("-", wrapping_sub),
+    declare_binary_operator_primitive!("*", wrapping_mul),
+    declare_binary_operator_primitive!("and", bitand),
+    declare_binary_operator_primitive!("or", bitor),
+    declare_binary_operator_primitive!("xor", bitxor),
+    declare_binary_operator_primitive!("mod", wrapping_rem),
+    declare_binary_operator_primitive!("lshift", shl),
+    declare_binary_operator_primitive!("rshift", shr),
+    declare_unary_operator_primitive!("negate", -),
+    declare_unary_operator_primitive!("invert", !),
+    declare_compare_operator_primitive!("=", ==),
+    declare_compare_operator_primitive!("<", <),
+    declare_compare_operator_primitive!(">", >),
     declare_primitive!(":", env, {
         let name = env.read_name_from_input_buffer().unwrap();
         env.dictionary.push_front(DictionaryEntry {
