@@ -452,4 +452,26 @@ test4
             assert_eq!(count, counted_string.len as Cell);
         }
     }
+
+    #[test]
+    fn test_move() {
+        default_fixed_sized_environment!(environment);
+        environment.load_runtime();
+        const SRC_INITIAL_VALUE: [i32; 8] = [0, 1, 2, 3, 4, 5, 6, 7];
+        let src = SRC_INITIAL_VALUE;
+        let mut dest: [i32; 8] = [1; 8];
+
+        environment.interpret_line(
+            format!(
+                "{} {} {} move",
+                src.as_ptr() as usize,
+                dest.as_mut_ptr() as usize,
+                std::mem::size_of_val(&src),
+            )
+            .as_bytes(),
+        );
+
+        assert_eq!(src, SRC_INITIAL_VALUE);
+        assert_eq!(dest, SRC_INITIAL_VALUE);
+    }
 }

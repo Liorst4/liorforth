@@ -614,17 +614,9 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_primitive!("move", env, {
         let length = env.data_stack.pop().unwrap() as usize;
-
-        let dest = env.data_stack.pop().unwrap();
-        let src = env.data_stack.pop().unwrap();
-
-        let dest = dest as *mut Byte;
-        let src = src as *const Byte;
-
-        let dest: &mut [Byte] = unsafe { std::slice::from_raw_parts_mut(dest, length) };
-        let src: &[Byte] = unsafe { std::slice::from_raw_parts(src, length) };
-
-        dest.copy_from_slice(src);
+        let dest = env.data_stack.pop().unwrap() as *mut Byte;
+        let src = env.data_stack.pop().unwrap() as *const Byte;
+        unsafe { std::ptr::copy(src, dest, length) };
     }),
     declare_primitive!("depth", env, {
         env.data_stack.push(env.data_stack.len() as Cell).unwrap();
