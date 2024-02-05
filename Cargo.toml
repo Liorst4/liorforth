@@ -9,7 +9,7 @@ edition = "2021"
 
 [profile.small]
 inherits = "release"
-opt-level = "s"
+opt-level = "z"
 strip = "symbols"
 panic = "abort"
 lto = true
