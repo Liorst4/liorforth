@@ -185,3 +185,25 @@
 ( the three commands r> dup and >r need to be )
 ( inline-d inside the word that uses r@ )
 : r@ s" postpone r> postpone dup postpone >r " evaluate ; immediate
+
+\ create a temporary counted string in "here"
+: tmp-counted ( addr n -- addr )
+  dup here !
+  here 1 + swap move
+  here
+;
+
+MAX-CHAR constant /COUNTED-STRING
+MAX-N constant RETURN-STACK-CELLS
+MAX-N constant STACK-CELLS
+false constant FLOORED
+\ TODO: /HOLD and /PAD
+: environment?
+  tmp-counted find 0= if
+    drop
+    false
+  else
+    execute
+    true
+  then
+;

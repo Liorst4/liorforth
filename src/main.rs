@@ -799,36 +799,17 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.return_stack.clear();
         // TODO: Don't print ok
     }),
-    declare_primitive!("environment?", env, {
-        let string_bytecount = env.data_stack.pop().unwrap() as usize;
-        let string_address = env.data_stack.pop().unwrap();
-        let string_address = string_address as *const u8;
-        let string = unsafe { std::slice::from_raw_parts(string_address, string_bytecount) };
-
-        let mut found = Flag::True;
-
-        // TODO: /HOLD
-        // TODO: /PAD
-
-        match string {
-            b"/COUNTED-STRING" | b"MAX-CHAR" => env.data_stack.push(Byte::MAX as Cell).unwrap(),
-            b"ADDRESS-UNIT-BITS" => env.data_stack.push(Cell::BITS as Cell).unwrap(),
-            b"MAX-N" | b"RETURN-STACK-CELLS" | b"STACK-CELLS" => {
-                env.data_stack.push(Cell::MAX as Cell).unwrap()
-            }
-            b"MAX-U" => env.data_stack.push(usize::MAX as Cell).unwrap(),
-            b"MAX-D" => env.data_stack.push_double_cell(DoubleCell::MAX).unwrap(),
-            b"FLOORED" => env.data_stack.push(Flag::False as Cell).unwrap(),
-            b"MAX-UD" => env
-                .data_stack
-                .push_double_cell(DoubleUCell::MAX as DoubleCell)
-                .unwrap(),
-            _ => {
-                found = Flag::False;
-            }
-        }
-
-        env.data_stack.push(found as Cell).unwrap();
+    declare_constant!("MAX-CHAR", Byte::MAX),
+    declare_constant!("ADDRESS-UNIT-BITS", Cell::BITS),
+    declare_constant!("MAX-N", Cell::MAX),
+    declare_constant!("MAX-U", UCell::MAX),
+    declare_primitive!("MAX-D", env, {
+        env.data_stack.push_double_cell(DoubleCell::MAX).unwrap()
+    }),
+    declare_primitive!("MAX-UD", env, {
+        env.data_stack
+            .push_double_cell(DoubleUCell::MAX as DoubleCell)
+            .unwrap()
     }),
     declare_primitive!("evaluate", env, {
         let string_byte_count = env.data_stack.pop().unwrap() as usize;
