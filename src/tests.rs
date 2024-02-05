@@ -205,8 +205,11 @@ b";
             DoubleCell::MIN,
             DoubleCell::MIN / 2,
             0x1122334455,
+            0x00112233445566778899aabbccddeeff,
         ];
         for number in numbers {
+            assert_eq!(number, double_cell_from_array(double_cell_to_array(number)));
+
             let mut stack_buffer = [0; 100];
             let mut stack = Stack::new(&mut stack_buffer);
             stack.push_double_cell(number).unwrap();

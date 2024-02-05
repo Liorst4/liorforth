@@ -44,6 +44,46 @@ type DoubleCell = i32;
 #[cfg(target_pointer_width = "8")]
 type DoubleCell = i16;
 
+fn double_cell_to_array(x: DoubleCell) -> [Cell; 2] {
+    let double_cell_bytes: [Byte; std::mem::size_of::<DoubleCell>()] = x.to_le_bytes();
+    let mut first_cell_bytes: [Byte; std::mem::size_of::<Cell>()];
+    let mut second_cell_bytes: [Byte; std::mem::size_of::<Cell>()];
+
+    first_cell_bytes = [0; std::mem::size_of::<Cell>()];
+    for i in 0..std::mem::size_of::<Cell>() {
+        first_cell_bytes[i] = double_cell_bytes[i];
+    }
+
+    second_cell_bytes = [0; std::mem::size_of::<Cell>()];
+    for i in 0..std::mem::size_of::<Cell>() {
+        second_cell_bytes[i] = double_cell_bytes[i + std::mem::size_of::<Cell>()];
+    }
+
+    return [
+        Cell::from_le_bytes(first_cell_bytes),
+        Cell::from_le_bytes(second_cell_bytes),
+    ];
+}
+
+fn double_cell_from_array(x: [Cell; 2]) -> DoubleCell {
+    let mut double_cell_bytes: [Byte; std::mem::size_of::<DoubleCell>()];
+    let first_cell_bytes: [Byte; std::mem::size_of::<Cell>()];
+    let second_cell_bytes: [Byte; std::mem::size_of::<Cell>()];
+
+    first_cell_bytes = x[0].to_le_bytes();
+    second_cell_bytes = x[1].to_le_bytes();
+
+    double_cell_bytes = [0; std::mem::size_of::<DoubleCell>()];
+    for i in 0..std::mem::size_of::<Cell>() {
+        double_cell_bytes[i] = first_cell_bytes[i];
+    }
+    for i in 0..std::mem::size_of::<Cell>() {
+        double_cell_bytes[i + std::mem::size_of::<Cell>()] = second_cell_bytes[i];
+    }
+
+    return DoubleCell::from_le_bytes(double_cell_bytes);
+}
+
 #[cfg(target_pointer_width = "64")]
 type DoubleUCell = u128;
 
@@ -122,7 +162,7 @@ where
 
 impl<'a> Stack<'a, Cell> {
     fn push_double_cell(&mut self, value: DoubleCell) -> Result<(), StackError> {
-        let cells: &[Cell; 2] = unsafe { std::mem::transmute(&value) };
+        let cells: [Cell; 2] = double_cell_to_array(value);
         self.push(cells[0])?;
         return match self.push(cells[1]) {
             Ok(_) => Ok(()),
@@ -138,10 +178,10 @@ impl<'a> Stack<'a, Cell> {
             return Err(StackError::Underflow);
         }
 
-        let result =
-            *unsafe { std::mem::transmute::<&Cell, &DoubleCell>(&self.data[self.len() - 2]) };
-        self.pop().unwrap();
-        self.pop().unwrap();
+        let mut result: [Cell; 2] = Default::default();
+        result[1] = self.pop().unwrap();
+        result[0] = self.pop().unwrap();
+        let result = double_cell_from_array(result);
         return Ok(result);
     }
 }
