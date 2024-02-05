@@ -44,46 +44,6 @@ type DoubleCell = i32;
 #[cfg(target_pointer_width = "8")]
 type DoubleCell = i16;
 
-fn double_cell_to_array(x: DoubleCell) -> [Cell; 2] {
-    let double_cell_bytes: [Byte; std::mem::size_of::<DoubleCell>()] = x.to_le_bytes();
-    let mut first_cell_bytes: [Byte; std::mem::size_of::<Cell>()];
-    let mut second_cell_bytes: [Byte; std::mem::size_of::<Cell>()];
-
-    first_cell_bytes = [0; std::mem::size_of::<Cell>()];
-    for i in 0..std::mem::size_of::<Cell>() {
-        first_cell_bytes[i] = double_cell_bytes[i];
-    }
-
-    second_cell_bytes = [0; std::mem::size_of::<Cell>()];
-    for i in 0..std::mem::size_of::<Cell>() {
-        second_cell_bytes[i] = double_cell_bytes[i + std::mem::size_of::<Cell>()];
-    }
-
-    return [
-        Cell::from_le_bytes(first_cell_bytes),
-        Cell::from_le_bytes(second_cell_bytes),
-    ];
-}
-
-fn double_cell_from_array(x: [Cell; 2]) -> DoubleCell {
-    let mut double_cell_bytes: [Byte; std::mem::size_of::<DoubleCell>()];
-    let first_cell_bytes: [Byte; std::mem::size_of::<Cell>()];
-    let second_cell_bytes: [Byte; std::mem::size_of::<Cell>()];
-
-    first_cell_bytes = x[0].to_le_bytes();
-    second_cell_bytes = x[1].to_le_bytes();
-
-    double_cell_bytes = [0; std::mem::size_of::<DoubleCell>()];
-    for i in 0..std::mem::size_of::<Cell>() {
-        double_cell_bytes[i] = first_cell_bytes[i];
-    }
-    for i in 0..std::mem::size_of::<Cell>() {
-        double_cell_bytes[i + std::mem::size_of::<Cell>()] = second_cell_bytes[i];
-    }
-
-    return DoubleCell::from_le_bytes(double_cell_bytes);
-}
-
 #[cfg(target_pointer_width = "64")]
 type DoubleUCell = u128;
 
@@ -95,6 +55,27 @@ type DoubleUCell = u32;
 
 #[cfg(target_pointer_width = "8")]
 type DoubleUCell = u16;
+
+const fn double_ucell_to_array(x: DoubleUCell) -> [UCell; 2] {
+    let low = x as UCell;
+    let high = (x >> UCell::BITS) as UCell;
+    return [low, high];
+}
+
+const fn double_ucell_from_array(x: [UCell; 2]) -> DoubleUCell {
+    let low = x[0];
+    let high = x[1];
+    return ((high as DoubleUCell) << UCell::BITS) | (low as DoubleUCell);
+}
+
+const fn double_cell_to_array(x: DoubleCell) -> [Cell; 2] {
+    let ucells = double_ucell_to_array(x as DoubleUCell);
+    return [ucells[0] as Cell, ucells[1] as Cell];
+}
+
+const fn double_cell_from_array(x: [Cell; 2]) -> DoubleCell {
+    return double_ucell_from_array([x[0] as UCell, x[1] as UCell]) as DoubleCell;
+}
 
 struct Stack<'a, T>
 where
