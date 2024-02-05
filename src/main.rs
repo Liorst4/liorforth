@@ -226,6 +226,19 @@ enum UnresolvedOperation {
     Leave,
 }
 
+impl TryFrom<Cell> for UnresolvedOperation {
+    type Error = ();
+    fn try_from(x: Cell) -> Result<Self, Self::Error> {
+        match x {
+            0 => Ok(UnresolvedOperation::If),
+            1 => Ok(UnresolvedOperation::Else),
+            2 => Ok(UnresolvedOperation::While),
+            3 => Ok(UnresolvedOperation::Leave),
+            _ => Err(()),
+        }
+    }
+}
+
 #[derive(Clone)]
 enum ForthOperation {
     PushCellToDataStack(Cell),
@@ -242,6 +255,31 @@ enum ForthOperation {
 
     /// Used when compiling conditionals and loops
     Unresolved(UnresolvedOperation),
+}
+
+impl TryFrom<DoubleCell> for ForthOperation {
+    type Error = ();
+    fn try_from(x: DoubleCell) -> Result<Self, Self::Error> {
+        let x = double_cell_to_array(x);
+        let first = x[0];
+        let second = x[1];
+        match first {
+            0 => Ok(ForthOperation::PushCellToDataStack(second)),
+            1 => Ok(ForthOperation::CallAnotherDictionaryEntry(
+                second as *const DictionaryEntry,
+            )),
+            2 => Ok(ForthOperation::BranchOnFalse(second)),
+            3 => Ok(ForthOperation::Branch(second as *const ForthOperation)),
+            4 => Ok(ForthOperation::CallPrimitive(unsafe {
+                std::mem::transmute(second)
+            })),
+            5 => Ok(ForthOperation::Return),
+            6 => Ok(ForthOperation::Unresolved(UnresolvedOperation::try_from(
+                second,
+            )?)),
+            _ => Err(()),
+        }
+    }
 }
 
 impl std::fmt::Display for ForthOperation {
@@ -865,10 +903,10 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.latest_mut().body.push(ForthOperation::Return);
         env.currently_compiling = Flag::False as Cell;
     }),
-    declare_immediate_primitive!("if", env, {
-        env.latest_mut()
-            .body
-            .push(ForthOperation::Unresolved(UnresolvedOperation::If));
+    declare_immediate_primitive!("push-latest", env, {
+        let x = env.data_stack.pop_double_cell().unwrap();
+        let op = ForthOperation::try_from(x).unwrap();
+        env.latest_mut().body.push(op);
     }),
     declare_immediate_primitive!("else", env, {
         let unresolved_if_branch_index = env.index_of_last_unresolved_if_or_else().unwrap();
@@ -906,11 +944,6 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             .body
             .push(ForthOperation::BranchOnFalse(branch_offset));
     }),
-    declare_immediate_primitive!("while", env, {
-        env.latest_mut()
-            .body
-            .push(ForthOperation::Unresolved(UnresolvedOperation::While));
-    }),
     declare_immediate_primitive!("repeat", env, {
         let begin_index = env.control_flow_stack.pop().unwrap();
         env.latest_mut()
@@ -932,16 +965,6 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             .get_mut(unresolved_while_branch_index)
             .unwrap();
         *unresolved_branch = ForthOperation::BranchOnFalse(false_jump_offset);
-    }),
-    declare_immediate_primitive!("exit", env, {
-        // TODO: Don't implement as an immediate word
-        //       Control the flow of execution
-        env.latest_mut().body.push(ForthOperation::Return);
-    }),
-    declare_immediate_primitive!("literal", env, {
-        let data = env.data_stack.pop().unwrap();
-        let literal = ForthOperation::PushCellToDataStack(data);
-        env.latest_mut().body.push(literal);
     }),
     declare_immediate_primitive!("postpone", env, {
         let name = env.read_name_from_input_buffer().unwrap();
@@ -999,13 +1022,6 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
                 })
                 .unwrap();
         }
-    }),
-    declare_immediate_primitive!("leave", env, {
-        env.latest_mut().body.append(&mut vec![
-            ForthOperation::CallPrimitive(get_primitive!("unloop")),
-            ForthOperation::PushCellToDataStack(Flag::False as Cell),
-            ForthOperation::Unresolved(UnresolvedOperation::Leave),
-        ]);
     }),
     declare_immediate_primitive!("+loop", env, {
         if env.compile_mode() {

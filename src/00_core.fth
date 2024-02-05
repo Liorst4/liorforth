@@ -12,6 +12,33 @@
 ( You should have received a copy of the GNU General Public License along with )
 ( liorforth. If not, see <https://www.gnu.org/licenses/>. )
 
+: exit
+  5 0 \ ForthOperation::Return
+  postpone push-latest
+; immediate
+
+: literal ( n -- )
+  0 swap \ ForthOperation::PushCellToStack(...)
+  postpone push-latest
+; immediate
+
+: if
+  6 0 \ ForthOperation::Unresolved(UnresolvedOperation::If)
+  postpone push-latest
+; immediate
+
+: while
+  6 2 \ ForthOperation::Unresolved(UnresolvedOperation::While)
+  postpone push-latest
+; immediate
+
+: leave
+  s" postpone unloop" evaluate
+  false postpone literal
+  6 3 \ ForthOperation::Unresolved(UnresolvedOperation::Leave)
+  postpone push-latest
+; immediate
+
 : 1+ 1 + ;
 : 1- 1 - ;
 : 0< 0 < ;
