@@ -371,9 +371,9 @@ impl From<DoubleCell> for CountedLoopState {
     }
 }
 
-impl Into<DoubleCell> for CountedLoopState {
-    fn into(self) -> DoubleCell {
-        return double_cell_from_array([self.loop_counter, self.limit]);
+impl From<CountedLoopState> for DoubleCell {
+    fn from(val: CountedLoopState) -> DoubleCell {
+        return double_cell_from_array([val.loop_counter, val.limit]);
     }
 }
 
