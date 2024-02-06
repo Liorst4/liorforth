@@ -954,24 +954,6 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             .push(env.data_stack.pop_double_cell().unwrap().into())
             .unwrap();
     }),
-    declare_immediate_primitive!("do", env, {
-        if env.compile_mode() {
-            env.latest_mut()
-                .body
-                .push(ForthOperation::CallPrimitive(get_primitive!("do")));
-            let len = env.latest_mut().body.len();
-            env.control_flow_stack.push(len).unwrap();
-        } else {
-            let initial_index = env.data_stack.pop().unwrap();
-            let limit = env.data_stack.pop().unwrap();
-            env.counted_loops
-                .push(CountedLoopState {
-                    loop_counter: initial_index,
-                    limit,
-                })
-                .unwrap();
-        }
-    }),
     declare_immediate_primitive!("+loop", env, {
         if env.compile_mode() {
             let do_index = env.control_flow_stack.pop().unwrap();

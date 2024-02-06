@@ -177,6 +177,15 @@
   drop
 ;
 
+: do ( n n -- )
+  state @ if
+    s" postpone do" evaluate
+    latest-len >cf
+  else
+    swap >cl
+  then
+; immediate
+
 : i ( -- n ) cl> 2dup >cl drop ;
 : j ( -- n ) cl> cl> over >r >cl >cl r> ;
 : unloop cl> 2drop ;
