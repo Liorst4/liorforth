@@ -14,29 +14,52 @@
 
 : exit
   5 0 \ ForthOperation::Return
-  postpone push-latest
+  postpone latest-push
 ; immediate
 
 : literal ( n -- )
   0 swap \ ForthOperation::PushCellToStack(...)
-  postpone push-latest
+  postpone latest-push
 ; immediate
 
 : if
   6 0 \ ForthOperation::Unresolved(UnresolvedOperation::If)
-  postpone push-latest
+  postpone latest-push
+; immediate
+
+: then
+  latest-last-unres-if-or-else
+  dup >r
+  latest-len swap - \ branch offset
+  2 swap \ ForthOperation::BranchOnFalse(branch offset)
+  r> latest!
+; immediate
+
+: else
+  latest-last-unres-if-or-else
+
+  \ Append unresolved else
+  false postpone literal
+  6 1 \ ForthOperation::Unresolved(UnresolvedOperation::Else)
+  postpone latest-push
+
+  \ Edit unresolved if/else
+  dup >r
+  latest-len swap - \ branch offset
+  2 swap \ ForthOperation::BranchOnFalse(branch offset)
+  r> latest!
 ; immediate
 
 : while
   6 2 \ ForthOperation::Unresolved(UnresolvedOperation::While)
-  postpone push-latest
+  postpone latest-push
 ; immediate
 
 : leave
   s" postpone unloop" evaluate
   false postpone literal
   6 3 \ ForthOperation::Unresolved(UnresolvedOperation::Leave)
-  postpone push-latest
+  postpone latest-push
 ; immediate
 
 : 1+ 1 + ;

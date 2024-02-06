@@ -199,7 +199,7 @@ impl CountedString {
 type Primitive = fn(&mut Environment);
 
 /// Used when compiling conditionals and loops
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum UnresolvedOperation {
     If,
     Else,
@@ -220,7 +220,7 @@ impl TryFrom<Cell> for UnresolvedOperation {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 enum ForthOperation {
     PushCellToDataStack(Cell),
     CallAnotherDictionaryEntry(*const DictionaryEntry),
@@ -865,34 +865,26 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.latest_mut().body.push(ForthOperation::Return);
         env.currently_compiling = Flag::False as Cell;
     }),
-    declare_immediate_primitive!("push-latest", env, {
+    declare_immediate_primitive!("latest-push", env, {
         let x = env.data_stack.pop_double_cell().unwrap();
         let op = ForthOperation::try_from(x).unwrap();
         env.latest_mut().body.push(op);
     }),
-    declare_immediate_primitive!("else", env, {
-        let unresolved_if_branch_index = env.index_of_last_unresolved_if_or_else().unwrap();
-        env.latest_mut()
-            .body
-            .push(ForthOperation::PushCellToDataStack(Flag::False as Cell));
-        env.latest_mut()
-            .body
-            .push(ForthOperation::Unresolved(UnresolvedOperation::Else));
-        let branch_offset = env.latest().body.len() - unresolved_if_branch_index;
-        let unresolved_branch: &mut ForthOperation = env
-            .latest_mut()
-            .body
-            .get_mut(unresolved_if_branch_index)
+    declare_primitive!("latest-len", env, {
+        env.data_stack
+            .push(env.latest().body.len() as UCell as Cell)
             .unwrap();
-        *unresolved_branch = ForthOperation::BranchOnFalse(branch_offset as isize);
     }),
-    declare_immediate_primitive!("then", env, {
-        let unresolved_branch_index = env.index_of_last_unresolved_if_or_else().unwrap();
-        let latest = env.latest_mut();
-        let branch_offset = latest.body.len() - unresolved_branch_index;
-        let unresolved_branch: &mut ForthOperation =
-            latest.body.get_mut(unresolved_branch_index).unwrap();
-        *unresolved_branch = ForthOperation::BranchOnFalse(branch_offset as isize);
+    declare_primitive!("latest!", env, {
+        let index = env.data_stack.pop().unwrap() as UCell;
+        let op = ForthOperation::try_from(env.data_stack.pop_double_cell().unwrap()).unwrap();
+        *env.latest_mut().body.get_mut(index).unwrap() = op;
+    }),
+    declare_primitive!("latest-last-unres-if-or-else", env, {
+        let unresolved_if_branch_index = env.index_of_last_unresolved_if_or_else().unwrap();
+        env.data_stack
+            .push(unresolved_if_branch_index as UCell as Cell)
+            .unwrap();
     }),
     declare_immediate_primitive!("begin", env, {
         let len = env.latest_mut().body.len();
@@ -1264,7 +1256,10 @@ impl<'a> Environment<'a> {
         }
     }
 
-    fn reverse_find_in_latest(&self, test: fn(&ForthOperation) -> bool) -> Option<usize> {
+    fn reverse_find_in_latest<F>(&self, test: F) -> Option<usize>
+    where
+        F: Fn(&ForthOperation) -> bool,
+    {
         let index_from_the_end = self
             .latest()
             .body
