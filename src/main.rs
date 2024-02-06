@@ -356,8 +356,8 @@ impl std::fmt::Display for DictionaryEntry {
 type Dictionary = std::collections::LinkedList<DictionaryEntry>;
 
 #[derive(Copy, Clone, Default)]
-struct LoopState {
-    iteration_index: Cell,
+struct CountedLoopState {
+    loop_counter: Cell,
     limit: Cell,
 }
 
@@ -379,7 +379,7 @@ struct Environment<'a> {
 
     parsed_word: &'a mut [Byte],
 
-    runtime_loops: Stack<'a, LoopState>,
+    counted_loops: Stack<'a, CountedLoopState>,
 }
 
 const USUAL_LEADING_DELIMITERS_TO_IGNORE: &[Byte] = &[b' ', b'\t'];
@@ -811,16 +811,16 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         }
     }),
     declare_primitive!("unloop", env, {
-        env.runtime_loops.pop().unwrap();
+        env.counted_loops.pop().unwrap();
     }),
     declare_primitive!("i", env, {
         env.data_stack
-            .push(env.runtime_loops.data.first().unwrap().iteration_index)
+            .push(env.counted_loops.data.first().unwrap().loop_counter)
             .unwrap();
     }),
     declare_primitive!("j", env, {
         env.data_stack
-            .push(env.runtime_loops.data.get(1).unwrap().iteration_index)
+            .push(env.counted_loops.data.get(1).unwrap().loop_counter)
             .unwrap();
     }),
     declare_primitive!("does>", env, {
@@ -951,9 +951,9 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         } else {
             let initial_index = env.data_stack.pop().unwrap();
             let limit = env.data_stack.pop().unwrap();
-            env.runtime_loops
-                .push(LoopState {
-                    iteration_index: initial_index,
+            env.counted_loops
+                .push(CountedLoopState {
+                    loop_counter: initial_index,
                     limit,
                 })
                 .unwrap();
@@ -983,13 +983,13 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
                 }
             }
         } else {
-            let mut loop_state = env.runtime_loops.pop().unwrap();
+            let mut loop_state = env.counted_loops.pop().unwrap();
             let addition = env.data_stack.pop().unwrap();
-            loop_state.iteration_index += addition;
-            if loop_state.iteration_index >= loop_state.limit {
+            loop_state.loop_counter += addition;
+            if loop_state.loop_counter >= loop_state.limit {
                 env.data_stack.push(Flag::True as Cell).unwrap();
             } else {
-                env.runtime_loops.push(loop_state).unwrap();
+                env.counted_loops.push(loop_state).unwrap();
                 env.data_stack.push(Flag::False as Cell).unwrap();
             }
         }
@@ -1034,7 +1034,7 @@ impl<'a> Environment<'a> {
         data_stack_buffer: &'a mut [Cell],
         return_stack_buffer: &'a mut [*const ForthOperation],
         control_flow_stack_buffer: &'a mut [usize],
-        runtime_loops_buffer: &'a mut [LoopState],
+        runtime_loops_buffer: &'a mut [CountedLoopState],
     ) -> Environment<'a> {
         let dictionary = std::collections::LinkedList::from_iter(STATIC_DICTIONARY.iter().map(
             |(name, immediate, operation)| DictionaryEntry {
@@ -1055,7 +1055,7 @@ impl<'a> Environment<'a> {
             currently_compiling: Flag::False as Cell,
             control_flow_stack: Stack::new(control_flow_stack_buffer),
             parsed_word: parsed_word_buffer,
-            runtime_loops: Stack::new(runtime_loops_buffer),
+            counted_loops: Stack::new(runtime_loops_buffer),
         };
 
         for line in FORTH_RUNTIME_INIT.lines() {

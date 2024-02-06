@@ -17,7 +17,7 @@ mod tests {
             expected_result
         );
 
-        assert!(env.runtime_loops.is_empty());
+        assert!(env.counted_loops.is_empty());
     }
 
     fn test_stack_effects(code_and_effects: &[(&str, Vec<Cell>)]) {
