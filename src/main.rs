@@ -375,7 +375,7 @@ struct Environment<'a> {
     base: Cell,
 
     currently_compiling: Cell,
-    control_flow_stack: Stack<'a, usize>,
+    control_flow_stack: Stack<'a, UCell>,
 
     parsed_word: &'a mut [Byte],
 
@@ -886,39 +886,21 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             .push(unresolved_if_branch_index as UCell as Cell)
             .unwrap();
     }),
-    declare_immediate_primitive!("begin", env, {
-        let len = env.latest_mut().body.len();
-        env.control_flow_stack.push(len).unwrap();
-    }),
-    declare_immediate_primitive!("until", env, {
-        let branch_offset = env.latest_mut().body.len() - env.control_flow_stack.pop().unwrap();
-        let branch_offset = branch_offset as isize;
-        let branch_offset = -branch_offset;
-        env.latest_mut()
-            .body
-            .push(ForthOperation::BranchOnFalse(branch_offset));
-    }),
-    declare_immediate_primitive!("repeat", env, {
-        let begin_index = env.control_flow_stack.pop().unwrap();
-        env.latest_mut()
-            .body
-            .push(ForthOperation::PushCellToDataStack(Flag::False as Cell));
-        let true_jump_offset = env.latest_mut().body.len() - begin_index;
-        let true_jump_offset = true_jump_offset as isize;
-        let true_jump_offset = -true_jump_offset;
-        env.latest_mut()
-            .body
-            .push(ForthOperation::BranchOnFalse(true_jump_offset));
-
-        let unresolved_while_branch_index = env.index_of_last_unresolved_while().unwrap();
-        let false_jump_offset = env.latest_mut().body.len() - unresolved_while_branch_index;
-        let false_jump_offset = false_jump_offset as isize;
-        let unresolved_branch: &mut ForthOperation = env
-            .latest_mut()
-            .body
-            .get_mut(unresolved_while_branch_index)
+    declare_primitive!("latest-last-unres-while", env, {
+        let unresolved_if_branch_index = env.index_of_last_unresolved_while().unwrap();
+        env.data_stack
+            .push(unresolved_if_branch_index as UCell as Cell)
             .unwrap();
-        *unresolved_branch = ForthOperation::BranchOnFalse(false_jump_offset);
+    }),
+    declare_primitive!("cf>", env, {
+        env.data_stack
+            .push(env.control_flow_stack.pop().unwrap().try_into().unwrap())
+            .unwrap();
+    }),
+    declare_primitive!(">cf", env, {
+        env.control_flow_stack
+            .push(env.data_stack.pop().unwrap().try_into().unwrap())
+            .unwrap();
     }),
     declare_immediate_primitive!("postpone", env, {
         let name = env.read_name_from_input_buffer().unwrap();

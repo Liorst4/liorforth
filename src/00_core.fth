@@ -50,9 +50,39 @@
   r> latest!
 ; immediate
 
+: begin latest-len >cf ; immediate
+
+: until
+  latest-len cf> swap -
+  2 swap \ ForthOperation::BranchOnFalse(branch_offset)
+  latest-push
+; immediate
+
 : while
   6 2 \ ForthOperation::Unresolved(UnresolvedOperation::While)
   latest-push
+; immediate
+
+: repeat
+  \ Add a jump to the beginning of the word, at the end of the word
+  \ (when the "while" condition is not met)
+  false postpone literal
+  cf> latest-len -
+  2 swap \ ForthOperation::BranchOnFalse(latest-len - cf> (negative))
+  latest-push
+
+  \ Add a jump to after the previously added jump in the place of
+  \ the last unresolved "while"
+  latest-len latest-last-unres-while
+  dup >r
+  -
+  2 swap \ ForthOperation::BranchOnFalse(latest-len - latest-last-unres-while)
+  r>
+  latest!
+
+  \ This one is a bit confusing, I recommend creating a word
+  \ that uses a "repeat" loop, and inspecting the results with "see"
+  \ to get a better understanding on what is going on here
 ; immediate
 
 : leave
