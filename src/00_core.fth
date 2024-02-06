@@ -177,6 +177,9 @@
   drop
 ;
 
+: i ( -- n ) cl> 2dup >cl drop ;
+: j ( -- n ) cl> cl> over >r >cl >cl r> ;
+: unloop cl> 2drop ;
 : loop 1 postpone literal postpone +loop ; immediate
 
 : fill ( c-addr u char -- )

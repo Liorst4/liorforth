@@ -361,6 +361,22 @@ struct CountedLoopState {
     limit: Cell,
 }
 
+impl From<DoubleCell> for CountedLoopState {
+    fn from(x: DoubleCell) -> CountedLoopState {
+        let x = double_cell_to_array(x);
+        return CountedLoopState {
+            loop_counter: x[0],
+            limit: x[1],
+        };
+    }
+}
+
+impl Into<DoubleCell> for CountedLoopState {
+    fn into(self) -> DoubleCell {
+        return double_cell_from_array([self.loop_counter, self.limit]);
+    }
+}
+
 struct Environment<'a> {
     data_space_pointer: std::slice::IterMut<'a, Byte>,
 
@@ -810,21 +826,6 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             *env.input_buffer.get_mut(i).unwrap() = *input_buffer_backup.get(i).unwrap();
         }
     }),
-    declare_primitive!("unloop", env, {
-        env.counted_loops.pop().unwrap();
-    }),
-    declare_primitive!("i", env, {
-        let inner_most = env.counted_loops.pop().unwrap();
-        env.data_stack.push(inner_most.loop_counter).unwrap();
-        env.counted_loops.push(inner_most).unwrap();
-    }),
-    declare_primitive!("j", env, {
-        let inner_most = env.counted_loops.pop().unwrap();
-        let next_outer = env.counted_loops.pop().unwrap();
-        env.data_stack.push(next_outer.loop_counter).unwrap();
-        env.counted_loops.push(next_outer).unwrap();
-        env.counted_loops.push(inner_most).unwrap();
-    }),
     declare_primitive!("does>", env, {
         // The address of the first operation after the "does>" itself
         let calling_word_return_address = env.return_stack.pop().unwrap();
@@ -942,6 +943,16 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let latest = env.latest_mut();
         let call_self = ForthOperation::CallAnotherDictionaryEntry(latest);
         latest.body.push(call_self);
+    }),
+    declare_primitive!("cl>", env, {
+        env.data_stack
+            .push_double_cell(env.counted_loops.pop().unwrap().into())
+            .unwrap();
+    }),
+    declare_primitive!(">cl", env, {
+        env.counted_loops
+            .push(env.data_stack.pop_double_cell().unwrap().into())
+            .unwrap();
     }),
     declare_immediate_primitive!("do", env, {
         if env.compile_mode() {
