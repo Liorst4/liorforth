@@ -865,7 +865,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.latest_mut().body.push(ForthOperation::Return);
         env.currently_compiling = Flag::False as Cell;
     }),
-    declare_immediate_primitive!("latest-push", env, {
+    declare_primitive!("latest-push", env, {
         let x = env.data_stack.pop_double_cell().unwrap();
         let op = ForthOperation::try_from(x).unwrap();
         env.latest_mut().body.push(op);

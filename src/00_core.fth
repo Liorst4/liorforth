@@ -14,12 +14,12 @@
 
 : exit
   5 0 \ ForthOperation::Return
-  postpone latest-push
+  latest-push
 ; immediate
 
 : literal ( n -- )
   0 swap \ ForthOperation::PushCellToStack(...)
-  postpone latest-push
+  latest-push
 ; immediate
 
 : if
@@ -41,7 +41,7 @@
   \ Append unresolved else
   false postpone literal
   6 1 \ ForthOperation::Unresolved(UnresolvedOperation::Else)
-  postpone latest-push
+  latest-push
 
   \ Edit unresolved if/else
   dup >r
@@ -52,14 +52,14 @@
 
 : while
   6 2 \ ForthOperation::Unresolved(UnresolvedOperation::While)
-  postpone latest-push
+  latest-push
 ; immediate
 
 : leave
   s" postpone unloop" evaluate
   false postpone literal
   6 3 \ ForthOperation::Unresolved(UnresolvedOperation::Leave)
-  postpone latest-push
+  latest-push
 ; immediate
 
 : 1+ 1 + ;
