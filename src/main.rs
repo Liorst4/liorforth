@@ -814,14 +814,16 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.counted_loops.pop().unwrap();
     }),
     declare_primitive!("i", env, {
-        env.data_stack
-            .push(env.counted_loops.data.first().unwrap().loop_counter)
-            .unwrap();
+        let inner_most = env.counted_loops.pop().unwrap();
+        env.data_stack.push(inner_most.loop_counter).unwrap();
+        env.counted_loops.push(inner_most).unwrap();
     }),
     declare_primitive!("j", env, {
-        env.data_stack
-            .push(env.counted_loops.data.get(1).unwrap().loop_counter)
-            .unwrap();
+        let inner_most = env.counted_loops.pop().unwrap();
+        let next_outer = env.counted_loops.pop().unwrap();
+        env.data_stack.push(next_outer.loop_counter).unwrap();
+        env.counted_loops.push(next_outer).unwrap();
+        env.counted_loops.push(inner_most).unwrap();
     }),
     declare_primitive!("does>", env, {
         // The address of the first operation after the "does>" itself
