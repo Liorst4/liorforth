@@ -272,3 +272,11 @@ false constant FLOORED
     true
   then
 ;
+
+\ Pushes the part that comes after `does>` to the end of the latest word
+\ Use the part before the `does>` to `create` a new word
+\ Kind of like a constructor
+: does>
+  3 r> \ ForthOperation::Branch(calling_word_return_address)
+  latest-len 1 - latest!
+;

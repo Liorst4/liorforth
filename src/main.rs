@@ -822,12 +822,6 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.input_buffer_head = input_buffer_head_backup;
         env.input_buffer.copy_from_slice(&input_buffer_backup);
     }),
-    declare_primitive!("does>", env, {
-        // The address of the first operation after the "does>" itself
-        let calling_word_return_address = env.return_stack.pop().unwrap();
-        *env.latest_mut().body.last_mut().unwrap() =
-            ForthOperation::Branch(calling_word_return_address);
-    }),
     declare_primitive!("key", env, {
         let mut key_buffer: [Byte; 1] = [0; 1];
         std::io::stdin().read_exact(&mut key_buffer).unwrap();
