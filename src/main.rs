@@ -817,14 +817,10 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let input_buffer_backup = env.input_buffer.to_vec();
 
         // TODO: Set the input buffer to be `string`, don't just copy it.
-
         env.interpret_line(string);
 
         env.input_buffer_head = input_buffer_head_backup;
-        env.input_buffer.fill(0);
-        for i in 0..input_buffer_backup.len() {
-            *env.input_buffer.get_mut(i).unwrap() = *input_buffer_backup.get(i).unwrap();
-        }
+        env.input_buffer.copy_from_slice(&input_buffer_backup);
     }),
     declare_primitive!("does>", env, {
         // The address of the first operation after the "does>" itself
