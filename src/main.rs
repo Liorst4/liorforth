@@ -169,7 +169,7 @@ impl<'a> Stack<'a, Cell> {
 
 type Byte = u8;
 
-#[repr(C)]
+#[repr(packed(1))]
 struct CountedString {
     len: Byte,
     data: [Byte; 0],
