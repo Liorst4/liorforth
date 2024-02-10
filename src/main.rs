@@ -979,6 +979,41 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             }
         }
     }),
+    declare_primitive!("syscall", env, {
+        if cfg!(all(target_arch = "x86_64", target_os = "linux")) {
+            let arg6: u64 = env.data_stack.pop().unwrap() as u64;
+            let arg5: u64 = env.data_stack.pop().unwrap() as u64;
+            let arg4: u64 = env.data_stack.pop().unwrap() as u64;
+            let arg3: u64 = env.data_stack.pop().unwrap() as u64;
+            let arg2: u64 = env.data_stack.pop().unwrap() as u64;
+            let arg1: u64 = env.data_stack.pop().unwrap() as u64;
+            let syscall_number: u64 = env.data_stack.pop().unwrap() as u64;
+            let return_value1: u64;
+            let return_value2: u64;
+
+            unsafe {
+                core::arch::asm!("syscall",
+				 // https://www.man7.org/linux/man-pages/man2/syscall.2.html
+                                 in("rax") syscall_number,
+                                 in("rdi") arg1,
+                                 in("rsi") arg2,
+                                 in("rdx") arg3,
+                                 in("r10") arg4,
+                                 in("r8") arg5,
+                                 in("r9") arg6,
+				 lateout("rax") return_value1,
+				 lateout("rdx") return_value2,
+                                 // These are clobbered by `syscall` (https://www.felixcloutier.com/x86/syscall)
+                                 out("rcx") _,
+                                 out("r11") _);
+            };
+
+            env.data_stack.push(return_value1 as Cell).unwrap();
+            env.data_stack.push(return_value2 as Cell).unwrap();
+        } else {
+            panic!("Not implemented for this platform");
+        }
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));

@@ -484,4 +484,35 @@ test4
         assert_eq!(src, SRC_INITIAL_VALUE);
         assert_eq!(dest, SRC_INITIAL_VALUE);
     }
+
+    #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+    #[test]
+    fn test_syscall() {
+        default_fixed_sized_environment!(environment);
+        let mut forth_cwd_buffer: [Byte; 4096] = [0xff; 4096];
+        let getcwd_syscall_number = 79;
+
+        let program = format!(
+            "{} {} {} 0 0 0 0 syscall drop",
+            getcwd_syscall_number,
+            forth_cwd_buffer.as_mut_ptr() as Cell,
+            forth_cwd_buffer.len() as Cell
+        );
+        environment.interpret_line(program.as_bytes());
+
+        let return_value = environment.data_stack.pop().unwrap();
+        assert_ne!(return_value, -1);
+
+        let rust_cwd = std::env::current_dir()
+            .unwrap()
+            .as_os_str()
+            .to_str()
+            .unwrap()
+            .as_bytes()
+            .to_owned();
+        let forth_cwd_len = return_value - 1; // NULL terminator at the end
+        let forth_cwd: &[u8] = &forth_cwd_buffer[0..forth_cwd_len as usize];
+
+        assert_eq!(forth_cwd, rust_cwd);
+    }
 }
