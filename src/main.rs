@@ -395,7 +395,7 @@ struct Environment<'a> {
 
     parsed_word: &'a mut [Byte],
 
-    counted_loops: Stack<'a, CountedLoopState>,
+    counted_loop_stack: Stack<'a, CountedLoopState>,
 }
 
 const USUAL_LEADING_DELIMITERS_TO_IGNORE: &[Byte] = &[b' ', b'\t'];
@@ -936,11 +936,11 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_primitive!("cl>", env, {
         env.data_stack
-            .push_double_cell(env.counted_loops.pop().unwrap().into())
+            .push_double_cell(env.counted_loop_stack.pop().unwrap().into())
             .unwrap();
     }),
     declare_primitive!(">cl", env, {
-        env.counted_loops
+        env.counted_loop_stack
             .push(env.data_stack.pop_double_cell().unwrap().into())
             .unwrap();
     }),
@@ -968,13 +968,13 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
                 }
             }
         } else {
-            let mut loop_state = env.counted_loops.pop().unwrap();
+            let mut loop_state = env.counted_loop_stack.pop().unwrap();
             let addition = env.data_stack.pop().unwrap();
             loop_state.loop_counter += addition;
             if loop_state.loop_counter >= loop_state.limit {
                 env.data_stack.push(Flag::True as Cell).unwrap();
             } else {
-                env.counted_loops.push(loop_state).unwrap();
+                env.counted_loop_stack.push(loop_state).unwrap();
                 env.data_stack.push(Flag::False as Cell).unwrap();
             }
         }
@@ -1019,7 +1019,7 @@ impl<'a> Environment<'a> {
         data_stack_buffer: &'a mut [Cell],
         return_stack_buffer: &'a mut [*const ForthOperation],
         control_flow_stack_buffer: &'a mut [usize],
-        runtime_loops_buffer: &'a mut [CountedLoopState],
+        counted_loop_buffer: &'a mut [CountedLoopState],
     ) -> Environment<'a> {
         let dictionary = std::collections::LinkedList::from_iter(STATIC_DICTIONARY.iter().map(
             |(name, immediate, operation)| DictionaryEntry {
@@ -1040,7 +1040,7 @@ impl<'a> Environment<'a> {
             currently_compiling: Flag::False as Cell,
             control_flow_stack: Stack::new(control_flow_stack_buffer),
             parsed_word: parsed_word_buffer,
-            counted_loops: Stack::new(runtime_loops_buffer),
+            counted_loop_stack: Stack::new(counted_loop_buffer),
         };
 
         for line in FORTH_RUNTIME_INIT.lines() {
@@ -1272,7 +1272,7 @@ macro_rules! fixed_sized_buffers_environment {
      $data_stack_size:expr,
      $return_stack_size:expr,
      $control_flow_stack_size:expr,
-     $runtime_loops_stack_size:expr) => {
+     $counted_loop_stack_size:expr) => {
         // TODO: Unique identifiers for these buffers
         let mut data_space = [0; $data_space_size];
         let mut input_buffer = [0; $input_buffer_size];
@@ -1280,7 +1280,7 @@ macro_rules! fixed_sized_buffers_environment {
         let mut data_stack_buffer = [Default::default(); $data_stack_size];
         let mut return_stack_buffer = [std::ptr::null(); $return_stack_size];
         let mut control_flow_stack_buffer = [Default::default(); $control_flow_stack_size];
-        let mut runtime_loops_stack_buffer = [Default::default(); $runtime_loops_stack_size];
+        let mut counted_loop_stack_buffer = [Default::default(); $counted_loop_stack_size];
 
         let mut $name = Environment::new(
             &mut data_space,
@@ -1289,7 +1289,7 @@ macro_rules! fixed_sized_buffers_environment {
             &mut data_stack_buffer,
             &mut return_stack_buffer,
             &mut control_flow_stack_buffer,
-            &mut runtime_loops_stack_buffer,
+            &mut counted_loop_stack_buffer,
         );
     };
 }
