@@ -1,16 +1,16 @@
-( Copyright © 2024 Lior Stern. )
+\ Copyright © 2024 Lior Stern.
 
-( This file is part of liorforth. )
-( liorforth is free software: you can redistribute it and/or modify it under )
-( the terms of the GNU General Public License as published by the Free Software )
-( Foundation, either version 3 of the License, or any later version. )
+\ This file is part of liorforth.
+\ liorforth is free software: you can redistribute it and/or modify it under
+\ the terms of the GNU General Public License as published by the Free Software
+\ Foundation, either version 3 of the License, or any later version.
 
-( liorforth is distributed in the hope that it will be useful, but WITHOUT ANY )
-( WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR )
-( A PARTICULAR PURPOSE. See the GNU General Public License for more details. )
+\ liorforth is distributed in the hope that it will be useful, but WITHOUT ANY
+\ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+\ A PARTICULAR PURPOSE. See the GNU General Public License for more details.
 
-( You should have received a copy of the GNU General Public License along with )
-( liorforth. If not, see <https://www.gnu.org/licenses/>. )
+\ You should have received a copy of the GNU General Public License along with
+\ liorforth. If not, see <https://www.gnu.org/licenses/>.
 
 : exit
   5 0 \ ForthOperation::Return
@@ -132,7 +132,7 @@
     exit
   then
 
-  swap over + swap ( c-addr+u u )
+  swap over + swap \ c-addr+u u
   begin
     2dup - @ emit
     1 -
@@ -151,7 +151,7 @@
 : ."
   postpone s"
   state @ if
-    s" postpone type" evaluate ( TODO: anyway better? )
+    s" postpone type" evaluate \ TODO: anyway better?
   else
     type
   then
@@ -194,12 +194,12 @@
 : fill ( c-addr u char -- )
   over 0= if 2drop drop exit then
   swap 0 do
-    ( c-addr char )
-    over ( c-addr char c-addr )
-    i +  ( c-addr char c-addr+i )
-    over ( c-addr char c-addr+i char )
-    swap ( c-addr char char c-addr+i )
-    c!   ( c-addr char )
+    \ c-addr char
+    over \ c-addr char c-addr
+    i +  \ c-addr char c-addr+i
+    over \ c-addr char c-addr+i char
+    swap \ c-addr char char c-addr+i
+    c!   \ c-addr char
   loop
   2drop
 ;
@@ -211,7 +211,7 @@
 ;
 
 : select-compare ( x1 x2 xt -- x1|x2 )
-  >r 2dup r> ( x1 x2 x1 x2 xt )
+  >r 2dup r> \ x1 x2 x1 x2 xt
   execute if
   else
     swap
@@ -246,9 +246,9 @@
   then
 ;
 
-( Since invoking words effects the stack itself, )
-( the three commands r> dup and >r need to be )
-( inline-d inside the word that uses r@ )
+\ Since invoking words effects the stack itself,
+\ the three commands r> dup and >r need to be
+\ inline-d inside the word that uses r@
 : r@ s" postpone r> postpone dup postpone >r " evaluate ; immediate
 
 \ create a temporary counted string in "here"
