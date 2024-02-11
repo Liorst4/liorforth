@@ -1049,13 +1049,42 @@ fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
 impl<'a> Environment<'a> {
     fn new(
         data_space: &'a mut [Byte],
-        input_buffer: &'a mut [Byte],
-        parsed_word_buffer: &'a mut [Byte],
-        data_stack_buffer: &'a mut [Cell],
-        return_stack_buffer: &'a mut [*const ForthOperation],
-        control_flow_stack_buffer: &'a mut [usize],
-        counted_loop_buffer: &'a mut [CountedLoopState],
+        input_buffer_byte_count: usize,
+        parsed_word_buffer_byte_count: usize,
+        data_stack_byte_count: usize,
+        return_stack_byte_count: usize,
+        control_flow_stack_byte_count: usize,
+        counted_loop_stack_byte_count: usize,
     ) -> Environment<'a> {
+        let (input_buffer, data_space_1) = data_space.split_at_mut(input_buffer_byte_count);
+        let (parsed_word, data_space_2) = data_space_1.split_at_mut(parsed_word_buffer_byte_count);
+        let (data_stack_buffer, data_space_3) = data_space_2.split_at_mut(data_stack_byte_count);
+        let (return_stack_buffer, data_space_4) =
+            data_space_3.split_at_mut(return_stack_byte_count);
+        let (control_flow_stack_buffer, data_space_5) =
+            data_space_4.split_at_mut(control_flow_stack_byte_count);
+        let (counted_loop_stack_buffer, data_space_6) =
+            data_space_5.split_at_mut(counted_loop_stack_byte_count);
+        let data_space_pointer = data_space_6.iter_mut();
+
+        fn stack_from_byte_slice<'a, T>(slice: &'a mut [Byte]) -> Stack<'a, T>
+        where
+            T: Copy,
+        {
+            let x: &'a mut [T] = unsafe {
+                std::slice::from_raw_parts_mut(
+                    slice.as_mut_ptr() as *mut T,
+                    slice.len() / std::mem::size_of::<T>(),
+                )
+            };
+            return Stack::new(x);
+        }
+
+        let data_stack = stack_from_byte_slice(data_stack_buffer);
+        let return_stack = stack_from_byte_slice(return_stack_buffer);
+        let control_flow_stack = stack_from_byte_slice(control_flow_stack_buffer);
+        let counted_loop_stack = stack_from_byte_slice(counted_loop_stack_buffer);
+
         let dictionary = std::collections::LinkedList::from_iter(STATIC_DICTIONARY.iter().map(
             |(name, immediate, operation)| DictionaryEntry {
                 name: Name::from_ascii(name.as_bytes()),
@@ -1065,17 +1094,17 @@ impl<'a> Environment<'a> {
         ));
 
         let mut result = Environment {
-            data_space_pointer: data_space.iter_mut(),
-            data_stack: Stack::new(data_stack_buffer),
-            return_stack: Stack::new(return_stack_buffer),
+            data_space_pointer,
+            data_stack,
+            return_stack,
             input_buffer,
             input_buffer_head: 0,
             dictionary,
             base: 10,
             currently_compiling: Flag::False as Cell,
-            control_flow_stack: Stack::new(control_flow_stack_buffer),
-            parsed_word: parsed_word_buffer,
-            counted_loop_stack: Stack::new(counted_loop_buffer),
+            control_flow_stack,
+            parsed_word,
+            counted_loop_stack,
         };
 
         for line in FORTH_RUNTIME_INIT.lines() {
@@ -1083,6 +1112,18 @@ impl<'a> Environment<'a> {
         }
 
         return result;
+    }
+
+    fn new_default_sized(data_space: &'a mut [Byte]) -> Environment<'a> {
+        return Environment::new(
+            data_space,
+            1024,
+            1024,
+            100 * std::mem::size_of::<Cell>(),
+            100 * std::mem::size_of::<*const ForthOperation>(),
+            100 * std::mem::size_of::<UCell>(),
+            100 * std::mem::size_of::<CountedLoopState>(),
+        );
     }
 
     fn compile_mode(&self) -> bool {
@@ -1298,41 +1339,11 @@ impl<'a> Environment<'a> {
     }
 }
 
-/// Create a forth environment with stack buffers
-macro_rules! fixed_sized_buffers_environment {
-    ($name:ident,
-     $data_space_size:expr,
-     $input_buffer_size:expr,
-     $parsed_word_buffer_size:expr,
-     $data_stack_size:expr,
-     $return_stack_size:expr,
-     $control_flow_stack_size:expr,
-     $counted_loop_stack_size:expr) => {
-        // TODO: Unique identifiers for these buffers
-        let mut data_space = [0; $data_space_size];
-        let mut input_buffer = [0; $input_buffer_size];
-        let mut parsed_word_buffer = [0; $parsed_word_buffer_size];
-        let mut data_stack_buffer = [Default::default(); $data_stack_size];
-        let mut return_stack_buffer = [std::ptr::null(); $return_stack_size];
-        let mut control_flow_stack_buffer = [Default::default(); $control_flow_stack_size];
-        let mut counted_loop_stack_buffer = [Default::default(); $counted_loop_stack_size];
-
-        let mut $name = Environment::new(
-            &mut data_space,
-            &mut input_buffer,
-            &mut parsed_word_buffer,
-            &mut data_stack_buffer,
-            &mut return_stack_buffer,
-            &mut control_flow_stack_buffer,
-            &mut counted_loop_stack_buffer,
-        );
-    };
-}
-
 /// Create a static environment
 macro_rules! default_fixed_sized_environment {
     ($name:ident) => {
-        fixed_sized_buffers_environment!($name, 10 * 1024, 1024, 100, 100, 100, 100, 100)
+        let mut data_space = [0; 10 * 1024];
+        let mut $name = Environment::new_default_sized(&mut data_space);
     };
 }
 
