@@ -1,4 +1,4 @@
-// Copyright (C) 2022 Lior Stern.
+// Copyright (C) 2024 Lior Stern.
 //
 // This file is part of liorforth.
 // liorforth is free software: you can redistribute it and/or modify it under
