@@ -29,19 +29,19 @@ fn find_forth_runtime_sources() -> Vec<std::path::PathBuf> {
         }
     }
 
-    return forth_runtime_paths;
+    forth_runtime_paths
 }
 
 fn forth_runtime_priority(path: &std::path::Path) -> usize {
-    let prefix = path
-        .file_name()
+    path.file_name()
         .unwrap()
         .to_str()
         .unwrap()
         .split('_')
         .next()
-        .unwrap();
-    return prefix.parse::<usize>().unwrap();
+        .unwrap()
+        .parse::<usize>()
+        .unwrap()
 }
 
 fn concat_files(paths: &[std::path::PathBuf]) -> String {
@@ -53,7 +53,7 @@ fn concat_files(paths: &[std::path::PathBuf]) -> String {
         result.push_str(&content);
     }
 
-    return result;
+    result
 }
 
 fn main() {

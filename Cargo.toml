@@ -14,6 +14,3 @@ strip = "symbols"
 panic = "abort"
 lto = true
 codegen-units = 1
-
-[lints.clippy]
-needless_return = "allow"

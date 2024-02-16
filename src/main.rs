@@ -25,10 +25,10 @@ enum Flag {
 
 impl From<bool> for Flag {
     fn from(b: bool) -> Self {
-        if b {
-            return Flag::True;
+        match b {
+            true => Flag::True,
+            false => Flag::False,
         }
-        return Flag::False;
     }
 }
 
@@ -59,22 +59,25 @@ type DoubleUCell = u16;
 const fn double_ucell_to_array(x: DoubleUCell) -> [UCell; 2] {
     let low = x as UCell;
     let high = (x >> UCell::BITS) as UCell;
-    return [low, high];
+
+    [low, high]
 }
 
 const fn double_ucell_from_array(x: [UCell; 2]) -> DoubleUCell {
     let low = x[0];
     let high = x[1];
-    return ((high as DoubleUCell) << UCell::BITS) | (low as DoubleUCell);
+
+    ((high as DoubleUCell) << UCell::BITS) | (low as DoubleUCell)
 }
 
 const fn double_cell_to_array(x: DoubleCell) -> [Cell; 2] {
     let ucells = double_ucell_to_array(x as DoubleUCell);
-    return [ucells[0] as Cell, ucells[1] as Cell];
+
+    [ucells[0] as Cell, ucells[1] as Cell]
 }
 
 const fn double_cell_from_array(x: [Cell; 2]) -> DoubleCell {
-    return double_ucell_from_array([x[0] as UCell, x[1] as UCell]) as DoubleCell;
+    double_ucell_from_array([x[0] as UCell, x[1] as UCell]) as DoubleCell
 }
 
 struct Stack<'a, T>
@@ -106,7 +109,8 @@ where
 
         self.data[self.head] = x;
         self.head += 1;
-        return Ok(());
+
+        Ok(())
     }
 
     fn pop(&mut self) -> Result<T, StackError> {
@@ -116,7 +120,8 @@ where
 
         let result = self.data[self.head - 1];
         self.head -= 1;
-        return Ok(result);
+
+        Ok(result)
     }
 
     fn last(&self) -> Option<&T> {
@@ -124,11 +129,11 @@ where
             return None;
         }
 
-        return Some(&self.data[self.head - 1]);
+        Some(&self.data[self.head - 1])
     }
 
     fn len(&self) -> usize {
-        return self.head;
+        self.head
     }
 
     fn clear(&mut self) {
@@ -145,13 +150,14 @@ impl<'a> Stack<'a, Cell> {
     fn push_double_cell(&mut self, value: DoubleCell) -> Result<(), StackError> {
         let cells: [Cell; 2] = double_cell_to_array(value);
         self.push(cells[0])?;
-        return match self.push(cells[1]) {
+
+        match self.push(cells[1]) {
             Ok(_) => Ok(()),
             Err(error) => {
                 self.pop().unwrap();
                 Err(error)
             }
-        };
+        }
     }
 
     fn pop_double_cell(&mut self) -> Result<DoubleCell, StackError> {
@@ -163,7 +169,8 @@ impl<'a> Stack<'a, Cell> {
         result[1] = self.pop().unwrap();
         result[0] = self.pop().unwrap();
         let result = double_cell_from_array(result);
-        return Ok(result);
+
+        Ok(result)
     }
 }
 
@@ -177,7 +184,7 @@ struct CountedString {
 
 impl CountedString {
     unsafe fn as_slice(&self) -> &[Byte] {
-        return core::slice::from_raw_parts(self.data.as_ptr(), self.len as usize);
+        core::slice::from_raw_parts(self.data.as_ptr(), self.len as usize)
     }
 
     unsafe fn from_slice<'a>(src: &[Byte], dst: &'a mut [Byte]) -> Option<&'a CountedString> {
@@ -191,7 +198,8 @@ impl CountedString {
 
         dst[0] = src.len() as Byte;
         dst[1..(1 + src.len())].copy_from_slice(src);
-        return Some(&*(dst.as_ptr() as *const CountedString));
+
+        Some(&*(dst.as_ptr() as *const CountedString))
     }
 }
 
@@ -311,7 +319,8 @@ impl Name {
         let mut n = Name::default();
         n.value[0..s.len()].copy_from_slice(s);
         n.value.make_ascii_lowercase();
-        return n;
+
+        n
     }
 }
 
@@ -364,16 +373,17 @@ struct CountedLoopState {
 impl From<DoubleCell> for CountedLoopState {
     fn from(x: DoubleCell) -> CountedLoopState {
         let x = double_cell_to_array(x);
-        return CountedLoopState {
+
+        CountedLoopState {
             loop_counter: x[0],
             limit: x[1],
-        };
+        }
     }
 }
 
 impl From<CountedLoopState> for DoubleCell {
     fn from(val: CountedLoopState) -> DoubleCell {
-        return double_cell_from_array([val.loop_counter, val.limit]);
+        double_cell_from_array([val.loop_counter, val.limit])
     }
 }
 
@@ -501,7 +511,7 @@ macro_rules! get_primitive {
                     return const_compare_bytes(a_rest, b_rest);
 		}
 
-                return false;
+                false
             }
 
             const fn get_primitive_inner(
@@ -1019,7 +1029,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
 
 fn search_dictionary<'a>(dict: &'a Dictionary, name: &Name) -> Option<&'a DictionaryEntry> {
-    return dict.iter().find(|&item| item.name == *name);
+    dict.iter().find(|&item| item.name == *name)
 }
 
 fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
@@ -1040,10 +1050,10 @@ fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
 
     let digits = word.split_at(if has_base_indicator { 1 } else { 0 }).1;
 
-    return match Cell::from_str_radix(digits, base) {
+    match Cell::from_str_radix(digits, base) {
         Ok(x) => Some(x),
         _ => None,
-    };
+    }
 }
 
 impl<'a> Environment<'a> {
@@ -1077,7 +1087,8 @@ impl<'a> Environment<'a> {
                     slice.len() / std::mem::size_of::<T>(),
                 )
             };
-            return Stack::new(x);
+
+            Stack::new(x)
         }
 
         let data_stack = stack_from_byte_slice(data_stack_buffer);
@@ -1111,11 +1122,11 @@ impl<'a> Environment<'a> {
             result.interpret_line(line.as_bytes());
         }
 
-        return result;
+        result
     }
 
     fn new_default_sized(data_space: &'a mut [Byte]) -> Environment<'a> {
-        return Environment::new(
+        Environment::new(
             data_space,
             1024,
             1024,
@@ -1123,19 +1134,19 @@ impl<'a> Environment<'a> {
             100 * std::mem::size_of::<*const ForthOperation>(),
             100 * std::mem::size_of::<UCell>(),
             100 * std::mem::size_of::<CountedLoopState>(),
-        );
+        )
     }
 
     fn compile_mode(&self) -> bool {
-        return self.currently_compiling == Flag::True as Cell;
+        self.currently_compiling == Flag::True as Cell
     }
 
     fn latest(&self) -> &DictionaryEntry {
-        return self.dictionary.front().unwrap();
+        self.dictionary.front().unwrap()
     }
 
     fn latest_mut(&mut self) -> &mut DictionaryEntry {
-        return self.dictionary.front_mut().unwrap();
+        self.dictionary.front_mut().unwrap()
     }
 
     fn next_token(&mut self, leading_delimiters: &[Byte], delimiter: Byte) -> &[Byte] {
@@ -1192,7 +1203,7 @@ impl<'a> Environment<'a> {
             self.input_buffer_head += 1;
         }
 
-        return &self.input_buffer[token_begin..token_begin + token_size];
+        &self.input_buffer[token_begin..token_begin + token_size]
     }
 
     fn interpret_line(&mut self, line: &[Byte]) {
@@ -1311,22 +1322,23 @@ impl<'a> Environment<'a> {
             .enumerate()
             .find(|(_, operation)| test(operation))?
             .0;
-        return Some(self.latest().body.len() - index_from_the_end - 1);
+
+        Some(self.latest().body.len() - index_from_the_end - 1)
     }
 
     fn index_of_last_unresolved_if_or_else(&self) -> Option<usize> {
-        return self.reverse_find_in_latest(|item| {
+        self.reverse_find_in_latest(|item| {
             matches!(
                 item,
                 ForthOperation::Unresolved(UnresolvedOperation::If | UnresolvedOperation::Else)
             )
-        });
+        })
     }
 
     fn index_of_last_unresolved_while(&self) -> Option<usize> {
-        return self.reverse_find_in_latest(|item| {
+        self.reverse_find_in_latest(|item| {
             matches!(item, ForthOperation::Unresolved(UnresolvedOperation::While))
-        });
+        })
     }
 
     fn read_name_from_input_buffer(&mut self) -> Option<Name> {
@@ -1335,7 +1347,7 @@ impl<'a> Environment<'a> {
             return None;
         }
 
-        return Some(Name::from_ascii(name));
+        Some(Name::from_ascii(name))
     }
 }
 
