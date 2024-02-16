@@ -1330,16 +1330,13 @@ impl<'a> Environment<'a> {
     where
         F: Fn(&ForthOperation) -> bool,
     {
-        let index_from_the_end = self
-            .latest()
+        self.latest()
             .body
             .iter()
-            .rev()
             .enumerate()
-            .find(|(_, operation)| test(operation))?
-            .0;
-
-        Some(self.latest().body.len() - index_from_the_end - 1)
+            .rev()
+            .find(|(_, operation)| test(operation))
+            .map(|(index, _)| index)
     }
 
     fn read_name_from_input_buffer(&mut self) -> Option<Name> {
