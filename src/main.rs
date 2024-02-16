@@ -1028,7 +1028,7 @@ fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
     }
 
     let mut has_base_indicator = true;
-    let base = match word.as_bytes().first().unwrap() {
+    let base = match word.as_bytes().first()? {
         b'#' => 10,
         b'$' => 16,
         b'%' => 2,
