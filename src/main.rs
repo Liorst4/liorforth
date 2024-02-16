@@ -967,25 +967,28 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_immediate_primitive!("+loop", env, {
         if env.compile_mode() {
-            let do_index = env.control_flow_stack.pop().unwrap();
+            // Append the `else` section of this implementation
             env.latest_mut()
                 .body
                 .push(ForthOperation::CallPrimitive(get_primitive!("+loop")));
 
-            let do_offset = env.latest_mut().body.len() - do_index;
-            let do_offset = do_offset as isize;
-            let do_offset = -do_offset;
-            env.latest_mut()
-                .body
-                .push(ForthOperation::BranchOnFalse(do_offset));
+            let loop_start_index = env.control_flow_stack.pop().unwrap();
+            let loop_operation_count = env.latest_mut().body.len() - loop_start_index;
 
-            let len = env.latest().body.len();
-            for index in do_index..env.latest().body.len() {
+            // Append the jump back to the beginning of the do loop
+            env.latest_mut().body.push(ForthOperation::BranchOnFalse(
+                -(Cell::try_from(loop_operation_count).unwrap()),
+            ));
+
+            // Resolve all the `UnresolvedOperation::Leave` in the do loop
+            let after_loop_index = env.latest().body.len();
+            for index in loop_start_index..env.latest().body.len() {
                 let item = env.latest_mut().body.get_mut(index).unwrap();
                 if let ForthOperation::Unresolved(UnresolvedOperation::Leave) = item {
-                    let branch_offset = len - index;
-                    let branch_offset = branch_offset as isize;
-                    *item = ForthOperation::BranchOnFalse(branch_offset);
+                    let amount_to_advance_to_exit_the_loop = after_loop_index - index;
+                    *item = ForthOperation::BranchOnFalse(
+                        isize::try_from(amount_to_advance_to_exit_the_loop).unwrap(),
+                    );
                 }
             }
         } else {
@@ -993,11 +996,13 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             let addition = env.data_stack.pop().unwrap();
             loop_state.loop_counter += addition;
             if loop_state.loop_counter >= loop_state.limit {
-                env.data_stack.push(Flag::True as Cell).unwrap();
+                env.data_stack.push(Flag::True as Cell).unwrap(); // Jump back to the start of the do loop
             } else {
                 env.counted_loop_stack.push(loop_state).unwrap();
-                env.data_stack.push(Flag::False as Cell).unwrap();
+                env.data_stack.push(Flag::False as Cell).unwrap(); // Loop is done, continue
             }
+
+            // The next instruction is BranchOnFalse
         }
     }),
     declare_primitive!("syscall", env, {
