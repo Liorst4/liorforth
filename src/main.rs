@@ -884,13 +884,24 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         *env.latest_mut().body.get_mut(index).unwrap() = op;
     }),
     declare_primitive!("latest-last-unres-if-or-else", env, {
-        let unresolved_if_branch_index = env.index_of_last_unresolved_if_or_else().unwrap();
+        let unresolved_if_branch_index = env
+            .reverse_find_in_latest(|item| {
+                matches!(
+                    item,
+                    ForthOperation::Unresolved(UnresolvedOperation::If | UnresolvedOperation::Else)
+                )
+            })
+            .unwrap();
         env.data_stack
             .push(unresolved_if_branch_index as UCell as Cell)
             .unwrap();
     }),
     declare_primitive!("latest-last-unres-while", env, {
-        let unresolved_if_branch_index = env.index_of_last_unresolved_while().unwrap();
+        let unresolved_if_branch_index = env
+            .reverse_find_in_latest(|item| {
+                matches!(item, ForthOperation::Unresolved(UnresolvedOperation::While))
+            })
+            .unwrap();
         env.data_stack
             .push(unresolved_if_branch_index as UCell as Cell)
             .unwrap();
@@ -1324,21 +1335,6 @@ impl<'a> Environment<'a> {
             .0;
 
         Some(self.latest().body.len() - index_from_the_end - 1)
-    }
-
-    fn index_of_last_unresolved_if_or_else(&self) -> Option<usize> {
-        self.reverse_find_in_latest(|item| {
-            matches!(
-                item,
-                ForthOperation::Unresolved(UnresolvedOperation::If | UnresolvedOperation::Else)
-            )
-        })
-    }
-
-    fn index_of_last_unresolved_while(&self) -> Option<usize> {
-        self.reverse_find_in_latest(|item| {
-            matches!(item, ForthOperation::Unresolved(UnresolvedOperation::While))
-        })
     }
 
     fn read_name_from_input_buffer(&mut self) -> Option<Name> {
