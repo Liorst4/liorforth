@@ -337,6 +337,41 @@ impl std::fmt::Display for Name {
     }
 }
 
+struct DataSpaceManager<'a> {
+    unused_area: &'a mut [Byte],
+}
+
+impl<'a> DataSpaceManager<'a> {
+    fn new(data_space: &'a mut [Byte]) -> Self {
+        Self {
+            unused_area: data_space,
+        }
+    }
+
+    unsafe fn here(&mut self) -> *mut Byte {
+        self.unused_area.as_mut_ptr()
+    }
+
+    fn allot(&mut self, amount: usize) -> Option<&'a mut [Byte]> {
+        if self.unused_area.len() < amount {
+            return None;
+        }
+
+        let area =
+            unsafe { core::slice::from_raw_parts_mut(self.unused_area.as_mut_ptr(), amount) };
+
+        let new_unused_area = unsafe {
+            core::slice::from_raw_parts_mut(
+                self.unused_area.as_mut_ptr().add(amount),
+                self.unused_area.len() - amount,
+            )
+        };
+
+        self.unused_area = new_unused_area;
+        Some(area)
+    }
+}
+
 /// A forth word
 struct DictionaryEntry {
     name: Name,
@@ -388,7 +423,7 @@ impl From<CountedLoopState> for DoubleCell {
 }
 
 struct Environment<'a> {
-    data_space_pointer: std::slice::IterMut<'a, Byte>,
+    data_space_manager: DataSpaceManager<'a>,
 
     data_stack: Stack<'a, Cell>,
     return_stack: Stack<'a, *const ForthOperation>,
@@ -601,16 +636,15 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.data_stack.push(quotient).unwrap();
     }),
     declare_primitive!("here", env, {
-        let address: *const Byte = env.data_space_pointer.as_ref().as_ptr();
+        let address: *mut Byte = unsafe { env.data_space_manager.here() };
         env.data_stack.push(address as Cell).unwrap();
     }),
     declare_primitive!("allot", env, {
         let n = env.data_stack.pop().unwrap();
         if n > 0 {
-            let pointer_moving_result = env.data_space_pointer.nth(n as usize - 1);
-            if pointer_moving_result.is_none() {
-                panic!("Not enough memory");
-            }
+            env.data_space_manager
+                .allot(n as usize)
+                .expect("Not enough memory");
         }
     }),
     declare_primitive!("@", env, {
@@ -933,10 +967,9 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let length = string.len();
 
         // Copy to data space
-        let data_space_string_address: *const u8 = env.data_space_pointer.as_ref().as_ptr();
-        for byte in string {
-            **env.data_space_pointer.next().as_mut().unwrap() = byte;
-        }
+        let data_space_string = env.data_space_manager.allot(length).unwrap();
+        data_space_string.copy_from_slice(&string);
+        let data_space_string_address = data_space_string.as_ptr();
 
         if env.compile_mode() {
             env.latest_mut().body.append(&mut vec![
@@ -1081,17 +1114,14 @@ impl<'a> Environment<'a> {
         return_stack_byte_count: usize,
         control_flow_stack_byte_count: usize,
         counted_loop_stack_byte_count: usize,
-    ) -> Environment<'a> {
-        let (input_buffer, data_space_1) = data_space.split_at_mut(input_buffer_byte_count);
-        let (parsed_word, data_space_2) = data_space_1.split_at_mut(parsed_word_buffer_byte_count);
-        let (data_stack_buffer, data_space_3) = data_space_2.split_at_mut(data_stack_byte_count);
-        let (return_stack_buffer, data_space_4) =
-            data_space_3.split_at_mut(return_stack_byte_count);
-        let (control_flow_stack_buffer, data_space_5) =
-            data_space_4.split_at_mut(control_flow_stack_byte_count);
-        let (counted_loop_stack_buffer, data_space_6) =
-            data_space_5.split_at_mut(counted_loop_stack_byte_count);
-        let data_space_pointer = data_space_6.iter_mut();
+    ) -> Option<Environment<'a>> {
+        let mut data_space_manager = DataSpaceManager::new(data_space);
+        let input_buffer = data_space_manager.allot(input_buffer_byte_count)?;
+        let parsed_word = data_space_manager.allot(parsed_word_buffer_byte_count)?;
+        let data_stack_buffer = data_space_manager.allot(data_stack_byte_count)?;
+        let return_stack_buffer = data_space_manager.allot(return_stack_byte_count)?;
+        let control_flow_stack_buffer = data_space_manager.allot(control_flow_stack_byte_count)?;
+        let counted_loop_stack_buffer = data_space_manager.allot(counted_loop_stack_byte_count)?;
 
         fn stack_from_byte_slice<'a, T>(slice: &'a mut [Byte]) -> Stack<'a, T>
         where
@@ -1121,7 +1151,7 @@ impl<'a> Environment<'a> {
         ));
 
         let mut result = Environment {
-            data_space_pointer,
+            data_space_manager,
             data_stack,
             return_stack,
             input_buffer,
@@ -1138,10 +1168,10 @@ impl<'a> Environment<'a> {
             result.interpret_line(line.as_bytes());
         }
 
-        result
+        Some(result)
     }
 
-    fn new_default_sized(data_space: &'a mut [Byte]) -> Environment<'a> {
+    fn new_default_sized(data_space: &'a mut [Byte]) -> Option<Environment<'a>> {
         Environment::new(
             data_space,
             1024,
@@ -1353,7 +1383,7 @@ impl<'a> Environment<'a> {
 macro_rules! default_fixed_sized_environment {
     ($name:ident) => {
         let mut data_space = [0; 10 * 1024];
-        let mut $name = Environment::new_default_sized(&mut data_space);
+        let mut $name = Environment::new_default_sized(&mut data_space).unwrap();
     };
 }
 
