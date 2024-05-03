@@ -195,7 +195,7 @@ b";
 
         let after_a_call = b.body.get(1).unwrap();
         match *after_a_call {
-            ForthOperation::PushCellToDataStack(l) => {
+            ForthOperation::PushData(l) => {
                 assert_eq!(l, 1);
 
                 let after_a_call: *const ForthOperation = after_a_call;

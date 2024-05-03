@@ -230,8 +230,8 @@ impl TryFrom<Cell> for UnresolvedOperation {
 
 #[derive(Clone, PartialEq)]
 enum ForthOperation {
-    PushCellToDataStack(Cell),
-    CallAnotherDictionaryEntry(*const DictionaryEntry),
+    PushData(Cell),
+    CallEntry(*const DictionaryEntry),
 
     // TODO: Implement as a primitive
     BranchOnFalse(isize /* offset */),
@@ -253,10 +253,8 @@ impl TryFrom<DoubleCell> for ForthOperation {
         let first = x[0];
         let second = x[1];
         match first {
-            0 => Ok(ForthOperation::PushCellToDataStack(second)),
-            1 => Ok(ForthOperation::CallAnotherDictionaryEntry(
-                second as *const DictionaryEntry,
-            )),
+            0 => Ok(ForthOperation::PushData(second)),
+            1 => Ok(ForthOperation::CallEntry(second as *const DictionaryEntry)),
             2 => Ok(ForthOperation::BranchOnFalse(second)),
             3 => Ok(ForthOperation::Branch(second as *const ForthOperation)),
             4 => Ok(ForthOperation::CallPrimitive(unsafe {
@@ -277,8 +275,8 @@ impl std::fmt::Display for ForthOperation {
         let address = address as usize;
         write!(f, "${:x}:\t", address)?;
         match self {
-            ForthOperation::PushCellToDataStack(literal) => write!(f, "PUSH\t{}", literal),
-            ForthOperation::CallAnotherDictionaryEntry(another_entry) => {
+            ForthOperation::PushData(literal) => write!(f, "PUSH\t{}", literal),
+            ForthOperation::CallEntry(another_entry) => {
                 let another_entry_addr: *const DictionaryEntry = *another_entry;
                 let another_entry_addr = another_entry_addr as usize;
                 let another_entry = unsafe { another_entry.as_ref() }.unwrap();
@@ -447,11 +445,7 @@ const USUAL_LEADING_DELIMITERS_TO_IGNORE: &[Byte] = &[b' ', b'\t'];
 
 macro_rules! declare_constant {
     ($name:literal, $value:expr) => {
-        (
-            $name,
-            false,
-            ForthOperation::PushCellToDataStack($value as Cell),
-        )
+        ($name, false, ForthOperation::PushData($value as Cell))
     };
 }
 
@@ -806,7 +800,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let entry = entry as *const DictionaryEntry;
         let entry = unsafe { entry.as_ref() }.unwrap();
         match entry.body.first().unwrap() {
-            ForthOperation::PushCellToDataStack(result) => env.data_stack.push(*result).unwrap(),
+            ForthOperation::PushData(result) => env.data_stack.push(*result).unwrap(),
             _ => panic!("Invalid argument given to >body"),
         }
     }),
@@ -953,7 +947,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_immediate_primitive!("postpone", env, {
         let name = env.read_name_from_input_buffer().unwrap();
         let entry = search_dictionary(&env.dictionary, &name).unwrap();
-        let operation = ForthOperation::CallAnotherDictionaryEntry(entry);
+        let operation = ForthOperation::CallEntry(entry);
         env.latest_mut().body.push(operation);
     }),
     declare_immediate_primitive!("(", env, {
@@ -973,8 +967,8 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
 
         if env.compile_mode() {
             env.latest_mut().body.append(&mut vec![
-                ForthOperation::PushCellToDataStack(data_space_string_address as Cell),
-                ForthOperation::PushCellToDataStack(length as Cell),
+                ForthOperation::PushData(data_space_string_address as Cell),
+                ForthOperation::PushData(length as Cell),
             ]);
         } else {
             env.data_stack
@@ -985,7 +979,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_immediate_primitive!("recurse", env, {
         let latest = env.latest_mut();
-        let call_self = ForthOperation::CallAnotherDictionaryEntry(latest);
+        let call_self = ForthOperation::CallEntry(latest);
         latest.body.push(call_self);
     }),
     declare_primitive!("cl>", env, {
@@ -1284,7 +1278,7 @@ impl<'a> Environment<'a> {
 
     fn handle_number_token(&mut self, token: Cell) {
         if self.compile_mode() {
-            let literal = ForthOperation::PushCellToDataStack(token);
+            let literal = ForthOperation::PushData(token);
             self.latest_mut().body.push(literal);
         } else {
             self.data_stack.push(token).unwrap();
@@ -1296,7 +1290,7 @@ impl<'a> Environment<'a> {
             search_dictionary(&self.dictionary, &Name::from_ascii(token.as_bytes())).unwrap();
 
         if self.compile_mode() && !dict_entry.immediate {
-            let operation = ForthOperation::CallAnotherDictionaryEntry(dict_entry);
+            let operation = ForthOperation::CallEntry(dict_entry);
             self.latest_mut().body.push(operation);
         } else {
             let next_word = &dict_entry.body;
@@ -1308,7 +1302,7 @@ impl<'a> Environment<'a> {
         let mut instruction_pointer = entry;
         loop {
             match unsafe { instruction_pointer.as_ref() }.unwrap() {
-                ForthOperation::CallAnotherDictionaryEntry(w) => {
+                ForthOperation::CallEntry(w) => {
                     let w = unsafe { w.as_ref() }.unwrap();
                     let to_execute = &w.body;
 
@@ -1317,7 +1311,7 @@ impl<'a> Environment<'a> {
                     instruction_pointer = to_execute.first().unwrap();
                     continue;
                 }
-                ForthOperation::PushCellToDataStack(l) => self.data_stack.push(*l).unwrap(),
+                ForthOperation::PushData(l) => self.data_stack.push(*l).unwrap(),
                 ForthOperation::BranchOnFalse(offset) => {
                     let cond = self.data_stack.pop().unwrap();
                     if cond == Flag::False as Cell {

@@ -12,26 +12,40 @@
 \ You should have received a copy of the GNU General Public License along with
 \ liorforth. If not, see <https://www.gnu.org/licenses/>.
 
+\ See UnresolvedOperation in main.rs
+: UnresolvedOperation::If    ( -- n ) 0 ;
+: UnresolvedOperation::Else  ( -- n ) 1 ;
+: UnresolvedOperation::While ( -- n ) 2 ;
+: UnresolvedOperation::Leave ( -- n ) 3 ;
+
+\ See ForthOperation in main.rs
+: ForthOperation::PushData      ( n -- d ) 0 swap ;
+: ForthOperation::CallEntry     ( a -- d ) 1 swap ;
+: ForthOperation::BranchOnFalse ( n -- d ) 2 swap ;
+: ForthOperation::Branch        ( a -- d ) 3 swap ;
+: ForthOperation::CallPrimitive ( a -- d ) 4 swap ;
+: ForthOperation::Return        ( -- d )   5 0    ;
+: ForthOperation::Unresolved    ( n -- d ) 6 swap ; \ Use with UnresolvedOperation::*
+
 : exit
-  5 0 \ ForthOperation::Return
+  ForthOperation::Return
   latest-push
 ; immediate
 
 : literal ( n -- )
-  0 swap \ ForthOperation::PushCellToStack(...)
+  ForthOperation::PushData
   latest-push
 ; immediate
 
 : if
-  6 0 \ ForthOperation::Unresolved(UnresolvedOperation::If)
+  UnresolvedOperation::If ForthOperation::Unresolved
   postpone latest-push
 ; immediate
 
 : then
   latest-last-unres-if-or-else
   dup >r
-  latest-len swap - \ branch offset
-  2 swap \ ForthOperation::BranchOnFalse(branch offset)
+  latest-len swap - ForthOperation::BranchOnFalse
   r> latest!
 ; immediate
 
@@ -40,26 +54,24 @@
 
   \ Append unresolved else
   false postpone literal
-  6 1 \ ForthOperation::Unresolved(UnresolvedOperation::Else)
+  UnresolvedOperation::Else ForthOperation::Unresolved
   latest-push
 
   \ Edit unresolved if/else
   dup >r
-  latest-len swap - \ branch offset
-  2 swap \ ForthOperation::BranchOnFalse(branch offset)
+  latest-len swap - ForthOperation::BranchOnFalse
   r> latest!
 ; immediate
 
 : begin latest-len >cf ; immediate
 
 : until
-  latest-len cf> swap -
-  2 swap \ ForthOperation::BranchOnFalse(branch_offset)
+  latest-len cf> swap - ForthOperation::BranchOnFalse
   latest-push
 ; immediate
 
 : while
-  6 2 \ ForthOperation::Unresolved(UnresolvedOperation::While)
+  UnresolvedOperation::While ForthOperation::Unresolved
   latest-push
 ; immediate
 
@@ -67,8 +79,7 @@
   \ Add a jump to the beginning of the word, at the end of the word
   \ (when the "while" condition is not met)
   false postpone literal
-  cf> latest-len -
-  2 swap \ ForthOperation::BranchOnFalse(latest-len - cf> (negative))
+  cf> latest-len - ForthOperation::BranchOnFalse
   latest-push
 
   \ Add a jump to after the previously added jump in the place of
@@ -76,7 +87,7 @@
   latest-len latest-last-unres-while
   dup >r
   -
-  2 swap \ ForthOperation::BranchOnFalse(latest-len - latest-last-unres-while)
+  ForthOperation::BranchOnFalse
   r>
   latest!
 
@@ -88,7 +99,7 @@
 : leave
   s" postpone unloop" evaluate
   false postpone literal
-  6 3 \ ForthOperation::Unresolved(UnresolvedOperation::Leave)
+  UnresolvedOperation::Leave ForthOperation::Unresolved
   latest-push
 ; immediate
 
@@ -277,6 +288,6 @@ false constant FLOORED
 \ Use the part before the `does>` to `create` a new word
 \ Kind of like a constructor
 : does>
-  3 r> \ ForthOperation::Branch(calling_word_return_address)
+  r> ForthOperation::Branch
   latest-len 1 - latest!
 ;
