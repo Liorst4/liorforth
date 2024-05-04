@@ -443,25 +443,35 @@ struct Environment<'a> {
 
 const USUAL_LEADING_DELIMITERS_TO_IGNORE: &[Byte] = &[b' ', b'\t'];
 
+struct StaticDictionaryEntry {
+    name: &'static str,
+    immediate: bool,
+    body: ForthOperation,
+}
+
 macro_rules! declare_constant {
     ($name:literal, $value:expr) => {
-        ($name, false, ForthOperation::PushData($value as Cell))
+        StaticDictionaryEntry {
+            name: $name,
+            immediate: false,
+            body: ForthOperation::PushData($value as Cell),
+        }
     };
 }
 
 macro_rules! declare_primitive {
     ($name:literal, $immediate:literal,  $arg:ident, $body:block) => {
-        (
-            $name,
-            $immediate,
-            ForthOperation::CallPrimitive({
+        StaticDictionaryEntry {
+            name: $name,
+            immediate: $immediate,
+            body: ForthOperation::CallPrimitive({
                 #[export_name = concat!("liorforth_primitive_", $name)]
                 fn primitive($arg: &mut Environment) {
                     $body
                 }
                 primitive
             }),
-        )
+        }
     };
 
     ($name:literal, $arg:ident, $body:block) => {
@@ -508,12 +518,6 @@ macro_rules! declare_immediate_primitive {
     };
 }
 
-type StaticDictionaryEntry = (
-    &'static str,   /* name */
-    bool,           /* immediate */
-    ForthOperation, /* body */
-);
-
 macro_rules! get_primitive {
     ($name:literal) => {
         {
@@ -549,10 +553,10 @@ macro_rules! get_primitive {
 	    ) -> Primitive {
                 if let Some((first, rest)) = dictionary.split_first() {
                     if const_compare_bytes(
-			first.0.as_bytes(),
+			first.name.as_bytes(),
 			name.as_bytes()
 		    ) {
-                        return match first.2 /* operation */ {
+                        return match first.body  {
                             ForthOperation::CallPrimitive(p) => p,
                             _ => panic!("Given static dictionary item name isn't associated with a primitive"),
                         };
@@ -1136,13 +1140,14 @@ impl<'a> Environment<'a> {
         let control_flow_stack = stack_from_byte_slice(control_flow_stack_buffer);
         let counted_loop_stack = stack_from_byte_slice(counted_loop_stack_buffer);
 
-        let dictionary = std::collections::LinkedList::from_iter(STATIC_DICTIONARY.iter().map(
-            |(name, immediate, operation)| DictionaryEntry {
-                name: Name::from_ascii(name.as_bytes()),
-                immediate: *immediate,
-                body: vec![operation.clone(), ForthOperation::Return],
-            },
-        ));
+        let dictionary =
+            std::collections::LinkedList::from_iter(STATIC_DICTIONARY.iter().map(|static_entry| {
+                DictionaryEntry {
+                    name: Name::from_ascii(static_entry.name.as_bytes()),
+                    immediate: static_entry.immediate,
+                    body: vec![static_entry.body.clone(), ForthOperation::Return],
+                }
+            }));
 
         let mut result = Environment {
             data_space_manager,
