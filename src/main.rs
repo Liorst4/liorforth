@@ -291,20 +291,18 @@ impl TryFrom<DoubleCell> for ForthOperation {
 
 impl std::fmt::Display for ForthOperation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let address: *const ForthOperation = self;
-        let address = address as usize;
+        let address = self as *const ForthOperation as usize;
         write!(f, "${:x}:\t", address)?;
         match self {
             ForthOperation::PushData(literal) => write!(f, "PUSH\t{}", literal),
             ForthOperation::CallEntry(another_entry) => {
-                let another_entry_addr: *const DictionaryEntry = *another_entry;
-                let another_entry_addr = another_entry_addr as usize;
-                let another_entry = unsafe { another_entry.as_ref() }.unwrap();
+                let another_entry_addr = *another_entry as usize;
+                let name = &unsafe { another_entry.as_ref() }.unwrap().name;
                 write!(
                     f,
                     "CALL\t${:x} ({})",
                     another_entry_addr,
-                    another_entry.name.as_str().unwrap()
+                    name.as_str().unwrap()
                 )
             }
             ForthOperation::BranchOnFalse(offset) => {
