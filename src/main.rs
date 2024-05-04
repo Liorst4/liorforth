@@ -303,7 +303,8 @@ impl std::fmt::Display for ForthOperation {
                 write!(
                     f,
                     "CALL\t${:x} ({})",
-                    another_entry_addr, another_entry.name
+                    another_entry_addr,
+                    another_entry.name.as_str().unwrap()
                 )
             }
             ForthOperation::BranchOnFalse(offset) => {
@@ -342,16 +343,11 @@ impl Name {
     }
 }
 
-impl std::fmt::Display for Name {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let mut non_null_content = self.value.as_slice();
-        for i in 0..self.value.len() {
-            if self.value[i] == 0 {
-                non_null_content = &self.value[0..i];
-                break;
-            }
-        }
-        write!(f, "{}", core::str::from_utf8(non_null_content).unwrap())
+impl<'a> Name {
+    fn as_str(&'a self) -> Result<&'a str, core::str::Utf8Error> {
+        let count = self.value.iter().take_while(|c| **c != 0).count();
+        let non_null_content = &self.value[0..count];
+        core::str::from_utf8(non_null_content)
     }
 }
 
@@ -403,7 +399,7 @@ struct DictionaryEntry {
 
 impl std::fmt::Display for DictionaryEntry {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, ": {} ", self.name)?;
+        writeln!(f, ": {} ", self.name.as_str().unwrap())?;
         for threaded_word_entry in &self.body {
             writeln!(f, "\t{}", threaded_word_entry)?
         }
@@ -610,7 +606,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_primitive!("bye", _env, { std::process::exit(0) }),
     declare_primitive!("words", env, {
         for entry in env.dictionary.iter() {
-            println!("{}", entry.name);
+            println!("{}", entry.name.as_str().unwrap());
         }
     }),
     declare_primitive!("dup", env, {
