@@ -15,9 +15,13 @@
 use std::io::{Read, Write};
 use std::ops::{BitAnd, BitOr, BitXor, Shl, Shr};
 
+/// Forth's basic data type. Holds a number
 type Cell = isize;
+
+/// Unsigned version of `Cell`
 type UCell = usize;
 
+/// Forth's boolean type
 enum Flag {
     False = (0 as Cell),
     True = !(Flag::False as Cell),
@@ -33,27 +37,35 @@ impl From<bool> for Flag {
 }
 
 #[cfg(target_pointer_width = "64")]
+/// `Cell` with double the bits
 type DoubleCell = i128;
 
 #[cfg(target_pointer_width = "32")]
+/// `Cell` with double the bits
 type DoubleCell = i64;
 
 #[cfg(target_pointer_width = "16")]
+/// `Cell` with double the bits
 type DoubleCell = i32;
 
 #[cfg(target_pointer_width = "8")]
+/// `Cell` with double the bits
 type DoubleCell = i16;
 
 #[cfg(target_pointer_width = "64")]
+/// `UCell` with double the bits
 type DoubleUCell = u128;
 
 #[cfg(target_pointer_width = "32")]
+/// `UCell` with double the bits
 type DoubleUCell = u64;
 
 #[cfg(target_pointer_width = "16")]
+/// `UCell` with double the bits
 type DoubleUCell = u32;
 
 #[cfg(target_pointer_width = "8")]
+/// `UCell` with double the bits
 type DoubleUCell = u16;
 
 const fn double_ucell_to_array(x: DoubleUCell) -> [UCell; 2] {
@@ -228,18 +240,26 @@ impl TryFrom<Cell> for UnresolvedOperation {
     }
 }
 
+/// Instructions for the interpreter
 #[derive(Clone, PartialEq)]
 enum ForthOperation {
+    /// Push the given Cell to the data stack
     PushData(Cell),
+
+    /// Push the next operation in the current word body into the return stack.
+    /// Jump to the first instruction of the given dictionary entry.
     CallEntry(*const DictionaryEntry),
 
-    // TODO: Implement as a primitive
-    BranchOnFalse(isize /* offset */),
-    Branch(*const ForthOperation), /* TODO: Merge with BranchOnFalse? */
+    /// Pop the data stack. Jump to the given offset if the popped value is `Flag::False`
+    BranchOnFalse(isize),
 
+    /// Jump to the given operation
+    Branch(*const ForthOperation),
+
+    /// Execute the given primitive function
     CallPrimitive(Primitive),
 
-    // TODO: Implement as a primitive
+    /// Pop the return stack, jump to the popped operation.
     Return,
 
     /// Used when compiling conditionals and loops
