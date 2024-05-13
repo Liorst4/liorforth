@@ -768,13 +768,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_primitive!("source", env, {
         let address = env.input_buffer.as_ptr() as Cell;
-        let mut size: Cell = 0;
-        while let Some(c) = env.input_buffer.get(size as usize) {
-            if *c == 0 {
-                break;
-            }
-            size += 1;
-        }
+        let size = env.input_buffer.iter().take_while(|c| **c != 0).count() as Cell;
         env.data_stack.push(address).unwrap();
         env.data_stack.push(size).unwrap();
     }),
