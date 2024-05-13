@@ -294,13 +294,13 @@ impl std::fmt::Display for ForthOperation {
         let address = self as *const ForthOperation as usize;
         write!(f, "${:x}:\t", address)?;
         match self {
-            ForthOperation::PushData(literal) => write!(f, "PUSH\t{}", literal),
+            ForthOperation::PushData(literal) => write!(f, "PUSH-DATA\t{}", literal),
             ForthOperation::CallEntry(another_entry) => {
                 let another_entry_addr = *another_entry as usize;
                 let name = &unsafe { another_entry.as_ref() }.unwrap().name;
                 write!(
                     f,
-                    "CALL\t${:x} ({})",
+                    "CALL-ENTRY\t${:x}\t({})",
                     another_entry_addr,
                     name.as_str().unwrap()
                 )
@@ -308,18 +308,18 @@ impl std::fmt::Display for ForthOperation {
             ForthOperation::BranchOnFalse(offset) => {
                 let byte_offset = offset * (std::mem::size_of::<ForthOperation>() as isize);
                 let dest: usize = ((address as isize) + byte_offset) as usize;
-                write!(f, "F-BR\t{} (${:x})", offset, dest)
+                write!(f, "BRANCH-ON-FALSE\t{}\t(${:x})", offset, dest)
             }
             ForthOperation::Branch(destination) => {
                 let destination_address = *destination as Cell;
-                write!(f, "BR\t${:x}", destination_address)
+                write!(f, "BRANCH\t${:x}", destination_address)
             }
             ForthOperation::CallPrimitive(primitive) => {
                 let primitive: usize = unsafe { std::mem::transmute(primitive) };
-                write!(f, "PRIM\t${:x}", primitive)
+                write!(f, "CALL-PRIMITIVE\t${:x}", primitive)
             }
-            ForthOperation::Return => write!(f, "RTN"),
-            ForthOperation::Unresolved(x) => write!(f, "UNR\t{:?}", x),
+            ForthOperation::Return => write!(f, "RETURN"),
+            ForthOperation::Unresolved(x) => write!(f, "UNRESOLVED\t{:?}", x),
         }
     }
 }
