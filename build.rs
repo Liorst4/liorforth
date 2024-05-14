@@ -56,43 +56,14 @@ fn concat_files(paths: &[std::path::PathBuf]) -> String {
     result
 }
 
-fn remove_empty_lines(forth_code: String) -> String {
-    forth_code
-        .lines()
-        .filter(|line| !line.is_empty())
-        .collect::<Vec<&str>>()
-        .join("\n")
-}
-
-fn remove_backslash_comments(forth_code: String) -> String {
-    forth_code
-        .lines()
-        .map(|line| line.split("\\ ").next().unwrap())
-        .collect::<Vec<&str>>()
-        .join("\n")
-}
-
-fn remove_leading_and_trailing_whitespace(forth_code: String) -> String {
-    forth_code
-        .lines()
-        .map(|line| line.trim())
-        .collect::<Vec<&str>>()
-        .join("\n")
-}
-
 fn minimize_source(forth_code: String) -> String {
-    const TRANSFORMERS: &[fn(String) -> String] = &[
-        remove_backslash_comments,
-        remove_leading_and_trailing_whitespace,
-        remove_empty_lines,
-    ];
-
-    // TODO: Use fancy functional thing instead of a loop
-    let mut minimized_code = forth_code;
-    for transform in TRANSFORMERS {
-        minimized_code = transform(minimized_code)
-    }
-    minimized_code
+    forth_code
+        .lines()
+        .map(|line| line.split("\\ ").next().unwrap()) // Remove backslash comments
+        .map(|line| line.trim()) // Remove leading and trailing white spaces
+        .filter(|line| !line.is_empty()) // Remove empty lines
+        .collect::<Vec<&str>>()
+        .join("\n")
 }
 
 fn main() {
