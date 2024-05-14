@@ -289,5 +289,5 @@ false constant FLOORED
 \ Kind of like a constructor
 : does>
   r> ForthOperation::Branch
-  latest-len 1 - latest!
+  latest-len 1 - latest! \ Replace the exit instruction with a branch one
 ;
