@@ -56,13 +56,26 @@ fn concat_files(paths: &[std::path::PathBuf]) -> String {
     result
 }
 
+fn remove_parenthesis_comments(line: &str) -> String {
+    match line.split_once("( ") {
+        Some((before_comment, comment_body_and_after)) => {
+            match comment_body_and_after.split_once(" )") {
+                Some((_comment, after_comment)) => [before_comment, after_comment].join(" "),
+                None => before_comment.to_string(),
+            }
+        }
+        None => line.to_string(),
+    }
+}
+
 fn minimize_source(forth_code: String) -> String {
     forth_code
         .lines()
         .map(|line| line.split("\\ ").next().unwrap()) // Remove backslash comments
-        .map(|line| line.trim()) // Remove leading and trailing white spaces
+        .map(remove_parenthesis_comments)
+        .map(|line| line.trim().to_owned()) // Remove leading and trailing white spaces
         .filter(|line| !line.is_empty()) // Remove empty lines
-        .collect::<Vec<&str>>()
+        .collect::<Vec<_>>()
         .join("\n")
 }
 
