@@ -1093,6 +1093,11 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let number = env.data_stack.pop().unwrap() as usize;
         print!("{} ", env.format_number(number, alignment));
     }),
+    declare_primitive!("unused", env, {
+        env.data_stack
+            .push(env.data_space_manager.unused_area.len() as Cell)
+            .unwrap();
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
