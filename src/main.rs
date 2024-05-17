@@ -1079,6 +1079,23 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             panic!("Not implemented for this platform");
         }
     }),
+    declare_immediate_primitive!(".(", env, {
+        let bytes = env.next_token(&[], b')');
+        let string = core::str::from_utf8(bytes).unwrap();
+        print!("{}", string);
+    }),
+    declare_primitive!(".R", env, {
+        let alignment = env.data_stack.pop().unwrap();
+        let alignment: usize = if alignment < 0 { 0 } else { alignment as usize };
+        let number = env.data_stack.pop().unwrap();
+        print!("{} ", env.format_number(number, alignment));
+    }),
+    declare_primitive!("U.R", env, {
+        let alignment = env.data_stack.pop().unwrap();
+        let alignment: usize = if alignment < 0 { 0 } else { alignment as usize };
+        let number = env.data_stack.pop().unwrap() as usize;
+        print!("{} ", env.format_number(number, alignment));
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
@@ -1355,12 +1372,30 @@ impl<'a> Environment<'a> {
         }
     }
 
-    fn print_number<T: std::fmt::Binary + std::fmt::LowerHex + std::fmt::Display>(&self, n: T) {
-        match self.base {
-            2 => print!("{:b} ", n),
-            16 => print!("{:x} ", n),
-            _ => print!("{} ", n),
+    fn format_number<T: std::fmt::Binary + std::fmt::LowerHex + std::fmt::Display>(
+        &self,
+        n: T,
+        alignment: usize,
+    ) -> String {
+        let mut result = match self.base {
+            2 => format!("{:b}", n),
+            16 => format!("{:x}", n),
+            _ => format!("{}", n),
+        };
+
+        if result.len() < alignment {
+            let spaces_to_add = alignment - result.len();
+            result.reserve(spaces_to_add);
+            for _ in 0..spaces_to_add {
+                result.insert(0, ' ');
+            }
         }
+
+        result
+    }
+
+    fn print_number<T: std::fmt::Binary + std::fmt::LowerHex + std::fmt::Display>(&self, n: T) {
+        print!("{} ", self.format_number(n, 0));
     }
 
     fn reverse_find_in_latest<F>(&self, test: F) -> Option<usize>

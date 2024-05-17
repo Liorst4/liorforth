@@ -90,8 +90,6 @@ Implemented words:
 		>in
 		state
 		source
-		true
-		false
 		immediate
 		;
 		if
@@ -151,7 +149,18 @@ Implemented words:
 		s>d
 		m*
 		sm/rem
+	Core extension:
+		true
+		false
 		\
+		.(
+		.R
+		<>
+		0<>
+		0>
+		u>
+		nip
+		U.R
 	Extra:
 		words
 		dump-row-size
