@@ -24,4 +24,4 @@
   postpone until
 ; immediate
 
-: hex 16 ( assuming the base is decimal during compilation ) base ! ;
+: hex #16 base ! ;

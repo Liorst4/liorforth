@@ -107,7 +107,7 @@
 : 1- 1 - ;
 : 0< 0 < ;
 : 0= 0 = ;
-: decimal 10 ( assuming the base is decimal during compilation ) base ! ;
+: decimal #10 base ! ;
 : cells sizeof-cell * ;
 : cell+ sizeof-cell + ;
 : , here 1 cells allot ! ;
