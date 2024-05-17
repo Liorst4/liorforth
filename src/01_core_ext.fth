@@ -25,3 +25,8 @@
 ; immediate
 
 : hex #16 base ! ;
+
+\ Since invoking words effects the stack itself, commands are inline-d inside the caller
+: 2>r ( x1 x2 -- ) s" postpone swap postpone >r postpone >r" evaluate ; immediate
+: 2r> ( -- x1 x2 ) s" postpone r> postpone r> postpone swap" evaluate ; immediate
+: 2r@ ( -- x1 x2 ) s" 2r> 2dup 2>r" evaluate ( no need to postpone since these are immediate ) ; immediate

@@ -164,6 +164,9 @@ Implemented words:
 		tuck
 		again
 		hex
+		2>R
+		2R>
+		2R@
 	Extra:
 		words
 		dump-row-size
