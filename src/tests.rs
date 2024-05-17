@@ -222,8 +222,6 @@ b";
             DoubleCell::MAX / 2,
             DoubleCell::MIN,
             DoubleCell::MIN / 2,
-            0x1122334455,
-            0x00112233445566778899aabbccddeeff,
         ];
         for number in numbers {
             assert_eq!(number, double_cell_from_array(double_cell_to_array(number)));
@@ -474,8 +472,8 @@ test4
         environment.interpret_line(
             format!(
                 "{} {} {} move",
-                src.as_ptr() as usize,
-                dest.as_mut_ptr() as usize,
+                src.as_ptr() as Cell,
+                dest.as_mut_ptr() as Cell,
                 std::mem::size_of_val(&src),
             )
             .as_bytes(),

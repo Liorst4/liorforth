@@ -1121,7 +1121,12 @@ fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
 
     match Cell::from_str_radix(digits, base) {
         Ok(x) => Some(x),
-        _ => None,
+        Err(e) => match e.kind() {
+            std::num::IntErrorKind::PosOverflow | std::num::IntErrorKind::NegOverflow => {
+                panic!("number too long!")
+            }
+            _ => None,
+        },
     }
 }
 
