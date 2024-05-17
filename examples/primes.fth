@@ -30,4 +30,3 @@ variable divisor
 ;
 
 primes
-bye

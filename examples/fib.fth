@@ -13,4 +13,3 @@
 ;
 
 fibonacci
-bye

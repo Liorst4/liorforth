@@ -1431,13 +1431,15 @@ macro_rules! default_fixed_sized_environment {
 
 fn main() {
     default_fixed_sized_environment!(environment);
-    loop {
-        let mut line_buffer = String::new();
-        std::io::stdin().read_line(&mut line_buffer).unwrap();
-        line_buffer.pop();
-        environment.interpret_line(line_buffer.as_bytes());
-        println!(" ok. ");
-        std::io::stdout().flush().unwrap();
+    for maybe_line in std::io::stdin().lines() {
+        match maybe_line {
+            Ok(line) => {
+                environment.interpret_line(line.as_bytes());
+                println!(" ok. ");
+                std::io::stdout().flush().unwrap();
+            }
+            _ => break,
+        }
     }
 }
 
