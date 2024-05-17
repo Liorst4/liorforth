@@ -163,6 +163,7 @@ Implemented words:
 		U.R
 		tuck
 		again
+		hex
 	Extra:
 		words
 		dump-row-size
