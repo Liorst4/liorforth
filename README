@@ -161,6 +161,7 @@ Implemented words:
 		u>
 		nip
 		U.R
+		tuck
 	Extra:
 		words
 		dump-row-size

@@ -17,3 +17,4 @@
 : 0> ( n -- f ) 0 > ;
 : u> ( u u -- f ) 2dup = >r u< r> or invert ;
 : nip ( x1 x2 -- x2 ) swap drop ;
+: tuck ( x1 x2 -- x2 x1 x2 ) swap over ;
