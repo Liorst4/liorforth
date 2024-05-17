@@ -1044,20 +1044,20 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             // The next instruction is BranchOnFalse
         }
     }),
+    #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
     declare_primitive!("syscall", env, {
-        if cfg!(all(target_arch = "x86_64", target_os = "linux")) {
-            let arg6: u64 = env.data_stack.pop().unwrap() as u64;
-            let arg5: u64 = env.data_stack.pop().unwrap() as u64;
-            let arg4: u64 = env.data_stack.pop().unwrap() as u64;
-            let arg3: u64 = env.data_stack.pop().unwrap() as u64;
-            let arg2: u64 = env.data_stack.pop().unwrap() as u64;
-            let arg1: u64 = env.data_stack.pop().unwrap() as u64;
-            let syscall_number: u64 = env.data_stack.pop().unwrap() as u64;
-            let return_value1: u64;
-            let return_value2: u64;
+        let arg6: u64 = env.data_stack.pop().unwrap() as u64;
+        let arg5: u64 = env.data_stack.pop().unwrap() as u64;
+        let arg4: u64 = env.data_stack.pop().unwrap() as u64;
+        let arg3: u64 = env.data_stack.pop().unwrap() as u64;
+        let arg2: u64 = env.data_stack.pop().unwrap() as u64;
+        let arg1: u64 = env.data_stack.pop().unwrap() as u64;
+        let syscall_number: u64 = env.data_stack.pop().unwrap() as u64;
+        let return_value1: u64;
+        let return_value2: u64;
 
-            unsafe {
-                core::arch::asm!("syscall",
+        unsafe {
+            core::arch::asm!("syscall",
 				 // https://www.man7.org/linux/man-pages/man2/syscall.2.html
                                  in("rax") syscall_number,
                                  in("rdi") arg1,
@@ -1071,13 +1071,10 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
                                  // These are clobbered by `syscall` (https://www.felixcloutier.com/x86/syscall)
                                  out("rcx") _,
                                  out("r11") _);
-            };
+        };
 
-            env.data_stack.push(return_value1 as Cell).unwrap();
-            env.data_stack.push(return_value2 as Cell).unwrap();
-        } else {
-            panic!("Not implemented for this platform");
-        }
+        env.data_stack.push(return_value1 as Cell).unwrap();
+        env.data_stack.push(return_value2 as Cell).unwrap();
     }),
     declare_immediate_primitive!(".(", env, {
         let bytes = env.next_token(&[], b')');
