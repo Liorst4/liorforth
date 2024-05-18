@@ -1106,13 +1106,13 @@ fn search_dictionary<'a>(dict: &'a Dictionary, name: &Name) -> Option<&'a Dictio
     dict.iter().find(|&item| item.name == *name)
 }
 
-fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
+fn parse_number(default_base: u32, word: &[Byte]) -> Option<Cell> {
     if word.is_empty() {
         return None;
     }
 
     let mut has_base_indicator = true;
-    let base = match word.as_bytes().first()? {
+    let base = match word.first()? {
         b'#' => 10,
         b'$' => 16,
         b'%' => 2,
@@ -1124,7 +1124,7 @@ fn parse_number(default_base: u32, word: &str) -> Option<Cell> {
 
     let digits = word.split_at(if has_base_indicator { 1 } else { 0 }).1;
 
-    match Cell::from_str_radix(digits, base) {
+    match Cell::from_str_radix(core::str::from_utf8(digits).unwrap(), base) {
         Ok(x) => Some(x),
         Err(e) => match e.kind() {
             std::num::IntErrorKind::PosOverflow | std::num::IntErrorKind::NegOverflow => {
@@ -1278,19 +1278,19 @@ impl<'a> Environment<'a> {
         self.input_buffer[line.len()..].fill(0);
 
         'empty_input_buffer: loop {
-            let token = self.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, b' ');
+            let token = self
+                .next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, b' ')
+                .to_owned();
 
             if token.is_empty() {
                 break 'empty_input_buffer;
             }
 
-            let token = core::str::from_utf8(token).unwrap().to_owned();
-
             self.handle_token(&token);
         }
     }
 
-    fn handle_token(&mut self, token: &str) {
+    fn handle_token(&mut self, token: &[Byte]) {
         match parse_number(self.base as u32, token) {
             Some(number) => self.handle_number_token(number),
             _ => self.handle_text_token(token),
@@ -1306,9 +1306,8 @@ impl<'a> Environment<'a> {
         }
     }
 
-    fn handle_text_token(&mut self, token: &str) {
-        let dict_entry =
-            search_dictionary(&self.dictionary, &Name::from_ascii(token.as_bytes())).unwrap();
+    fn handle_text_token(&mut self, token: &[Byte]) {
+        let dict_entry = search_dictionary(&self.dictionary, &Name::from_ascii(token)).unwrap();
 
         if self.compile_mode() && !dict_entry.immediate {
             let operation = ForthOperation::CallEntry(dict_entry);
