@@ -1245,18 +1245,18 @@ impl<'a> Environment<'a> {
         }
 
         let token_begin = self.input_buffer_head as usize;
-        let token_size;
+        let token_end;
 
         'read_token: loop {
             if self.input_buffer_head as usize >= self.input_buffer.len()
                 || self.input_buffer[self.input_buffer_head as usize] == 0
             {
-                token_size = (self.input_buffer_head as usize) - token_begin;
+                token_end = self.input_buffer_head as usize;
                 break 'read_token;
             }
 
             if self.input_buffer[self.input_buffer_head as usize] == delimiter {
-                token_size = (self.input_buffer_head as usize) - token_begin;
+                token_end = self.input_buffer_head as usize;
                 self.input_buffer_head += 1;
                 break 'read_token;
             }
@@ -1264,7 +1264,7 @@ impl<'a> Environment<'a> {
             self.input_buffer_head += 1;
         }
 
-        &self.input_buffer[token_begin..token_begin + token_size]
+        &self.input_buffer[token_begin..token_end]
     }
 
     fn interpret_line(&mut self, line: &[Byte]) {
