@@ -12,7 +12,7 @@
 // You should have received a copy of the GNU General Public License along with
 // liorforth. If not, see <https://www.gnu.org/licenses/>.
 
-use std::io::{Read, Write};
+use std::io::{IsTerminal, Read, Write};
 use std::ops::{BitAnd, BitOr, BitXor, Shl, Shr};
 
 /// Forth's basic data type. Holds a number
@@ -1420,12 +1420,15 @@ macro_rules! default_fixed_sized_environment {
 }
 
 fn main() {
+    let terminal = std::io::stdin().is_terminal();
     default_fixed_sized_environment!(environment);
     for maybe_line in std::io::stdin().lines() {
         match maybe_line {
             Ok(line) => {
                 environment.interpret_line(line.as_bytes());
-                println!(" ok. ");
+                if terminal {
+                    println!(" ok. ");
+                }
                 std::io::stdout().flush().unwrap();
             }
             _ => break,
