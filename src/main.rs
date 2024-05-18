@@ -1300,7 +1300,7 @@ impl<'a> Environment<'a> {
                 break 'empty_input_buffer;
             }
 
-            let token: String = String::from_utf8_lossy(token).to_string();
+            let token = core::str::from_utf8(token).unwrap().to_owned();
 
             self.handle_token(&token);
         }
