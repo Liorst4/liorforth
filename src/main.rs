@@ -1230,20 +1230,13 @@ impl<'a> Environment<'a> {
         if !leading_delimiters.is_empty() {
             'find_first_char: loop {
                 if self.input_buffer_head as usize >= self.input_buffer.len()
-                    || *self
-                        .input_buffer
-                        .get(self.input_buffer_head as usize)
-                        .unwrap()
-                        == 0
+                    || self.input_buffer[self.input_buffer_head as usize] == 0
                 {
                     return &[];
                 }
 
-                if !leading_delimiters.contains(
-                    self.input_buffer
-                        .get(self.input_buffer_head as usize)
-                        .unwrap(),
-                ) {
+                if !leading_delimiters.contains(&self.input_buffer[self.input_buffer_head as usize])
+                {
                     break 'find_first_char;
                 }
 
@@ -1256,22 +1249,13 @@ impl<'a> Environment<'a> {
 
         'read_token: loop {
             if self.input_buffer_head as usize >= self.input_buffer.len()
-                || *self
-                    .input_buffer
-                    .get(self.input_buffer_head as usize)
-                    .unwrap()
-                    == 0
+                || self.input_buffer[self.input_buffer_head as usize] == 0
             {
                 token_size = (self.input_buffer_head as usize) - token_begin;
                 break 'read_token;
             }
 
-            if *self
-                .input_buffer
-                .get(self.input_buffer_head as usize)
-                .unwrap()
-                == delimiter
-            {
+            if self.input_buffer[self.input_buffer_head as usize] == delimiter {
                 token_size = (self.input_buffer_head as usize) - token_begin;
                 self.input_buffer_head += 1;
                 break 'read_token;
