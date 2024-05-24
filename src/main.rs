@@ -115,7 +115,7 @@ where
     }
 
     fn push(&mut self, x: T) -> Result<(), StackError> {
-        if self.head + 1 >= self.data.len() {
+        if self.head >= self.data.len() {
             return Err(StackError::Overflow);
         }
 
