@@ -903,7 +903,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let entry = entry as *const DictionaryEntry;
         let entry = unsafe { entry.as_ref() }.unwrap();
         match entry.body.first().unwrap() {
-            ForthOperation::PushData(result) => env.data_stack.push(*result).unwrap(),
+            ForthOperation::PushData(result) => env.data_stack.push(*result)?,
             _ => panic!("Invalid argument given to >body"),
         }
     }),
@@ -935,12 +935,11 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_constant!("MAX-N", Cell::MAX),
     declare_constant!("MAX-U", UCell::MAX),
     declare_primitive!("MAX-D", env, {
-        env.data_stack.push_double_cell(DoubleCell::MAX).unwrap()
+        env.data_stack.push_double_cell(DoubleCell::MAX)?;
     }),
     declare_primitive!("MAX-UD", env, {
         env.data_stack
-            .push_double_cell(DoubleUCell::MAX as DoubleCell)
-            .unwrap()
+            .push_double_cell(DoubleUCell::MAX as DoubleCell)?;
     }),
     declare_primitive!("evaluate", env, {
         let string_byte_count = env.data_stack.pop()? as usize;
@@ -1422,20 +1421,18 @@ impl<'a> Environment<'a> {
 
     fn handle_token(&mut self, token: &[Byte]) -> Result<(), Exception> {
         match parse_number(self.base as u32, token) {
-            Some(number) => {
-                self.handle_number_token(number);
-                Ok(())
-            }
+            Some(number) => self.handle_number_token(number),
             _ => self.handle_text_token(token),
         }
     }
 
-    fn handle_number_token(&mut self, token: Cell) {
+    fn handle_number_token(&mut self, token: Cell) -> Result<(), Exception> {
         if self.compile_mode() {
             let literal = ForthOperation::PushData(token);
             self.latest_mut().body.push(literal);
+            Ok(())
         } else {
-            self.data_stack.push(token).unwrap();
+            self.data_stack.push(token)
         }
     }
 
@@ -1465,7 +1462,7 @@ impl<'a> Environment<'a> {
                     instruction_pointer = to_execute.first().unwrap();
                     continue;
                 }
-                ForthOperation::PushData(l) => self.data_stack.push(*l).unwrap(),
+                ForthOperation::PushData(l) => self.data_stack.push(*l)?,
                 ForthOperation::BranchOnFalse(offset) => {
                     let cond = self.data_stack.pop()?;
                     if cond == Flag::False as Cell {
