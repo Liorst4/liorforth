@@ -101,6 +101,7 @@ enum SystemExceptionCode {
     CountedLoopsStackOverflow,
     DivisionByZero,
     UndefinedWord,
+    AttemptToUseZeroLengthStringAsAName,
     ControlFlowStackOverflow,
 }
 
@@ -114,6 +115,7 @@ impl SystemExceptionCode {
             SystemExceptionCode::CountedLoopsStackOverflow => -7,
             SystemExceptionCode::DivisionByZero => -10,
             SystemExceptionCode::UndefinedWord => -13,
+            SystemExceptionCode::AttemptToUseZeroLengthStringAsAName => -16,
             SystemExceptionCode::ControlFlowStackOverflow => -52,
         }
     }
@@ -407,12 +409,18 @@ struct Name {
 }
 
 impl Name {
-    fn from_ascii(s: &[Byte]) -> Name {
+    fn from_ascii(s: &[Byte]) -> Result<Name, Exception> {
+        if s.is_empty() {
+            return Err(Exception::from(
+                SystemExceptionCode::AttemptToUseZeroLengthStringAsAName,
+            ));
+        }
+
         let mut n = Name::default();
         n.value[0..s.len()].copy_from_slice(s);
         n.value.make_ascii_lowercase();
 
-        n
+        Ok(n)
     }
 }
 
@@ -801,7 +809,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_compare_operator_primitive!("<", <),
     declare_compare_operator_primitive!(">", >),
     declare_primitive!(":", env, {
-        let name = env.read_name_from_input_buffer().unwrap();
+        let name = env.read_name_from_input_buffer()?;
         env.dictionary.push_front(DictionaryEntry {
             name,
             immediate: false,
@@ -887,7 +895,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.data_stack.push(byte_count as Cell)?;
     }),
     declare_primitive!("'", env, {
-        let name = env.read_name_from_input_buffer().unwrap();
+        let name = env.read_name_from_input_buffer()?;
         let entry = search_dictionary(&env.dictionary, &name)?;
         let entry: *const DictionaryEntry = entry;
         env.data_stack.push(entry as Cell).unwrap();
@@ -911,7 +919,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let name_address = env.data_stack.pop()?;
         let name: &CountedString =
             unsafe { (name_address as *const CountedString).as_ref() }.unwrap();
-        let name = Name::from_ascii(unsafe { name.as_slice() });
+        let name = Name::from_ascii(unsafe { name.as_slice() })?;
         match search_dictionary(&env.dictionary, &name) {
             Ok(entry) => {
                 let immediate = if entry.immediate { 1 } else { -1 };
@@ -926,7 +934,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         }
     }),
     declare_primitive!("see", env, {
-        let name = env.read_name_from_input_buffer().unwrap();
+        let name = env.read_name_from_input_buffer()?;
         let item = search_dictionary(&env.dictionary, &name)?;
         println!("{}", item);
     }),
@@ -1042,7 +1050,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             .push(env.data_stack.pop()?.try_into().unwrap())?;
     }),
     declare_immediate_primitive!("postpone", env, {
-        let name = env.read_name_from_input_buffer().unwrap();
+        let name = env.read_name_from_input_buffer()?;
         let entry = search_dictionary(&env.dictionary, &name)?; // TODO: Throw invalid postpone instead?
         let operation = ForthOperation::CallEntry(entry);
         env.latest_mut().body.push(operation);
@@ -1302,7 +1310,7 @@ impl<'a> Environment<'a> {
         let dictionary =
             std::collections::LinkedList::from_iter(STATIC_DICTIONARY.iter().map(|static_entry| {
                 DictionaryEntry {
-                    name: Name::from_ascii(static_entry.name.as_bytes()),
+                    name: Name::from_ascii(static_entry.name.as_bytes()).unwrap(),
                     immediate: static_entry.immediate,
                     body: vec![static_entry.body.clone(), ForthOperation::Return],
                 }
@@ -1437,7 +1445,7 @@ impl<'a> Environment<'a> {
     }
 
     fn handle_text_token(&mut self, token: &[Byte]) -> Result<(), Exception> {
-        let dict_entry = search_dictionary(&self.dictionary, &Name::from_ascii(token))?;
+        let dict_entry = search_dictionary(&self.dictionary, &Name::from_ascii(token)?)?;
 
         if self.compile_mode() && !dict_entry.immediate {
             let operation = ForthOperation::CallEntry(dict_entry);
@@ -1533,13 +1541,9 @@ impl<'a> Environment<'a> {
             .map(|(index, _)| index)
     }
 
-    fn read_name_from_input_buffer(&mut self) -> Option<Name> {
+    fn read_name_from_input_buffer(&mut self) -> Result<Name, Exception> {
         let name = self.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, b' ');
-        if name.is_empty() {
-            return None;
-        }
-
-        Some(Name::from_ascii(name))
+        Name::from_ascii(name)
     }
 }
 
