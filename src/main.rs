@@ -220,7 +220,7 @@ where
         self.data[0..self.head].to_owned()
     }
 
-    fn restore(&mut self, backup: &Vec<T>) {
+    fn restore(&mut self, backup: &[T]) {
         if backup.is_empty() {
             self.head = 0;
             return;
@@ -567,6 +567,8 @@ macro_rules! declare_primitive {
                 #[export_name = concat!("liorforth_primitive_", $name)]
                 fn primitive($arg: &mut Environment) -> Result<(), Exception>{
                     $body
+
+                    #[allow(unreachable_code)]
                     Ok(())
                 }
                 primitive
@@ -687,7 +689,9 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             env.print_number(i);
         }
     }),
-    declare_primitive!("bye", _env, { std::process::exit(0) }),
+    declare_primitive!("bye", _env, {
+        std::process::exit(0);
+    }),
     declare_primitive!("words", env, {
         for entry in env.dictionary.iter() {
             println!("{}", entry.name.as_str().unwrap());
@@ -1413,7 +1417,7 @@ impl<'a> Environment<'a> {
             self.handle_token(&token)?;
         }
 
-        return Ok(());
+        Ok(())
     }
 
     fn handle_token(&mut self, token: &[Byte]) -> Result<(), Exception> {
