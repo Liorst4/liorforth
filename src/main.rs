@@ -1551,16 +1551,36 @@ macro_rules! default_fixed_sized_environment {
 }
 
 fn main() {
-    let terminal = std::io::stdin().is_terminal();
+    let interactive = std::io::stdin().is_terminal();
     default_fixed_sized_environment!(environment);
     for maybe_line in std::io::stdin().lines() {
         match maybe_line {
             Ok(line) => {
-                environment.interpret_line(line.as_bytes()).unwrap(); // TODO: Handle
-                if terminal {
-                    println!(" ok. ");
+                match environment.interpret_line(line.as_bytes()) {
+                    Ok(_) => {
+                        if interactive {
+                            println!(" ok. ");
+                        }
+                    }
+                    Err(exception) => {
+                        eprintln!("{:?} was thrown", exception);
+                        // TODO: Print stacks
+
+                        if !interactive {
+                            std::io::stdout().flush().unwrap();
+                            std::io::stderr().flush().unwrap();
+                            std::process::exit(1);
+                        }
+
+                        environment.data_stack.clear();
+                        environment.return_stack.clear();
+                        environment.control_flow_stack.clear();
+                        environment.counted_loop_stack.clear();
+                    }
                 }
+
                 std::io::stdout().flush().unwrap();
+                std::io::stderr().flush().unwrap();
             }
             _ => break,
         }
