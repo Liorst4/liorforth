@@ -100,6 +100,7 @@ enum SystemExceptionCode {
     ReturnStackUnderflow,
     CountedLoopsStackOverflow,
     DivisionByZero,
+    UndefinedWord,
     ControlFlowStackOverflow,
 }
 
@@ -112,6 +113,7 @@ impl SystemExceptionCode {
             SystemExceptionCode::ReturnStackUnderflow => -6,
             SystemExceptionCode::CountedLoopsStackOverflow => -7,
             SystemExceptionCode::DivisionByZero => -10,
+            SystemExceptionCode::UndefinedWord => -13,
             SystemExceptionCode::ControlFlowStackOverflow => -52,
         }
     }
@@ -882,7 +884,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_primitive!("'", env, {
         let name = env.read_name_from_input_buffer().unwrap();
-        let entry = search_dictionary(&env.dictionary, &name).unwrap();
+        let entry = search_dictionary(&env.dictionary, &name)?;
         let entry: *const DictionaryEntry = entry;
         env.data_stack.push(entry as Cell).unwrap();
     }),
@@ -907,7 +909,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             unsafe { (name_address as *const CountedString).as_ref() }.unwrap();
         let name = Name::from_ascii(unsafe { name.as_slice() });
         match search_dictionary(&env.dictionary, &name) {
-            Some(entry) => {
+            Ok(entry) => {
                 let immediate = if entry.immediate { 1 } else { -1 };
                 let entry: *const DictionaryEntry = entry;
                 env.data_stack.push(entry as Cell)?;
@@ -921,7 +923,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_primitive!("see", env, {
         let name = env.read_name_from_input_buffer().unwrap();
-        let item = search_dictionary(&env.dictionary, &name).unwrap();
+        let item = search_dictionary(&env.dictionary, &name)?;
         println!("{}", item);
     }),
     declare_primitive!("abort", env, {
@@ -1045,7 +1047,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_immediate_primitive!("postpone", env, {
         let name = env.read_name_from_input_buffer().unwrap();
-        let entry = search_dictionary(&env.dictionary, &name).unwrap();
+        let entry = search_dictionary(&env.dictionary, &name)?; // TODO: Throw invalid postpone instead?
         let operation = ForthOperation::CallEntry(entry);
         env.latest_mut().body.push(operation);
     }),
@@ -1219,8 +1221,13 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
 
-fn search_dictionary<'a>(dict: &'a Dictionary, name: &Name) -> Option<&'a DictionaryEntry> {
-    dict.iter().find(|&item| item.name == *name)
+fn search_dictionary<'a>(
+    dict: &'a Dictionary,
+    name: &Name,
+) -> Result<&'a DictionaryEntry, Exception> {
+    dict.iter()
+        .find(|&item| item.name == *name)
+        .ok_or(Exception::from(SystemExceptionCode::UndefinedWord))
 }
 
 fn parse_number(default_base: u32, word: &[Byte]) -> Option<Cell> {
@@ -1436,7 +1443,7 @@ impl<'a> Environment<'a> {
     }
 
     fn handle_text_token(&mut self, token: &[Byte]) -> Result<(), Exception> {
-        let dict_entry = search_dictionary(&self.dictionary, &Name::from_ascii(token)).unwrap();
+        let dict_entry = search_dictionary(&self.dictionary, &Name::from_ascii(token))?;
 
         if self.compile_mode() && !dict_entry.immediate {
             let operation = ForthOperation::CallEntry(dict_entry);
