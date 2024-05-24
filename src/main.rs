@@ -94,7 +94,33 @@ const fn double_cell_from_array(x: [Cell; 2]) -> DoubleCell {
 
 #[derive(Debug, Clone, PartialEq)]
 enum SystemExceptionCode {
+    StackOverflow,
+    StackUnderflow,
+    ReturnStackOverflow,
+    ReturnStackUnderflow,
+    CountedLoopsStackOverflow,
     DivisionByZero,
+    ControlFlowStackOverflow,
+}
+
+impl SystemExceptionCode {
+    const fn const_into(self) -> Cell {
+        match self {
+            SystemExceptionCode::StackOverflow => -3,
+            SystemExceptionCode::StackUnderflow => -4,
+            SystemExceptionCode::ReturnStackOverflow => -5,
+            SystemExceptionCode::ReturnStackUnderflow => -6,
+            SystemExceptionCode::CountedLoopsStackOverflow => -7,
+            SystemExceptionCode::DivisionByZero => -10,
+            SystemExceptionCode::ControlFlowStackOverflow => -52,
+        }
+    }
+}
+
+impl From<SystemExceptionCode> for Cell {
+    fn from(code: SystemExceptionCode) -> Cell {
+        code.const_into()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -111,39 +137,34 @@ impl From<Cell> for Exception {
 
 impl From<SystemExceptionCode> for Exception {
     fn from(code: SystemExceptionCode) -> Exception {
-        Exception {
-            value: match code {
-                SystemExceptionCode::DivisionByZero => -10,
-            },
-        }
+        Exception { value: code.into() }
     }
 }
 
-struct Stack<'a, T>
-where
+struct Stack<
+    'a,
+    T,
+    const OVERFLOW_ERROR_CODE: Cell = { SystemExceptionCode::StackOverflow.const_into() },
+    const UNDERFLOW_ERROR_CODE: Cell = { SystemExceptionCode::StackUnderflow.const_into() },
+> where
     T: Copy,
 {
     head: usize,
     data: &'a mut [T],
 }
 
-#[derive(Debug, PartialEq)]
-enum StackError {
-    Overflow,
-    Underflow,
-}
-
-impl<'a, T> Stack<'a, T>
+impl<'a, T, const OVERFLOW_ERROR_CODE: Cell, const UNDERFLOW_ERROR_CODE: Cell>
+    Stack<'a, T, OVERFLOW_ERROR_CODE, UNDERFLOW_ERROR_CODE>
 where
     T: Copy,
 {
-    fn new(data: &'a mut [T]) -> Stack<'a, T> {
+    fn new(data: &'a mut [T]) -> Stack<'a, T, OVERFLOW_ERROR_CODE, UNDERFLOW_ERROR_CODE> {
         Stack { head: 0, data }
     }
 
-    fn push(&mut self, x: T) -> Result<(), StackError> {
+    fn push(&mut self, x: T) -> Result<(), Exception> {
         if self.head >= self.data.len() {
-            return Err(StackError::Overflow);
+            return Err(Exception::from(OVERFLOW_ERROR_CODE));
         }
 
         self.data[self.head] = x;
@@ -152,9 +173,9 @@ where
         Ok(())
     }
 
-    fn pop(&mut self) -> Result<T, StackError> {
+    fn pop(&mut self) -> Result<T, Exception> {
         if self.head == 0 {
-            return Err(StackError::Underflow);
+            return Err(Exception::from(UNDERFLOW_ERROR_CODE));
         }
 
         let result = self.data[self.head - 1];
@@ -163,12 +184,12 @@ where
         Ok(result)
     }
 
-    fn last(&self) -> Option<&T> {
+    fn last(&self) -> Result<&T, Exception> {
         if self.head == 0 {
-            return None;
+            return Err(Exception::from(UNDERFLOW_ERROR_CODE));
         }
 
-        Some(&self.data[self.head - 1])
+        Ok(&self.data[self.head - 1])
     }
 
     fn len(&self) -> usize {
@@ -208,8 +229,10 @@ where
     }
 }
 
-impl<'a> Stack<'a, Cell> {
-    fn push_double_cell(&mut self, value: DoubleCell) -> Result<(), StackError> {
+impl<'a, const OVERFLOW_ERROR_CODE: Cell, const UNDERFLOW_ERROR_CODE: Cell>
+    Stack<'a, Cell, OVERFLOW_ERROR_CODE, UNDERFLOW_ERROR_CODE>
+{
+    fn push_double_cell(&mut self, value: DoubleCell) -> Result<(), Exception> {
         let cells: [Cell; 2] = double_cell_to_array(value);
         self.push(cells[0])?;
 
@@ -222,9 +245,9 @@ impl<'a> Stack<'a, Cell> {
         }
     }
 
-    fn pop_double_cell(&mut self) -> Result<DoubleCell, StackError> {
+    fn pop_double_cell(&mut self) -> Result<DoubleCell, Exception> {
         if self.len() < 2 {
-            return Err(StackError::Underflow);
+            return Err(Exception::from(UNDERFLOW_ERROR_CODE));
         }
 
         let mut result: [Cell; 2] = Default::default();
@@ -488,7 +511,12 @@ struct Environment<'a> {
     data_space_manager: DataSpaceManager<'a>,
 
     data_stack: Stack<'a, Cell>,
-    return_stack: Stack<'a, *const ForthOperation>,
+    return_stack: Stack<
+        'a,
+        *const ForthOperation,
+        { SystemExceptionCode::ReturnStackOverflow.const_into() },
+        { SystemExceptionCode::ReturnStackUnderflow.const_into() },
+    >,
 
     input_buffer: &'a mut [Byte],
     input_buffer_head: Cell,
@@ -498,11 +526,16 @@ struct Environment<'a> {
     base: Cell,
 
     currently_compiling: Cell,
-    control_flow_stack: Stack<'a, UCell>,
+    control_flow_stack:
+        Stack<'a, UCell, { SystemExceptionCode::ControlFlowStackOverflow.const_into() }>,
 
     parsed_word: &'a mut [Byte],
 
-    counted_loop_stack: Stack<'a, CountedLoopState>,
+    counted_loop_stack: Stack<
+        'a,
+        CountedLoopState,
+        { SystemExceptionCode::CountedLoopsStackOverflow.const_into() },
+    >,
 }
 
 const USUAL_LEADING_DELIMITERS_TO_IGNORE: &[Byte] = &[b' ', b'\t'];
@@ -547,10 +580,10 @@ macro_rules! declare_primitive {
 macro_rules! declare_binary_operator_primitive {
     ($name:literal, $method:tt) => {
         declare_primitive!($name, env, {
-            let b = env.data_stack.pop().unwrap();
-            let a = env.data_stack.pop().unwrap();
+            let b = env.data_stack.pop()?;
+            let a = env.data_stack.pop()?;
             let c = a.$method(b);
-            env.data_stack.push(c).unwrap();
+            env.data_stack.push(c)?;
         })
     };
 }
@@ -558,9 +591,9 @@ macro_rules! declare_binary_operator_primitive {
 macro_rules! declare_unary_operator_primitive {
     ($name:literal, $operator:tt) => {
 	declare_primitive!($name, env, {
-            let a = env.data_stack.pop().unwrap();
+            let a = env.data_stack.pop()?;
 	    let b = $operator a;
-            env.data_stack.push(b).unwrap();
+            env.data_stack.push(b)?;
 	})
     };
 }
@@ -568,11 +601,11 @@ macro_rules! declare_unary_operator_primitive {
 macro_rules! declare_compare_operator_primitive {
     ($name:literal, $operator:tt) => {
 	declare_primitive!($name, env, {
-            let b = env.data_stack.pop().unwrap();
-            let a = env.data_stack.pop().unwrap();
+            let b = env.data_stack.pop()?;
+            let a = env.data_stack.pop()?;
             let c = a $operator b;
 	    let f : Flag = c.into();
-            env.data_stack.push(f as Cell).unwrap();
+            env.data_stack.push(f as Cell)?;
 	})
     };
 }
@@ -659,55 +692,55 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         }
     }),
     declare_primitive!("dup", env, {
-        let x = *env.data_stack.last().unwrap();
-        env.data_stack.push(x).unwrap()
+        let x = *env.data_stack.last()?;
+        env.data_stack.push(x)?;
     }),
     declare_primitive!("drop", env, {
-        env.data_stack.pop().unwrap();
+        env.data_stack.pop()?;
     }),
     declare_primitive!(".", env, {
-        let x = env.data_stack.pop().unwrap();
+        let x = env.data_stack.pop()?;
         env.print_number(x);
     }),
     declare_primitive!("swap", env, {
-        let a = env.data_stack.pop().unwrap();
-        let b = env.data_stack.pop().unwrap();
-        env.data_stack.push(a).unwrap();
-        env.data_stack.push(b).unwrap();
+        let a = env.data_stack.pop()?;
+        let b = env.data_stack.pop()?;
+        env.data_stack.push(a)?;
+        env.data_stack.push(b)?;
     }),
     declare_primitive!("over", env, {
-        let a = env.data_stack.pop().unwrap();
-        let b = env.data_stack.pop().unwrap();
-        env.data_stack.push(b).unwrap();
-        env.data_stack.push(a).unwrap();
-        env.data_stack.push(b).unwrap();
+        let a = env.data_stack.pop()?;
+        let b = env.data_stack.pop()?;
+        env.data_stack.push(b)?;
+        env.data_stack.push(a)?;
+        env.data_stack.push(b)?;
     }),
     declare_primitive!("rot", env, {
-        let a = env.data_stack.pop().unwrap();
-        let b = env.data_stack.pop().unwrap();
-        let c = env.data_stack.pop().unwrap();
-        env.data_stack.push(b).unwrap();
-        env.data_stack.push(a).unwrap();
-        env.data_stack.push(c).unwrap();
+        let a = env.data_stack.pop()?;
+        let b = env.data_stack.pop()?;
+        let c = env.data_stack.pop()?;
+        env.data_stack.push(b)?;
+        env.data_stack.push(a)?;
+        env.data_stack.push(c)?;
     }),
     declare_primitive!("/mod", env, {
-        let divisor = env.data_stack.pop().unwrap();
+        let divisor = env.data_stack.pop()?;
         if divisor == 0 {
             return Err(SystemExceptionCode::DivisionByZero.into());
         }
 
-        let divided = env.data_stack.pop().unwrap();
+        let divided = env.data_stack.pop()?;
         let remainder = divided % divisor;
         let quotient = divided / divisor;
-        env.data_stack.push(remainder).unwrap();
-        env.data_stack.push(quotient).unwrap();
+        env.data_stack.push(remainder)?;
+        env.data_stack.push(quotient)?;
     }),
     declare_primitive!("here", env, {
         let address: *mut Byte = unsafe { env.data_space_manager.here() };
-        env.data_stack.push(address as Cell).unwrap();
+        env.data_stack.push(address as Cell)?;
     }),
     declare_primitive!("allot", env, {
-        let n = env.data_stack.pop().unwrap();
+        let n = env.data_stack.pop()?;
         if n > 0 {
             env.data_space_manager
                 .allot(n as usize)
@@ -715,37 +748,37 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         }
     }),
     declare_primitive!("@", env, {
-        let n = env.data_stack.pop().unwrap();
+        let n = env.data_stack.pop()?;
         let address = n as *mut Cell;
         let data = unsafe { std::ptr::read_unaligned::<Cell>(address) };
-        env.data_stack.push(data).unwrap();
+        env.data_stack.push(data)?;
     }),
     declare_primitive!("!", env, {
-        let n = env.data_stack.pop().unwrap();
-        let data = env.data_stack.pop().unwrap();
+        let n = env.data_stack.pop()?;
+        let data = env.data_stack.pop()?;
         let address = n as *mut Cell;
         unsafe { std::ptr::write_unaligned(address, data) };
     }),
     declare_primitive!("c@", env, {
-        let n = env.data_stack.pop().unwrap();
+        let n = env.data_stack.pop()?;
         let address = n as *mut Byte;
         let data = unsafe { std::ptr::read_unaligned::<Byte>(address) };
-        env.data_stack.push(data as Cell).unwrap();
+        env.data_stack.push(data as Cell)?;
     }),
     declare_primitive!("c!", env, {
-        let n = env.data_stack.pop().unwrap();
-        let data = env.data_stack.pop().unwrap() as Byte;
+        let n = env.data_stack.pop()?;
+        let data = env.data_stack.pop()? as Byte;
         let address = n as *mut Byte;
         unsafe { std::ptr::write_unaligned(address, data) };
     }),
     declare_primitive!("emit", env, {
-        let n = env.data_stack.pop().unwrap();
+        let n = env.data_stack.pop()?;
         let c = (n as u8) as char;
         print!("{}", c);
     }),
     declare_primitive!("base", env, {
         let base_address: *mut Cell = &mut env.base;
-        env.data_stack.push(base_address as Cell).unwrap();
+        env.data_stack.push(base_address as Cell)?;
     }),
     declare_binary_operator_primitive!("+", wrapping_add),
     declare_binary_operator_primitive!("-", wrapping_sub),
@@ -771,41 +804,40 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.currently_compiling = Flag::True as Cell;
     }),
     declare_primitive!("r>", env, {
-        let calling_word_return_address = env.return_stack.pop().unwrap();
-        let from_return_stack = env.return_stack.pop().unwrap();
-        env.data_stack.push(from_return_stack as Cell).unwrap();
-        env.return_stack.push(calling_word_return_address).unwrap();
+        let calling_word_return_address = env.return_stack.pop()?;
+        let from_return_stack = env.return_stack.pop()?;
+        env.data_stack.push(from_return_stack as Cell)?;
+        env.return_stack.push(calling_word_return_address)?;
     }),
     declare_primitive!(">r", env, {
-        let calling_word_return_address = env.return_stack.pop().unwrap();
-        let from_data_stack = env.data_stack.pop().unwrap();
+        let calling_word_return_address = env.return_stack.pop()?;
+        let from_data_stack = env.data_stack.pop()?;
         env.return_stack
-            .push(from_data_stack as *const ForthOperation)
-            .unwrap();
-        env.return_stack.push(calling_word_return_address).unwrap();
+            .push(from_data_stack as *const ForthOperation)?;
+        env.return_stack.push(calling_word_return_address)?;
     }),
     declare_primitive!("u.", env, {
-        let s = env.data_stack.pop().unwrap();
+        let s = env.data_stack.pop()?;
         let u: usize = s as usize;
         env.print_number(u);
     }),
     declare_primitive!("u<", env, {
-        let s2 = env.data_stack.pop().unwrap();
-        let s1 = env.data_stack.pop().unwrap();
+        let s2 = env.data_stack.pop()?;
+        let s1 = env.data_stack.pop()?;
         let u2 = s2 as UCell;
         let u1 = s1 as UCell;
         let result: bool = u1 < u2;
         let result: Flag = result.into();
-        env.data_stack.push(result as Cell).unwrap();
+        env.data_stack.push(result as Cell)?;
     }),
     declare_primitive!("move", env, {
-        let length = env.data_stack.pop().unwrap() as usize;
-        let dest = env.data_stack.pop().unwrap() as *mut Byte;
-        let src = env.data_stack.pop().unwrap() as *const Byte;
+        let length = env.data_stack.pop()? as usize;
+        let dest = env.data_stack.pop()? as *mut Byte;
+        let src = env.data_stack.pop()? as *const Byte;
         unsafe { std::ptr::copy(src, dest, length) };
     }),
     declare_primitive!("depth", env, {
-        env.data_stack.push(env.data_stack.len() as Cell).unwrap();
+        env.data_stack.push(env.data_stack.len() as Cell)?;
     }),
     declare_primitive!("quit", env, {
         env.return_stack.clear();
@@ -814,41 +846,39 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_primitive!(">in", env, {
         let address: *mut Cell = &mut env.input_buffer_head;
         let address = address as Cell;
-        env.data_stack.push(address).unwrap();
+        env.data_stack.push(address)?;
     }),
     declare_primitive!("state", env, {
         let address: *mut Cell = &mut env.currently_compiling;
         let address = address as Cell;
-        env.data_stack.push(address).unwrap();
+        env.data_stack.push(address)?;
     }),
     declare_primitive!("source", env, {
         let address = env.input_buffer.as_ptr() as Cell;
         let size = env.input_buffer.iter().take_while(|c| **c != 0).count() as Cell;
-        env.data_stack.push(address).unwrap();
-        env.data_stack.push(size).unwrap();
+        env.data_stack.push(address)?;
+        env.data_stack.push(size)?;
     }),
     declare_primitive!("immediate", env, {
         env.latest_mut().immediate = true;
     }),
     declare_primitive!("word", env, {
-        let delimiter = env.data_stack.pop().unwrap();
+        let delimiter = env.data_stack.pop()?;
         let token = env.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, delimiter as Byte);
         let token = token.to_owned(); // TODO: Copy into stack instead of heap (use alloca?)
         let token = unsafe { CountedString::from_slice(&token, env.parsed_word) }.unwrap();
         let token_address: *const CountedString = token;
-        env.data_stack.push(token_address as Cell).unwrap();
+        env.data_stack.push(token_address as Cell)?;
     }),
     declare_primitive!("count", env, {
-        let counted_string_address = env.data_stack.pop().unwrap();
+        let counted_string_address = env.data_stack.pop()?;
         let counted_string: &CountedString =
             unsafe { (counted_string_address as *const CountedString).as_ref() }.unwrap();
         let address_of_first_character: *const Byte = counted_string.data.as_ptr();
         let byte_count = counted_string.len;
 
-        env.data_stack
-            .push(address_of_first_character as Cell)
-            .unwrap();
-        env.data_stack.push(byte_count as Cell).unwrap();
+        env.data_stack.push(address_of_first_character as Cell)?;
+        env.data_stack.push(byte_count as Cell)?;
     }),
     declare_primitive!("'", env, {
         let name = env.read_name_from_input_buffer().unwrap();
@@ -857,13 +887,13 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.data_stack.push(entry as Cell).unwrap();
     }),
     declare_primitive!("execute", env, {
-        let entry = env.data_stack.pop().unwrap();
+        let entry = env.data_stack.pop()?;
         let entry = entry as *const DictionaryEntry;
         let entry = unsafe { entry.as_ref() }.unwrap();
         env.execute_word(entry.body.first().unwrap())?;
     }),
     declare_primitive!(">body", env, {
-        let entry = env.data_stack.pop().unwrap();
+        let entry = env.data_stack.pop()?;
         let entry = entry as *const DictionaryEntry;
         let entry = unsafe { entry.as_ref() }.unwrap();
         match entry.body.first().unwrap() {
@@ -872,7 +902,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         }
     }),
     declare_primitive!("find", env, {
-        let name_address = env.data_stack.pop().unwrap();
+        let name_address = env.data_stack.pop()?;
         let name: &CountedString =
             unsafe { (name_address as *const CountedString).as_ref() }.unwrap();
         let name = Name::from_ascii(unsafe { name.as_slice() });
@@ -880,12 +910,12 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             Some(entry) => {
                 let immediate = if entry.immediate { 1 } else { -1 };
                 let entry: *const DictionaryEntry = entry;
-                env.data_stack.push(entry as Cell).unwrap();
-                env.data_stack.push(immediate).unwrap();
+                env.data_stack.push(entry as Cell)?;
+                env.data_stack.push(immediate)?;
             }
             _ => {
-                env.data_stack.push(name_address).unwrap();
-                env.data_stack.push(0).unwrap();
+                env.data_stack.push(name_address)?;
+                env.data_stack.push(0)?;
             }
         }
     }),
@@ -914,8 +944,8 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             .unwrap()
     }),
     declare_primitive!("evaluate", env, {
-        let string_byte_count = env.data_stack.pop().unwrap() as usize;
-        let string_address = env.data_stack.pop().unwrap();
+        let string_byte_count = env.data_stack.pop()? as usize;
+        let string_address = env.data_stack.pop()?;
         let string_address = string_address as *const u8;
         let string = unsafe { std::slice::from_raw_parts(string_address, string_byte_count) };
 
@@ -935,56 +965,53 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_primitive!("key", env, {
         let mut key_buffer: [Byte; 1] = [0; 1];
         std::io::stdin().read_exact(&mut key_buffer).unwrap();
-        env.data_stack
-            .push(*key_buffer.first().unwrap() as Cell)
-            .unwrap();
+        env.data_stack.push(*key_buffer.first().unwrap() as Cell)?;
     }),
     declare_primitive!("accept", env, {
-        let max_length = env.data_stack.pop().unwrap();
+        let max_length = env.data_stack.pop()?;
         let max_length = max_length as usize;
-        let destination = env.data_stack.pop().unwrap();
+        let destination = env.data_stack.pop()?;
         let destination = destination as *mut Byte;
         let buffer = unsafe { std::slice::from_raw_parts_mut(destination, max_length) };
         std::io::stdin().read_exact(buffer).unwrap();
     }),
     declare_primitive!("m*", env, {
-        let x = env.data_stack.pop().unwrap();
-        let y = env.data_stack.pop().unwrap();
+        let x = env.data_stack.pop()?;
+        let y = env.data_stack.pop()?;
         let result: DoubleCell = (x as DoubleCell) * (y as DoubleCell);
-        env.data_stack.push_double_cell(result).unwrap();
+        env.data_stack.push_double_cell(result)?;
     }),
     declare_primitive!("sm/rem", env, {
-        let divisor: Cell = env.data_stack.pop().unwrap();
+        let divisor: Cell = env.data_stack.pop()?;
         if divisor == 0 {
             return Err(SystemExceptionCode::DivisionByZero.into());
         }
 
-        let divided: DoubleCell = env.data_stack.pop_double_cell().unwrap();
+        let divided: DoubleCell = env.data_stack.pop_double_cell()?;
 
         let divisor = divisor as DoubleCell;
         let quotient = (divided / divisor) as Cell;
         let remainder = (divided % divisor) as Cell;
 
-        env.data_stack.push(remainder).unwrap();
-        env.data_stack.push(quotient).unwrap();
+        env.data_stack.push(remainder)?;
+        env.data_stack.push(quotient)?;
     }),
     declare_immediate_primitive!(";", env, {
         env.latest_mut().body.push(ForthOperation::Return);
         env.currently_compiling = Flag::False as Cell;
     }),
     declare_primitive!("latest-push", env, {
-        let x = env.data_stack.pop_double_cell().unwrap();
+        let x = env.data_stack.pop_double_cell()?;
         let op = ForthOperation::try_from(x).unwrap();
         env.latest_mut().body.push(op);
     }),
     declare_primitive!("latest-len", env, {
         env.data_stack
-            .push(env.latest().body.len() as UCell as Cell)
-            .unwrap();
+            .push(env.latest().body.len() as UCell as Cell)?;
     }),
     declare_primitive!("latest!", env, {
-        let index = env.data_stack.pop().unwrap() as UCell;
-        let op = ForthOperation::try_from(env.data_stack.pop_double_cell().unwrap()).unwrap();
+        let index = env.data_stack.pop()? as UCell;
+        let op = ForthOperation::try_from(env.data_stack.pop_double_cell()?).unwrap();
         *env.latest_mut().body.get_mut(index).unwrap() = op;
     }),
     declare_primitive!("latest-last-unres-if-or-else", env, {
@@ -997,8 +1024,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             })
             .unwrap();
         env.data_stack
-            .push(unresolved_if_branch_index as UCell as Cell)
-            .unwrap();
+            .push(unresolved_if_branch_index as UCell as Cell)?;
     }),
     declare_primitive!("latest-last-unres-while", env, {
         let unresolved_if_branch_index = env
@@ -1007,18 +1033,15 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             })
             .unwrap();
         env.data_stack
-            .push(unresolved_if_branch_index as UCell as Cell)
-            .unwrap();
+            .push(unresolved_if_branch_index as UCell as Cell)?;
     }),
     declare_primitive!("cf>", env, {
         env.data_stack
-            .push(env.control_flow_stack.pop().unwrap().try_into().unwrap())
-            .unwrap();
+            .push(env.control_flow_stack.pop()?.try_into().unwrap())?;
     }),
     declare_primitive!(">cf", env, {
         env.control_flow_stack
-            .push(env.data_stack.pop().unwrap().try_into().unwrap())
-            .unwrap();
+            .push(env.data_stack.pop()?.try_into().unwrap())?;
     }),
     declare_immediate_primitive!("postpone", env, {
         let name = env.read_name_from_input_buffer().unwrap();
@@ -1047,10 +1070,8 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
                 ForthOperation::PushData(length as Cell),
             ]);
         } else {
-            env.data_stack
-                .push(data_space_string_address as Cell)
-                .unwrap();
-            env.data_stack.push(length as Cell).unwrap();
+            env.data_stack.push(data_space_string_address as Cell)?;
+            env.data_stack.push(length as Cell)?;
         }
     }),
     declare_immediate_primitive!("recurse", env, {
@@ -1060,13 +1081,11 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_primitive!("cl>", env, {
         env.data_stack
-            .push_double_cell(env.counted_loop_stack.pop().unwrap().into())
-            .unwrap();
+            .push_double_cell(env.counted_loop_stack.pop()?.into())?;
     }),
     declare_primitive!(">cl", env, {
         env.counted_loop_stack
-            .push(env.data_stack.pop_double_cell().unwrap().into())
-            .unwrap();
+            .push(env.data_stack.pop_double_cell().unwrap().into())?;
     }),
     declare_immediate_primitive!("+loop", env, {
         if env.compile_mode() {
@@ -1075,7 +1094,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
                 .body
                 .push(ForthOperation::CallPrimitive(get_primitive!("+loop")));
 
-            let loop_start_index = env.control_flow_stack.pop().unwrap();
+            let loop_start_index = env.control_flow_stack.pop()?;
             let loop_operation_count = env.latest_mut().body.len() - loop_start_index;
 
             // Append the jump back to the beginning of the do loop
@@ -1095,14 +1114,14 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
                 }
             }
         } else {
-            let mut loop_state = env.counted_loop_stack.pop().unwrap();
-            let addition = env.data_stack.pop().unwrap();
+            let mut loop_state = env.counted_loop_stack.pop()?;
+            let addition = env.data_stack.pop()?;
             loop_state.loop_counter += addition;
             if loop_state.loop_counter >= loop_state.limit {
-                env.data_stack.push(Flag::True as Cell).unwrap(); // Jump back to the start of the do loop
+                env.data_stack.push(Flag::True as Cell)?; // Jump back to the start of the do loop
             } else {
-                env.counted_loop_stack.push(loop_state).unwrap();
-                env.data_stack.push(Flag::False as Cell).unwrap(); // Loop is done, continue
+                env.counted_loop_stack.push(loop_state)?;
+                env.data_stack.push(Flag::False as Cell)?; // Loop is done, continue
             }
 
             // The next instruction is BranchOnFalse
@@ -1110,13 +1129,13 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
     declare_primitive!("syscall", env, {
-        let arg6: u64 = env.data_stack.pop().unwrap() as u64;
-        let arg5: u64 = env.data_stack.pop().unwrap() as u64;
-        let arg4: u64 = env.data_stack.pop().unwrap() as u64;
-        let arg3: u64 = env.data_stack.pop().unwrap() as u64;
-        let arg2: u64 = env.data_stack.pop().unwrap() as u64;
-        let arg1: u64 = env.data_stack.pop().unwrap() as u64;
-        let syscall_number: u64 = env.data_stack.pop().unwrap() as u64;
+        let arg6: u64 = env.data_stack.pop()? as u64;
+        let arg5: u64 = env.data_stack.pop()? as u64;
+        let arg4: u64 = env.data_stack.pop()? as u64;
+        let arg3: u64 = env.data_stack.pop()? as u64;
+        let arg2: u64 = env.data_stack.pop()? as u64;
+        let arg1: u64 = env.data_stack.pop()? as u64;
+        let syscall_number: u64 = env.data_stack.pop()? as u64;
         let return_value1: u64;
         let return_value2: u64;
 
@@ -1137,8 +1156,8 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
                                  out("r11") _);
         };
 
-        env.data_stack.push(return_value1 as Cell).unwrap();
-        env.data_stack.push(return_value2 as Cell).unwrap();
+        env.data_stack.push(return_value1 as Cell)?;
+        env.data_stack.push(return_value2 as Cell)?;
     }),
     declare_immediate_primitive!(".(", env, {
         let bytes = env.next_token(&[], b')');
@@ -1146,24 +1165,23 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         print!("{}", string);
     }),
     declare_primitive!(".R", env, {
-        let alignment = env.data_stack.pop().unwrap();
+        let alignment = env.data_stack.pop()?;
         let alignment: usize = if alignment < 0 { 0 } else { alignment as usize };
-        let number = env.data_stack.pop().unwrap();
+        let number = env.data_stack.pop()?;
         print!("{} ", env.format_number(number, alignment));
     }),
     declare_primitive!("U.R", env, {
-        let alignment = env.data_stack.pop().unwrap();
+        let alignment = env.data_stack.pop()?;
         let alignment: usize = if alignment < 0 { 0 } else { alignment as usize };
-        let number = env.data_stack.pop().unwrap() as usize;
+        let number = env.data_stack.pop()? as usize;
         print!("{} ", env.format_number(number, alignment));
     }),
     declare_primitive!("unused", env, {
         env.data_stack
-            .push(env.data_space_manager.unused_area.len() as Cell)
-            .unwrap();
+            .push(env.data_space_manager.unused_area.len() as Cell)?;
     }),
     declare_primitive!("catch", env, {
-        let execution_token = env.data_stack.pop().unwrap();
+        let execution_token = env.data_stack.pop()?;
         let entry = unsafe { (execution_token as *const DictionaryEntry).as_ref() }.unwrap();
 
         let input_buffer_head_backup = env.input_buffer_head;
@@ -1189,10 +1207,10 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             }
         };
 
-        env.data_stack.push(err).unwrap();
+        env.data_stack.push(err)?;
     }),
     declare_primitive!("throw", env, {
-        let n = env.data_stack.pop().unwrap();
+        let n = env.data_stack.pop()?;
         if n != 0 {
             return Err(Exception { value: n });
         }
@@ -1252,7 +1270,14 @@ impl<'a> Environment<'a> {
         let control_flow_stack_buffer = data_space_manager.allot(control_flow_stack_byte_count)?;
         let counted_loop_stack_buffer = data_space_manager.allot(counted_loop_stack_byte_count)?;
 
-        fn stack_from_byte_slice<'a, T>(slice: &'a mut [Byte]) -> Stack<'a, T>
+        fn stack_from_byte_slice<
+            'a,
+            T,
+            const OVERFLOW_ERROR_CODE: Cell,
+            const UNDERFLOW_ERROR_CODE: Cell,
+        >(
+            slice: &'a mut [Byte],
+        ) -> Stack<'a, T, OVERFLOW_ERROR_CODE, UNDERFLOW_ERROR_CODE>
         where
             T: Copy,
         {
@@ -1438,7 +1463,7 @@ impl<'a> Environment<'a> {
                 }
                 ForthOperation::PushData(l) => self.data_stack.push(*l).unwrap(),
                 ForthOperation::BranchOnFalse(offset) => {
-                    let cond = self.data_stack.pop().unwrap();
+                    let cond = self.data_stack.pop()?;
                     if cond == Flag::False as Cell {
                         instruction_pointer = unsafe { instruction_pointer.offset(*offset) };
                         continue;
@@ -1454,7 +1479,7 @@ impl<'a> Environment<'a> {
                         break; // Nothing left to execute
                     }
                     _ => {
-                        instruction_pointer = self.return_stack.pop().unwrap();
+                        instruction_pointer = self.return_stack.pop()?;
                         continue;
                     }
                 },

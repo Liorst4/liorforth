@@ -8,22 +8,31 @@ mod tests {
         #[test]
         fn empty() {
             let mut buffer: [Cell; 0] = Default::default();
-            let mut stack = Stack::new(&mut buffer);
+            let mut stack: Stack<Cell> = Stack::new(&mut buffer);
             assert_eq!(stack.len(), 0);
             assert_eq!(stack.as_slice(), []);
-            assert_eq!(stack.push(0).err().unwrap(), StackError::Overflow);
-            assert_eq!(stack.pop().err().unwrap(), StackError::Underflow);
+            assert_eq!(
+                stack.push(0).err().unwrap(),
+                SystemExceptionCode::StackOverflow.into()
+            );
+            assert_eq!(
+                stack.pop().err().unwrap(),
+                SystemExceptionCode::StackUnderflow.into()
+            );
         }
 
         #[test]
         fn one_item_stack() {
             let mut buffer: [Cell; 1] = Default::default();
-            let mut stack = Stack::new(&mut buffer);
+            let mut stack: Stack<Cell> = Stack::new(&mut buffer);
             assert_eq!(stack.len(), 0);
             stack.push(1).unwrap();
             assert_eq!(stack.len(), 1);
             assert_eq!(stack.as_slice(), [1]);
-            assert_eq!(stack.push(2).err().unwrap(), StackError::Overflow);
+            assert_eq!(
+                stack.push(2).err().unwrap(),
+                SystemExceptionCode::StackOverflow.into()
+            );
             assert_eq!(stack.pop().unwrap(), 1);
             assert_eq!(stack.len(), 0);
         }
@@ -31,7 +40,7 @@ mod tests {
         #[test]
         fn sanity() {
             let mut buffer = [0, 0, 0, 0, 0];
-            let mut stack = Stack::new(&mut buffer);
+            let mut stack: Stack<Cell> = Stack::new(&mut buffer);
 
             stack.push(1).unwrap();
             stack.push(2).unwrap();
@@ -41,7 +50,10 @@ mod tests {
             assert_eq!(stack.len(), 5);
             assert_eq!(*stack.last().unwrap(), 5);
             assert_eq!(stack.as_slice(), [1, 2, 3, 4, 5]);
-            assert_eq!(stack.push(5).err().unwrap(), StackError::Overflow);
+            assert_eq!(
+                stack.push(5).err().unwrap(),
+                SystemExceptionCode::StackOverflow.into()
+            );
 
             assert_eq!(stack.pop().unwrap(), 5);
             assert_eq!(stack.pop().unwrap(), 4);
@@ -49,7 +61,10 @@ mod tests {
             assert_eq!(stack.pop().unwrap(), 2);
             assert_eq!(stack.pop().unwrap(), 1);
             assert_eq!(stack.len(), 0);
-            assert_eq!(stack.pop().err().unwrap(), StackError::Underflow);
+            assert_eq!(
+                stack.pop().err().unwrap(),
+                SystemExceptionCode::StackUnderflow.into()
+            );
 
             stack.push(1).unwrap();
             stack.push(2).unwrap();
@@ -58,16 +73,22 @@ mod tests {
             stack.push(5).unwrap();
             assert_eq!(stack.len(), 5);
             assert_eq!(*stack.last().unwrap(), 5);
-            assert_eq!(stack.push(5).err().unwrap(), StackError::Overflow);
+            assert_eq!(
+                stack.push(5).err().unwrap(),
+                SystemExceptionCode::StackOverflow.into()
+            );
             stack.clear();
             assert_eq!(stack.len(), 0);
-            assert_eq!(stack.pop().err().unwrap(), StackError::Underflow);
+            assert_eq!(
+                stack.pop().err().unwrap(),
+                SystemExceptionCode::StackUnderflow.into()
+            );
         }
 
         #[test]
         fn empty_stack_backup() {
             let mut stack_buffer: [Cell; 0] = [];
-            let mut stack = Stack::<Cell>::new(&mut stack_buffer);
+            let mut stack: Stack<Cell> = Stack::new(&mut stack_buffer);
 
             let x = stack.backup();
             assert_eq!(stack.len(), 0);
@@ -79,7 +100,7 @@ mod tests {
         #[test]
         fn full_stack_backup() {
             let mut buffer = [0, 0, 0, 0, 0];
-            let mut stack = Stack::new(&mut buffer);
+            let mut stack: Stack<Cell> = Stack::new(&mut buffer);
 
             stack.push(1).unwrap();
             stack.push(2).unwrap();
@@ -101,7 +122,7 @@ mod tests {
         #[test]
         fn backup() {
             let mut stack_buffer: [i32; 6] = Default::default();
-            let mut stack = Stack::new(&mut stack_buffer);
+            let mut stack: Stack<i32> = Stack::new(&mut stack_buffer);
 
             stack.push(1).unwrap();
             stack.push(2).unwrap();
@@ -350,7 +371,7 @@ b";
             assert_eq!(number, double_cell_from_array(double_cell_to_array(number)));
 
             let mut stack_buffer = [0; 100];
-            let mut stack = Stack::new(&mut stack_buffer);
+            let mut stack: Stack<Cell> = Stack::new(&mut stack_buffer);
             stack.push_double_cell(number).unwrap();
             let number2 = stack.pop_double_cell().unwrap();
             assert_eq!(number, number2);
