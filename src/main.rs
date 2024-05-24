@@ -926,13 +926,6 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let item = search_dictionary(&env.dictionary, &name)?;
         println!("{}", item);
     }),
-    declare_primitive!("abort", env, {
-        env.data_stack.clear();
-
-        // TODO: Call quit instead of copying code.
-        env.return_stack.clear();
-        // TODO: Don't print ok
-    }),
     declare_constant!("MAX-CHAR", Byte::MAX),
     declare_constant!("ADDRESS-UNIT-BITS", Cell::BITS),
     declare_constant!("MAX-N", Cell::MAX),

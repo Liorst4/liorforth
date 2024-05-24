@@ -168,10 +168,12 @@
   then
 ; immediate
 
+: abort -1 throw ;
+
 : abort-with-message ( f c-addr u -- )
   rot
   if
-    type abort
+    type -2 throw
   else
     2drop
   then
