@@ -259,7 +259,7 @@ b";
                 assert_eq!(l, 1);
 
                 let after_a_call: *const ForthOperation = after_a_call;
-                let after_a_call: Cell = unsafe { std::mem::transmute(after_a_call) };
+                let after_a_call: Cell = after_a_call as Cell;
                 assert_eq!(
                     something_from_return_stack, after_a_call,
                     "got from stack: ${:x} after_a_call: ${:x}",
@@ -449,10 +449,10 @@ test4
 
         for number in [0, 1, -1, Cell::MAX / 2, Cell::MAX, Cell::MIN, Cell::MIN / 2] {
             {
-                let cell_to_modify: Cell = 0;
+                let mut cell_to_modify: Cell = 0;
                 environment
                     .data_stack
-                    .push(unsafe { std::mem::transmute(&cell_to_modify) })
+                    .push(&mut cell_to_modify as *mut Cell as Cell)
                     .unwrap();
                 environment.interpret_line(format!("{} swap !", number).as_bytes());
                 assert_eq!(cell_to_modify, number);
@@ -462,7 +462,7 @@ test4
                 let cell_to_read: Cell = number;
                 environment
                     .data_stack
-                    .push(unsafe { std::mem::transmute(&cell_to_read) })
+                    .push(&cell_to_read as *const Cell as Cell)
                     .unwrap();
                 environment.interpret_line("@".as_bytes());
                 assert_eq!(cell_to_read, environment.data_stack.pop().unwrap());
@@ -471,10 +471,10 @@ test4
 
         for number in [0, 1, 26, Byte::MAX, Byte::MAX / 2] {
             {
-                let byte_to_modify: Byte = 0;
+                let mut byte_to_modify: Byte = 0;
                 environment
                     .data_stack
-                    .push(unsafe { std::mem::transmute(&byte_to_modify) })
+                    .push(&mut byte_to_modify as *mut Byte as Cell)
                     .unwrap();
                 environment.interpret_line(format!("{} swap c!", number).as_bytes());
                 assert_eq!(byte_to_modify, number);
@@ -484,7 +484,7 @@ test4
                 let byte_to_read: Byte = number;
                 environment
                     .data_stack
-                    .push(unsafe { std::mem::transmute(&byte_to_read) })
+                    .push(&byte_to_read as *const Byte as Cell)
                     .unwrap();
                 environment.interpret_line("c@".as_bytes());
                 assert_eq!(byte_to_read as Cell, environment.data_stack.pop().unwrap());
@@ -510,7 +510,7 @@ test4
 
             let counted_string_address = *environment.data_stack.last().unwrap();
             let counted_string: &CountedString = unsafe {
-                std::mem::transmute::<Cell, *const CountedString>(counted_string_address)
+                (counted_string_address as *const CountedString)
                     .as_ref()
                     .unwrap()
             };
