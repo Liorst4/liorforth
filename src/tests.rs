@@ -2,6 +2,66 @@
 mod tests {
     use crate::*;
 
+    mod stack {
+        use crate::*;
+
+        #[test]
+        fn empty() {
+            let mut buffer: [Cell; 0] = Default::default();
+            let mut stack = Stack::new(&mut buffer);
+            assert_eq!(stack.len(), 0);
+            assert_eq!(stack.push(0).err().unwrap(), StackError::Overflow);
+            assert_eq!(stack.pop().err().unwrap(), StackError::Underflow);
+        }
+
+        #[test]
+        fn one_item_stack() {
+            let mut buffer: [Cell; 1] = Default::default();
+            let mut stack = Stack::new(&mut buffer);
+            assert_eq!(stack.len(), 0);
+            stack.push(1).unwrap();
+            assert_eq!(stack.len(), 1);
+            assert_eq!(stack.push(2).err().unwrap(), StackError::Overflow);
+            assert_eq!(stack.pop().unwrap(), 1);
+            assert_eq!(stack.len(), 0);
+        }
+
+        #[test]
+        fn sanity() {
+            let mut buffer = [0, 0, 0, 0, 0];
+            let mut stack = Stack::new(&mut buffer);
+
+            stack.push(1).unwrap();
+            stack.push(2).unwrap();
+            stack.push(3).unwrap();
+            stack.push(4).unwrap();
+            stack.push(5).unwrap();
+            assert_eq!(stack.len(), 5);
+            assert_eq!(*stack.last().unwrap(), 5);
+            assert_eq!(stack.push(5).err().unwrap(), StackError::Overflow);
+
+            assert_eq!(stack.pop().unwrap(), 5);
+            assert_eq!(stack.pop().unwrap(), 4);
+            assert_eq!(stack.pop().unwrap(), 3);
+            assert_eq!(stack.pop().unwrap(), 2);
+            assert_eq!(stack.pop().unwrap(), 1);
+            assert_eq!(stack.len(), 0);
+            assert_eq!(stack.pop().err().unwrap(), StackError::Underflow);
+
+            stack.push(1).unwrap();
+            stack.push(2).unwrap();
+            stack.push(3).unwrap();
+            stack.push(4).unwrap();
+            stack.push(5).unwrap();
+            assert_eq!(stack.len(), 5);
+            assert_eq!(*stack.last().unwrap(), 5);
+            assert_eq!(stack.push(5).err().unwrap(), StackError::Overflow);
+            stack.clear();
+            assert_eq!(stack.len(), 0);
+            assert_eq!(stack.pop().err().unwrap(), StackError::Underflow);
+        }
+    }
+
     #[test]
     fn initialization() {
         default_fixed_sized_environment!(_environment);

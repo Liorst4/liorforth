@@ -100,7 +100,7 @@ where
     data: &'a mut [T],
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 enum StackError {
     Overflow,
     Underflow,
