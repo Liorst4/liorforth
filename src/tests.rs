@@ -132,7 +132,7 @@ mod tests {
 
     fn test_stack_effect(code: &str, env: &mut Environment, expected_result: Vec<Cell>) {
         for line in code.lines() {
-            env.interpret_line(line.as_bytes());
+            env.interpret_line(line.as_bytes()).unwrap();
         }
         // TODO: Print code when assert is false
         assert_eq!(
@@ -180,7 +180,7 @@ mod tests {
             environment.data_stack.push(*a).unwrap();
             environment.data_stack.push(*b).unwrap();
             const SCRIPT: &str = "/mod";
-            environment.interpret_line(SCRIPT.as_bytes());
+            environment.interpret_line(SCRIPT.as_bytes()).unwrap();
             let quotient = environment.data_stack.pop().unwrap();
             let remainder = environment.data_stack.pop().unwrap();
             assert!(environment.data_stack.is_empty());
@@ -208,7 +208,7 @@ mod tests {
                 environment.data_stack.push_double_cell(*a).unwrap();
                 environment.data_stack.push(*b).unwrap();
                 const SCRIPT: &str = "sm/rem";
-                environment.interpret_line(SCRIPT.as_bytes());
+                environment.interpret_line(SCRIPT.as_bytes()).unwrap();
                 let quotient = environment.data_stack.pop().unwrap();
                 let remainder = environment.data_stack.pop().unwrap();
                 assert!(environment.data_stack.is_empty());
@@ -306,7 +306,7 @@ see a
 see b
 b";
         for line in script.lines() {
-            environment.interpret_line(line.as_bytes());
+            environment.interpret_line(line.as_bytes()).unwrap();
         }
 
         assert_eq!(environment.data_stack.pop().unwrap(), 1);
@@ -373,7 +373,7 @@ b";
 
         for (input, output) in INPUT_AND_EXPECTED_OUTPUT {
             let script = format!("{} s>d", input);
-            environment.interpret_line(script.as_bytes());
+            environment.interpret_line(script.as_bytes()).unwrap();
             let b = environment.data_stack.pop().unwrap();
             let a = environment.data_stack.pop().unwrap();
             assert!(environment.data_stack.is_empty());
@@ -400,7 +400,7 @@ b";
         ];
         for ((a, b), expected_result) in TEST_PARAMETERS {
             let script = format!("{} {} m*", *a, *b);
-            environment.interpret_line(script.as_bytes());
+            environment.interpret_line(script.as_bytes()).unwrap();
             let result: DoubleCell = environment.data_stack.pop_double_cell().unwrap();
             assert_eq!(result, *expected_result);
             assert!(environment.data_stack.is_empty());
@@ -495,7 +495,7 @@ test4
         default_fixed_sized_environment!(environment);
 
         for line in script.lines() {
-            environment.interpret_line(line.as_bytes());
+            environment.interpret_line(line.as_bytes()).unwrap();
         }
 
         let first = *environment.data_stack.data.get(0).unwrap();
@@ -517,7 +517,9 @@ test4
                     .data_stack
                     .push(&mut cell_to_modify as *mut Cell as Cell)
                     .unwrap();
-                environment.interpret_line(format!("{} swap !", number).as_bytes());
+                environment
+                    .interpret_line(format!("{} swap !", number).as_bytes())
+                    .unwrap();
                 assert_eq!(cell_to_modify, number);
             }
 
@@ -527,7 +529,7 @@ test4
                     .data_stack
                     .push(&cell_to_read as *const Cell as Cell)
                     .unwrap();
-                environment.interpret_line("@".as_bytes());
+                environment.interpret_line("@".as_bytes()).unwrap();
                 assert_eq!(cell_to_read, environment.data_stack.pop().unwrap());
             }
         }
@@ -539,7 +541,9 @@ test4
                     .data_stack
                     .push(&mut byte_to_modify as *mut Byte as Cell)
                     .unwrap();
-                environment.interpret_line(format!("{} swap c!", number).as_bytes());
+                environment
+                    .interpret_line(format!("{} swap c!", number).as_bytes())
+                    .unwrap();
                 assert_eq!(byte_to_modify, number);
             }
 
@@ -549,7 +553,7 @@ test4
                     .data_stack
                     .push(&byte_to_read as *const Byte as Cell)
                     .unwrap();
-                environment.interpret_line("c@".as_bytes());
+                environment.interpret_line("c@".as_bytes()).unwrap();
                 assert_eq!(byte_to_read as Cell, environment.data_stack.pop().unwrap());
             }
         }
@@ -569,7 +573,9 @@ test4
 
         for string in STRINGS {
             default_fixed_sized_environment!(environment);
-            environment.interpret_line(format!("bl word {}", string).as_bytes());
+            environment
+                .interpret_line(format!("bl word {}", string).as_bytes())
+                .unwrap();
 
             let counted_string_address = *environment.data_stack.last().unwrap();
             let counted_string: &CountedString = unsafe {
@@ -579,7 +585,7 @@ test4
             };
             assert_eq!(string.as_bytes(), unsafe { counted_string.as_slice() });
 
-            environment.interpret_line("count".as_bytes());
+            environment.interpret_line("count".as_bytes()).unwrap();
             let count = environment.data_stack.pop().unwrap();
             assert_eq!(count, counted_string.len as Cell);
         }
@@ -592,15 +598,17 @@ test4
         let src = SRC_INITIAL_VALUE;
         let mut dest: [i32; 8] = [1; 8];
 
-        environment.interpret_line(
-            format!(
-                "{} {} {} move",
-                src.as_ptr() as Cell,
-                dest.as_mut_ptr() as Cell,
-                std::mem::size_of_val(&src),
+        environment
+            .interpret_line(
+                format!(
+                    "{} {} {} move",
+                    src.as_ptr() as Cell,
+                    dest.as_mut_ptr() as Cell,
+                    std::mem::size_of_val(&src),
+                )
+                .as_bytes(),
             )
-            .as_bytes(),
-        );
+            .unwrap();
 
         assert_eq!(src, SRC_INITIAL_VALUE);
         assert_eq!(dest, SRC_INITIAL_VALUE);
@@ -619,7 +627,7 @@ test4
             forth_cwd_buffer.as_mut_ptr() as Cell,
             forth_cwd_buffer.len() as Cell
         );
-        environment.interpret_line(program.as_bytes());
+        environment.interpret_line(program.as_bytes()).unwrap();
 
         let return_value = environment.data_stack.pop().unwrap();
         assert_ne!(return_value, -1);
@@ -635,5 +643,26 @@ test4
         let forth_cwd: &[u8] = &forth_cwd_buffer[0..forth_cwd_len as usize];
 
         assert_eq!(forth_cwd, rust_cwd);
+    }
+
+    #[test]
+    fn test_exception() -> Result<(), Exception> {
+        default_fixed_sized_environment!(environment);
+        let script = "
+: throw_1 1 throw ;
+' throw_1 catch
+";
+        for line in script.lines() {
+            environment.interpret_line(line.as_bytes())?;
+        }
+
+        assert_eq!(environment.data_stack.as_slice(), [1]);
+
+        // TODO: Test stack restoration
+        // TODO: Test nested exceptions
+        // TODO: Test stack overflow/underflow exceptions
+        // TODO: Test division by zero
+
+        Ok(())
     }
 }

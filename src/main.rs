@@ -92,6 +92,18 @@ const fn double_cell_from_array(x: [Cell; 2]) -> DoubleCell {
     double_ucell_from_array([x[0] as UCell, x[1] as UCell]) as DoubleCell
 }
 
+#[derive(Debug, Clone, PartialEq)]
+#[repr(packed(1), C)]
+struct Exception {
+    value: Cell,
+}
+
+impl From<Cell> for Exception {
+    fn from(c: Cell) -> Exception {
+        Exception { value: c }
+    }
+}
+
 struct Stack<'a, T>
 where
     T: Copy,
@@ -239,7 +251,7 @@ impl CountedString {
 }
 
 /// Native code to execute from the forth environment
-type Primitive = fn(&mut Environment);
+type Primitive = fn(&mut Environment) -> Result<(), Exception>;
 
 /// Used when compiling conditionals and loops
 #[derive(Clone, Debug, PartialEq)]
@@ -503,8 +515,9 @@ macro_rules! declare_primitive {
             immediate: $immediate,
             body: ForthOperation::CallPrimitive({
                 #[export_name = concat!("liorforth_primitive_", $name)]
-                fn primitive($arg: &mut Environment) {
+                fn primitive($arg: &mut Environment) -> Result<(), Exception>{
                     $body
+                    Ok(())
                 }
                 primitive
             }),
@@ -828,7 +841,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let entry = env.data_stack.pop().unwrap();
         let entry = entry as *const DictionaryEntry;
         let entry = unsafe { entry.as_ref() }.unwrap();
-        env.execute_word(entry.body.first().unwrap());
+        env.execute_word(entry.body.first().unwrap())?;
     }),
     declare_primitive!(">body", env, {
         let entry = env.data_stack.pop().unwrap();
@@ -886,14 +899,19 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let string_address = env.data_stack.pop().unwrap();
         let string_address = string_address as *const u8;
         let string = unsafe { std::slice::from_raw_parts(string_address, string_byte_count) };
+
+        // TODO: Code duplication with catch/throw?
         let input_buffer_head_backup = env.input_buffer_head;
         let input_buffer_backup = env.input_buffer.to_vec();
 
         // TODO: Set the input buffer to be `string`, don't just copy it.
-        env.interpret_line(string);
+        let result = env.interpret_line(string);
 
+        // TODO: Code duplication with catch/throw?
         env.input_buffer_head = input_buffer_head_backup;
         env.input_buffer.copy_from_slice(&input_buffer_backup);
+
+        result?; // TODO: Correct?
     }),
     declare_primitive!("key", env, {
         let mut key_buffer: [Byte; 1] = [0; 1];
@@ -1121,6 +1139,41 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             .push(env.data_space_manager.unused_area.len() as Cell)
             .unwrap();
     }),
+    declare_primitive!("catch", env, {
+        let execution_token = env.data_stack.pop().unwrap();
+        let entry = unsafe { (execution_token as *const DictionaryEntry).as_ref() }.unwrap();
+
+        let input_buffer_head_backup = env.input_buffer_head;
+        let input_buffer_backup = env.input_buffer.to_owned();
+
+        let data_stack_backup = env.data_stack.backup();
+        let return_stack_backup = env.return_stack.backup();
+        let control_flow_stack_backup = env.control_flow_stack.backup();
+        let counted_loop_stack_backup = env.counted_loop_stack.backup();
+
+        let err = match env.execute_word(entry.body.as_ptr()) {
+            Ok(_) => 0,
+            Err(exception) => {
+                env.data_stack.restore(&data_stack_backup);
+                env.return_stack.restore(&return_stack_backup);
+                env.control_flow_stack.restore(&control_flow_stack_backup);
+                env.counted_loop_stack.restore(&counted_loop_stack_backup);
+
+                env.input_buffer_head = input_buffer_head_backup;
+                env.input_buffer.copy_from_slice(&input_buffer_backup);
+
+                exception.value
+            }
+        };
+
+        env.data_stack.push(err).unwrap();
+    }),
+    declare_primitive!("throw", env, {
+        let n = env.data_stack.pop().unwrap();
+        if n != 0 {
+            return Err(Exception { value: n });
+        }
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
@@ -1219,7 +1272,7 @@ impl<'a> Environment<'a> {
         };
 
         for line in FORTH_RUNTIME_INIT.lines() {
-            result.interpret_line(line.as_bytes());
+            result.interpret_line(line.as_bytes()).unwrap();
         }
 
         Some(result)
@@ -1290,9 +1343,9 @@ impl<'a> Environment<'a> {
         &self.input_buffer[token_begin..token_end]
     }
 
-    fn interpret_line(&mut self, line: &[Byte]) {
+    fn interpret_line(&mut self, line: &[Byte]) -> Result<(), Exception> {
         if line.is_empty() {
-            return;
+            return Ok(());
         }
 
         // Reset input buffer
@@ -1309,13 +1362,18 @@ impl<'a> Environment<'a> {
                 break 'empty_input_buffer;
             }
 
-            self.handle_token(&token);
+            self.handle_token(&token)?;
         }
+
+        return Ok(());
     }
 
-    fn handle_token(&mut self, token: &[Byte]) {
+    fn handle_token(&mut self, token: &[Byte]) -> Result<(), Exception> {
         match parse_number(self.base as u32, token) {
-            Some(number) => self.handle_number_token(number),
+            Some(number) => {
+                self.handle_number_token(number);
+                Ok(())
+            }
             _ => self.handle_text_token(token),
         }
     }
@@ -1329,19 +1387,20 @@ impl<'a> Environment<'a> {
         }
     }
 
-    fn handle_text_token(&mut self, token: &[Byte]) {
+    fn handle_text_token(&mut self, token: &[Byte]) -> Result<(), Exception> {
         let dict_entry = search_dictionary(&self.dictionary, &Name::from_ascii(token)).unwrap();
 
         if self.compile_mode() && !dict_entry.immediate {
             let operation = ForthOperation::CallEntry(dict_entry);
             self.latest_mut().body.push(operation);
+            Ok(())
         } else {
             let next_word = &dict_entry.body;
-            self.execute_word(next_word.first().unwrap());
+            self.execute_word(next_word.first().unwrap())
         }
     }
 
-    fn execute_word(&mut self, entry: *const ForthOperation) {
+    fn execute_word(&mut self, entry: *const ForthOperation) -> Result<(), Exception> {
         let mut instruction_pointer = entry;
         loop {
             match unsafe { instruction_pointer.as_ref() }.unwrap() {
@@ -1366,7 +1425,7 @@ impl<'a> Environment<'a> {
                     instruction_pointer = *destination;
                     continue;
                 }
-                ForthOperation::CallPrimitive(func) => func(self),
+                ForthOperation::CallPrimitive(func) => func(self)?,
                 ForthOperation::Return => match self.return_stack.len() {
                     0 => {
                         break; // Nothing left to execute
@@ -1383,6 +1442,7 @@ impl<'a> Environment<'a> {
 
             instruction_pointer = unsafe { instruction_pointer.add(1) };
         }
+        Ok(())
     }
 
     fn format_number<T: std::fmt::Binary + std::fmt::LowerHex + std::fmt::Display>(
@@ -1448,7 +1508,7 @@ fn main() {
     for maybe_line in std::io::stdin().lines() {
         match maybe_line {
             Ok(line) => {
-                environment.interpret_line(line.as_bytes());
+                environment.interpret_line(line.as_bytes()).unwrap(); // TODO: Handle
                 if terminal {
                     println!(" ok. ");
                 }

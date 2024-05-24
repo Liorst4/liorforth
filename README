@@ -168,6 +168,9 @@ Implemented words:
 		2R>
 		2R@
 		unused
+	Exception:
+		catch (work in progress)
+		throw (work in progress)
 	Extra:
 		words
 		dump-row-size
