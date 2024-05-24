@@ -10,6 +10,7 @@ mod tests {
             let mut buffer: [Cell; 0] = Default::default();
             let mut stack = Stack::new(&mut buffer);
             assert_eq!(stack.len(), 0);
+            assert_eq!(stack.as_slice(), []);
             assert_eq!(stack.push(0).err().unwrap(), StackError::Overflow);
             assert_eq!(stack.pop().err().unwrap(), StackError::Underflow);
         }
@@ -21,6 +22,7 @@ mod tests {
             assert_eq!(stack.len(), 0);
             stack.push(1).unwrap();
             assert_eq!(stack.len(), 1);
+            assert_eq!(stack.as_slice(), [1]);
             assert_eq!(stack.push(2).err().unwrap(), StackError::Overflow);
             assert_eq!(stack.pop().unwrap(), 1);
             assert_eq!(stack.len(), 0);
@@ -38,6 +40,7 @@ mod tests {
             stack.push(5).unwrap();
             assert_eq!(stack.len(), 5);
             assert_eq!(*stack.last().unwrap(), 5);
+            assert_eq!(stack.as_slice(), [1, 2, 3, 4, 5]);
             assert_eq!(stack.push(5).err().unwrap(), StackError::Overflow);
 
             assert_eq!(stack.pop().unwrap(), 5);
@@ -59,6 +62,66 @@ mod tests {
             stack.clear();
             assert_eq!(stack.len(), 0);
             assert_eq!(stack.pop().err().unwrap(), StackError::Underflow);
+        }
+
+        #[test]
+        fn empty_stack_backup() {
+            let mut stack_buffer: [Cell; 0] = [];
+            let mut stack = Stack::<Cell>::new(&mut stack_buffer);
+
+            let x = stack.backup();
+            assert_eq!(stack.len(), 0);
+            assert_eq!(x.len(), 0);
+            stack.restore(&x);
+            assert_eq!(stack.len(), 0);
+        }
+
+        #[test]
+        fn full_stack_backup() {
+            let mut buffer = [0, 0, 0, 0, 0];
+            let mut stack = Stack::new(&mut buffer);
+
+            stack.push(1).unwrap();
+            stack.push(2).unwrap();
+            stack.push(3).unwrap();
+            stack.push(4).unwrap();
+            stack.push(5).unwrap();
+
+            let backup = stack.backup();
+            assert_eq!(backup, [1, 2, 3, 4, 5]);
+
+            stack.clear();
+            stack.push(999).unwrap();
+            stack.restore(&backup);
+
+            assert_eq!(backup.len(), 5);
+            assert_eq!(stack.as_slice(), [1, 2, 3, 4, 5]);
+        }
+
+        #[test]
+        fn backup() {
+            let mut stack_buffer: [i32; 6] = Default::default();
+            let mut stack = Stack::new(&mut stack_buffer);
+
+            stack.push(1).unwrap();
+            stack.push(2).unwrap();
+            stack.push(3).unwrap();
+            stack.push(4).unwrap();
+            stack.push(5).unwrap();
+
+            let backup = stack.backup();
+            assert_eq!(backup, [1, 2, 3, 4, 5]);
+
+            stack.push(999).unwrap();
+            stack.restore(&backup);
+            assert_eq!(backup.len(), 5);
+            assert_eq!(stack.as_slice(), [1, 2, 3, 4, 5]);
+
+            stack.clear();
+            stack.push(888).unwrap();
+            stack.restore(&backup);
+            assert_eq!(backup.len(), 5);
+            assert_eq!(stack.as_slice(), [1, 2, 3, 4, 5]);
         }
     }
 
