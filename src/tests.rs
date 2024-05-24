@@ -661,8 +661,27 @@ test4
         // TODO: Test stack restoration
         // TODO: Test nested exceptions
         // TODO: Test stack overflow/underflow exceptions
-        // TODO: Test division by zero
 
         Ok(())
+    }
+
+    #[test]
+    fn test_divide_by_zero() {
+        default_fixed_sized_environment!(environment);
+        assert_eq!(
+            environment
+                .interpret_line("1 0 /".as_bytes())
+                .err()
+                .unwrap(),
+            SystemExceptionCode::DivisionByZero.into()
+        );
+
+        assert_eq!(
+            environment
+                .interpret_line("10 1 0 /".as_bytes())
+                .err()
+                .unwrap(),
+            SystemExceptionCode::DivisionByZero.into()
+        );
     }
 }

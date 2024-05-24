@@ -93,6 +93,11 @@ const fn double_cell_from_array(x: [Cell; 2]) -> DoubleCell {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+enum SystemExceptionCode {
+    DivisionByZero,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 #[repr(packed(1), C)]
 struct Exception {
     value: Cell,
@@ -101,6 +106,16 @@ struct Exception {
 impl From<Cell> for Exception {
     fn from(c: Cell) -> Exception {
         Exception { value: c }
+    }
+}
+
+impl From<SystemExceptionCode> for Exception {
+    fn from(code: SystemExceptionCode) -> Exception {
+        Exception {
+            value: match code {
+                SystemExceptionCode::DivisionByZero => -10,
+            },
+        }
     }
 }
 
@@ -677,9 +692,13 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_primitive!("/mod", env, {
         let divisor = env.data_stack.pop().unwrap();
+        if divisor == 0 {
+            return Err(SystemExceptionCode::DivisionByZero.into());
+        }
+
         let divided = env.data_stack.pop().unwrap();
         let remainder = divided % divisor;
-        let quotient = divided / divisor; // TODO: Handle 0?
+        let quotient = divided / divisor;
         env.data_stack.push(remainder).unwrap();
         env.data_stack.push(quotient).unwrap();
     }),
@@ -936,6 +955,10 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_primitive!("sm/rem", env, {
         let divisor: Cell = env.data_stack.pop().unwrap();
+        if divisor == 0 {
+            return Err(SystemExceptionCode::DivisionByZero.into());
+        }
+
         let divided: DoubleCell = env.data_stack.pop_double_cell().unwrap();
 
         let divisor = divisor as DoubleCell;
