@@ -92,43 +92,7 @@ const fn double_cell_from_array(x: [Cell; 2]) -> DoubleCell {
     double_ucell_from_array([x[0] as UCell, x[1] as UCell]) as DoubleCell
 }
 
-#[derive(Debug, Clone, PartialEq)]
-enum SystemExceptionCode {
-    StackOverflow,
-    StackUnderflow,
-    ReturnStackOverflow,
-    ReturnStackUnderflow,
-    CountedLoopsStackOverflow,
-    DivisionByZero,
-    UndefinedWord,
-    AttemptToUseZeroLengthStringAsAName,
-    ControlFlowStackOverflow,
-}
-
-impl SystemExceptionCode {
-    const fn const_into(self) -> Cell {
-        match self {
-            SystemExceptionCode::StackOverflow => -3,
-            SystemExceptionCode::StackUnderflow => -4,
-            SystemExceptionCode::ReturnStackOverflow => -5,
-            SystemExceptionCode::ReturnStackUnderflow => -6,
-            SystemExceptionCode::CountedLoopsStackOverflow => -7,
-            SystemExceptionCode::DivisionByZero => -10,
-            SystemExceptionCode::UndefinedWord => -13,
-            SystemExceptionCode::AttemptToUseZeroLengthStringAsAName => -16,
-            SystemExceptionCode::ControlFlowStackOverflow => -52,
-        }
-    }
-}
-
-impl From<SystemExceptionCode> for Cell {
-    fn from(code: SystemExceptionCode) -> Cell {
-        code.const_into()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-#[repr(packed(1), C)]
+#[derive(Clone, PartialEq)]
 struct Exception {
     value: Cell,
 }
@@ -139,17 +103,44 @@ impl From<Cell> for Exception {
     }
 }
 
-impl From<SystemExceptionCode> for Exception {
-    fn from(code: SystemExceptionCode) -> Exception {
-        Exception { value: code.into() }
-    }
+macro_rules! declare_system_exception_codes {
+    ( $(($name:ident, $value:literal)),* ) => {
+	impl Exception {
+	    $(
+		const $name : Cell = $value;
+	    )*
+	}
+
+	impl core::fmt::Debug for Exception {
+	    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+		match self.value {
+		    $(
+			Exception::$name => write!(f, "{} ({})", self.value, stringify!($name)),
+		    )*
+		    _ => write!(f, "{}", self.value)
+		}
+	    }
+	}
+    };
 }
+
+declare_system_exception_codes!(
+    (STACK_OVERFLOW, -3),
+    (STACK_UNDERFLOW, -4),
+    (RETURN_STACK_OVERFLOW, -5),
+    (RETURN_STACK_UNDERFLOW, -6),
+    (COUNTED_LOOPS_STACK_OVERFLOW, -7),
+    (DIVISION_BY_ZERO, -10),
+    (UNDEFINED_WORD, -13),
+    (ATTEMPT_TO_USE_ZERO_LENGTH_STRING_AS_NAME, -16),
+    (CONTROL_FLOW_STACK_OVERFLOW, -52)
+);
 
 struct Stack<
     'a,
     T,
-    const OVERFLOW_ERROR_CODE: Cell = { SystemExceptionCode::StackOverflow.const_into() },
-    const UNDERFLOW_ERROR_CODE: Cell = { SystemExceptionCode::StackUnderflow.const_into() },
+    const OVERFLOW_ERROR_CODE: Cell = { Exception::STACK_OVERFLOW },
+    const UNDERFLOW_ERROR_CODE: Cell = { Exception::STACK_UNDERFLOW },
 > where
     T: Copy,
 {
@@ -412,7 +403,7 @@ impl Name {
     fn from_ascii(s: &[Byte]) -> Result<Name, Exception> {
         if s.is_empty() {
             return Err(Exception::from(
-                SystemExceptionCode::AttemptToUseZeroLengthStringAsAName,
+                Exception::ATTEMPT_TO_USE_ZERO_LENGTH_STRING_AS_NAME,
             ));
         }
 
@@ -524,8 +515,8 @@ struct Environment<'a> {
     return_stack: Stack<
         'a,
         *const ForthOperation,
-        { SystemExceptionCode::ReturnStackOverflow.const_into() },
-        { SystemExceptionCode::ReturnStackUnderflow.const_into() },
+        { Exception::RETURN_STACK_OVERFLOW },
+        { Exception::RETURN_STACK_UNDERFLOW },
     >,
 
     input_buffer: &'a mut [Byte],
@@ -536,16 +527,11 @@ struct Environment<'a> {
     base: Cell,
 
     currently_compiling: Cell,
-    control_flow_stack:
-        Stack<'a, UCell, { SystemExceptionCode::ControlFlowStackOverflow.const_into() }>,
+    control_flow_stack: Stack<'a, UCell, { Exception::CONTROL_FLOW_STACK_OVERFLOW }>,
 
     parsed_word: &'a mut [Byte],
 
-    counted_loop_stack: Stack<
-        'a,
-        CountedLoopState,
-        { SystemExceptionCode::CountedLoopsStackOverflow.const_into() },
-    >,
+    counted_loop_stack: Stack<'a, CountedLoopState, { Exception::COUNTED_LOOPS_STACK_OVERFLOW }>,
 }
 
 const USUAL_LEADING_DELIMITERS_TO_IGNORE: &[Byte] = &[b' ', b'\t'];
@@ -740,7 +726,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_primitive!("/mod", env, {
         let divisor = env.data_stack.pop()?;
         if divisor == 0 {
-            return Err(SystemExceptionCode::DivisionByZero.into());
+            return Err(Exception::from(Exception::DIVISION_BY_ZERO));
         }
 
         let divided = env.data_stack.pop()?;
@@ -990,7 +976,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_primitive!("sm/rem", env, {
         let divisor: Cell = env.data_stack.pop()?;
         if divisor == 0 {
-            return Err(SystemExceptionCode::DivisionByZero.into());
+            return Err(Exception::DIVISION_BY_ZERO.into());
         }
 
         let divided: DoubleCell = env.data_stack.pop_double_cell()?;
@@ -1231,7 +1217,7 @@ fn search_dictionary<'a>(
 ) -> Result<&'a DictionaryEntry, Exception> {
     dict.iter()
         .find(|&item| item.name == *name)
-        .ok_or(Exception::from(SystemExceptionCode::UndefinedWord))
+        .ok_or(Exception::UNDEFINED_WORD.into())
 }
 
 fn parse_number(default_base: u32, word: &[Byte]) -> Option<Cell> {

@@ -13,11 +13,11 @@ mod tests {
             assert_eq!(stack.as_slice(), []);
             assert_eq!(
                 stack.push(0).err().unwrap(),
-                SystemExceptionCode::StackOverflow.into()
+                Exception::STACK_OVERFLOW.into()
             );
             assert_eq!(
                 stack.pop().err().unwrap(),
-                SystemExceptionCode::StackUnderflow.into()
+                Exception::STACK_UNDERFLOW.into()
             );
         }
 
@@ -31,7 +31,7 @@ mod tests {
             assert_eq!(stack.as_slice(), [1]);
             assert_eq!(
                 stack.push(2).err().unwrap(),
-                SystemExceptionCode::StackOverflow.into()
+                Exception::STACK_OVERFLOW.into()
             );
             assert_eq!(stack.pop().unwrap(), 1);
             assert_eq!(stack.len(), 0);
@@ -52,7 +52,7 @@ mod tests {
             assert_eq!(stack.as_slice(), [1, 2, 3, 4, 5]);
             assert_eq!(
                 stack.push(5).err().unwrap(),
-                SystemExceptionCode::StackOverflow.into()
+                Exception::STACK_OVERFLOW.into()
             );
 
             assert_eq!(stack.pop().unwrap(), 5);
@@ -63,7 +63,7 @@ mod tests {
             assert_eq!(stack.len(), 0);
             assert_eq!(
                 stack.pop().err().unwrap(),
-                SystemExceptionCode::StackUnderflow.into()
+                Exception::STACK_UNDERFLOW.into()
             );
 
             stack.push(1).unwrap();
@@ -75,13 +75,13 @@ mod tests {
             assert_eq!(*stack.last().unwrap(), 5);
             assert_eq!(
                 stack.push(5).err().unwrap(),
-                SystemExceptionCode::StackOverflow.into()
+                Exception::STACK_OVERFLOW.into()
             );
             stack.clear();
             assert_eq!(stack.len(), 0);
             assert_eq!(
                 stack.pop().err().unwrap(),
-                SystemExceptionCode::StackUnderflow.into()
+                Exception::STACK_UNDERFLOW.into()
             );
         }
 
@@ -697,7 +697,7 @@ test4
                 .interpret_line("1 0 /".as_bytes())
                 .err()
                 .unwrap(),
-            SystemExceptionCode::DivisionByZero.into()
+            Exception::DIVISION_BY_ZERO.into()
         );
 
         assert_eq!(
@@ -705,7 +705,7 @@ test4
                 .interpret_line("10 1 0 /".as_bytes())
                 .err()
                 .unwrap(),
-            SystemExceptionCode::DivisionByZero.into()
+            Exception::DIVISION_BY_ZERO.into()
         );
     }
 }
