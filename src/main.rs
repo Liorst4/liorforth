@@ -963,7 +963,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let name = env.read_name_from_input_buffer()?;
         let entry = search_dictionary(&env.dictionary, &name)?;
         let entry: *const DictionaryEntry = entry;
-        env.data_stack.push(entry as Cell).unwrap();
+        env.data_stack.push(entry as Cell)?;
     }),
     declare_primitive!("execute", env, {
         let entry = env.data_stack.pop()?;
