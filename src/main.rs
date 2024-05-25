@@ -104,7 +104,7 @@ impl From<Cell> for Exception {
 }
 
 macro_rules! declare_system_exception_codes {
-    ( $(($name:ident, $value:literal)),* ) => {
+    ( $(($value:literal, $name:ident)),+$(,)?) => {
 	impl Exception {
 	    $(
 		const $name : Cell = $value;
@@ -113,10 +113,15 @@ macro_rules! declare_system_exception_codes {
 
 	impl core::fmt::Debug for Exception {
 	    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-		match self.value {
+		let name: Option<_> = match self.value {
 		    $(
-			Exception::$name => write!(f, "{} ({})", self.value, stringify!($name)),
+			Exception::$name => Some(stringify!($name)),
 		    )*
+		    _ => None
+		};
+
+		match name {
+		    Some(n) => write!(f, "{} ({})", self.value, n),
 		    _ => write!(f, "{}", self.value)
 		}
 	    }
@@ -125,15 +130,86 @@ macro_rules! declare_system_exception_codes {
 }
 
 declare_system_exception_codes!(
-    (STACK_OVERFLOW, -3),
-    (STACK_UNDERFLOW, -4),
-    (RETURN_STACK_OVERFLOW, -5),
-    (RETURN_STACK_UNDERFLOW, -6),
-    (COUNTED_LOOPS_STACK_OVERFLOW, -7),
-    (DIVISION_BY_ZERO, -10),
-    (UNDEFINED_WORD, -13),
-    (ATTEMPT_TO_USE_ZERO_LENGTH_STRING_AS_NAME, -16),
-    (CONTROL_FLOW_STACK_OVERFLOW, -52)
+    // Taken from https://forth-standard.org/standard/exception
+    (-1, ABORT),
+    (-2, QUOTATION_MARK_ABORT),
+    (-3, STACK_OVERFLOW),
+    (-4, STACK_UNDERFLOW),
+    (-5, RETURN_STACK_OVERFLOW),
+    (-6, RETURN_STACK_UNDERFLOW),
+    (-7, DO_LOOPS_NESTED_TOO_DEEPLY_DURING_EXECUTION),
+    // (-8, DICTIONARY_OVERFLOW),
+    // (-9, INVALID_MEMORY_ADDRESS),
+    (-10, DIVISION_BY_ZERO),
+    // (-11, RESULT_OUT_OF_RANGE),
+    // (-12, ARGUMENT_TYPE_MISMATCH),
+    (-13, UNDEFINED_WORD),
+    // (-14, INTERPRETING_A_COMPILE_ONLY_WORD),
+    // (-15, INVALID_FORGET),
+    (-16, ATTEMPT_TO_USE_ZERO_LENGTH_STRING_AS_A_NAME),
+    // (-17, PICTURED_NUMERIC_OUTPUT_STRING_OVERFLOW),
+    // (-18, PARSED_STRING_OVERFLOW),
+    // (-19, DEFINITION_NAME_TOO_LONG),
+    // (-20, WRITE_TO_A_READ_ONLY_LOCATION),
+    // (-21, UNSUPPORTED_OPERATION),
+    // (-22, CONTROL_STRUCTURE_MISMATCH),
+    // (-23, ADDRESS_ALIGNMENT_EXCEPTION),
+    // (-24, INVALID_NUMERIC_ARGUMENT),
+    // (-25, RETURN_STACK_IMBALANCE),
+    // (-26, LOOP_PARAMETERS_UNAVAILABLE),
+    // (-27, INVALID_RECURSION),
+    // (-28, USER_INTERRUPT),
+    // (-29, COMPILER_NESTING),
+    // (-30, OBSOLESCENT_FEATURE),
+    // (-31, GT_BODY_USED_ON_NON_CREATED_DEFINITION),
+    // (-32, INVALID_NAME_ARGUMENT),
+    // (-33, BLOCK_READ_EXCEPTION),
+    // (-34, BLOCK_WRITE_EXCEPTION),
+    // (-35, INVALID_BLOCK_NUMBER),
+    // (-36, INVALID_FILE_POSITION),
+    // (-37, FILE_IO_EXCEPTION),
+    // (-38, NON_EXISTENT_FILE),
+    // (-39, UNEXPECTED_END_OF_FILE),
+    // (-40, INVALID_BASE_FOR_FLOATING_POINT_CONVERSION),
+    // (-41, LOSS_OF_PRECISION),
+    // (-42, FLOATING_POINT_DIVIDE_BY_ZERO),
+    // (-43, FLOATING_POINT_RESULT_OUT_OF_RANGE),
+    // (-44, FLOATING_POINT_STACK_OVERFLOW),
+    // (-45, FLOATING_POINT_STACK_UNDERFLOW),
+    // (-46, FLOATING_POINT_INVALID_ARGUMENT),
+    // (-47, COMPILATION_WORD_LIST_DELETED),
+    // (-48, INVALID_POSTPONE),
+    // (-49, SEARCH_ORDER_OVERFLOW),
+    // (-50, SEARCH_ORDER_UNDERFLOW),
+    // (-51, COMPILATION_WORD_LIST_CHANGED),
+    (-52, CONTROL_FLOW_STACK_OVERFLOW),
+    // (-53, EXCEPTION_STACK_OVERFLOW),
+    // (-54, FLOATING_POINT_UNDERFLOW),
+    // (-55, FLOATING_POINT_UNIDENTIFIED_FAULT),
+    // (-56, QUIT),
+    // (-57, EXCEPTION_IN_SENDING_OR_RECEIVING_A_CHARACTER),
+    // (-58, SQUARE_BRACKETS_IF_ELSE_OR_THEN_EXCEPTION),
+    // (-59, ALLOCATE),
+    // (-60, FREE),
+    // (-61, RESIZE),
+    // (-62, CLOSE_FILE),
+    // (-63, CREATE_FILE),
+    // (-64, DELETE_FILE),
+    // (-65, FILE_POSITION),
+    // (-66, FILE_SIZE),
+    // (-67, FILE_STATUS),
+    // (-68, FLUSH_FILE),
+    // (-69, OPEN_FILE),
+    // (-70, READ_FILE),
+    // (-71, READ_LINE),
+    // (-72, RENAME_FILE),
+    // (-73, REPOSITION_FILE),
+    // (-74, RESIZE_FILE),
+    // (-75, WRITE_FILE),
+    // (-76, WRITE_LINE),
+    // (-77, MALFORMED_XCHAR),
+    // (-78, SUBSTITUTE),
+    // (-79, REPLACES),
 );
 
 struct Stack<
@@ -403,7 +479,7 @@ impl Name {
     fn from_ascii(s: &[Byte]) -> Result<Name, Exception> {
         if s.is_empty() {
             return Err(Exception::from(
-                Exception::ATTEMPT_TO_USE_ZERO_LENGTH_STRING_AS_NAME,
+                Exception::ATTEMPT_TO_USE_ZERO_LENGTH_STRING_AS_A_NAME,
             ));
         }
 
@@ -531,7 +607,8 @@ struct Environment<'a> {
 
     parsed_word: &'a mut [Byte],
 
-    counted_loop_stack: Stack<'a, CountedLoopState, { Exception::COUNTED_LOOPS_STACK_OVERFLOW }>,
+    counted_loop_stack:
+        Stack<'a, CountedLoopState, { Exception::DO_LOOPS_NESTED_TOO_DEEPLY_DURING_EXECUTION }>,
 }
 
 const USUAL_LEADING_DELIMITERS_TO_IGNORE: &[Byte] = &[b' ', b'\t'];
