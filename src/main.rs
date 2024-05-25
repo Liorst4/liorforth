@@ -149,7 +149,7 @@ declare_system_exception_codes!(
     (-16, ATTEMPT_TO_USE_ZERO_LENGTH_STRING_AS_A_NAME),
     // (-17, PICTURED_NUMERIC_OUTPUT_STRING_OVERFLOW),
     // (-18, PARSED_STRING_OVERFLOW),
-    // (-19, DEFINITION_NAME_TOO_LONG),
+    (-19, DEFINITION_NAME_TOO_LONG),
     // (-20, WRITE_TO_A_READ_ONLY_LOCATION),
     // (-21, UNSUPPORTED_OPERATION),
     // (-22, CONTROL_STRUCTURE_MISMATCH),
@@ -478,9 +478,11 @@ struct Name {
 impl Name {
     fn from_ascii(s: &[Byte]) -> Result<Name, Exception> {
         if s.is_empty() {
-            return Err(Exception::from(
-                Exception::ATTEMPT_TO_USE_ZERO_LENGTH_STRING_AS_A_NAME,
-            ));
+            return Err(Exception::ATTEMPT_TO_USE_ZERO_LENGTH_STRING_AS_A_NAME.into());
+        }
+
+        if s.len() > NAME_BYTE_COUNT {
+            return Err(Exception::DEFINITION_NAME_TOO_LONG.into());
         }
 
         let mut n = Name::default();
