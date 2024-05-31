@@ -171,6 +171,9 @@ Implemented words:
 	Exception:
 		catch (work in progress)
 		throw (work in progress)
+	Floating point:
+	Floating point extension:
+		 F.
 	Extra:
 		words
 		dump-row-size

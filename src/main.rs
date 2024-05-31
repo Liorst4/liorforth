@@ -177,8 +177,8 @@ declare_system_exception_codes!(
     // (-41, LOSS_OF_PRECISION),
     // (-42, FLOATING_POINT_DIVIDE_BY_ZERO),
     // (-43, FLOATING_POINT_RESULT_OUT_OF_RANGE),
-    // (-44, FLOATING_POINT_STACK_OVERFLOW),
-    // (-45, FLOATING_POINT_STACK_UNDERFLOW),
+    (-44, FLOATING_POINT_STACK_OVERFLOW),
+    (-45, FLOATING_POINT_STACK_UNDERFLOW),
     // (-46, FLOATING_POINT_INVALID_ARGUMENT),
     // (-47, COMPILATION_WORD_LIST_DELETED),
     // (-48, INVALID_POSTPONE),
@@ -409,6 +409,9 @@ enum ForthOperation {
     /// Pop the return stack, jump to the popped operation.
     Return,
 
+    /// Push the given floating number to the floating number stack
+    PushFloat(Float),
+
     /// Used when compiling conditionals and loops
     Unresolved(UnresolvedOperation),
 }
@@ -431,6 +434,7 @@ impl TryFrom<DoubleCell> for ForthOperation {
             6 => Ok(ForthOperation::Unresolved(UnresolvedOperation::try_from(
                 second,
             )?)),
+            // TODO: ForthOperation::PushFloat
             _ => Err(()),
         }
     }
@@ -467,6 +471,7 @@ impl std::fmt::Display for ForthOperation {
             }
             ForthOperation::Return => write!(f, "RETURN"),
             ForthOperation::Unresolved(x) => write!(f, "UNRESOLVED\t{:?}", x),
+            ForthOperation::PushFloat(float) => write!(f, "PUSH-FLOAT\t{}", float),
         }
     }
 }
@@ -614,6 +619,13 @@ struct Environment<'a> {
 
     counted_loop_stack:
         Stack<'a, CountedLoopState, { Exception::DO_LOOPS_NESTED_TOO_DEEPLY_DURING_EXECUTION }>,
+
+    floating_point_stack: Stack<
+        'a,
+        Float,
+        { Exception::FLOATING_POINT_STACK_OVERFLOW },
+        { Exception::FLOATING_POINT_STACK_UNDERFLOW },
+    >,
 }
 
 const USUAL_LEADING_DELIMITERS_TO_IGNORE: &[Byte] = &[b' ', b'\t'];
@@ -1265,6 +1277,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let return_stack_backup = env.return_stack.backup();
         let control_flow_stack_backup = env.control_flow_stack.backup();
         let counted_loop_stack_backup = env.counted_loop_stack.backup();
+        let floating_point_stack_backup = env.floating_point_stack.backup();
 
         let err = match env.execute_word(entry.body.as_ptr()) {
             Ok(_) => 0,
@@ -1273,6 +1286,8 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
                 env.return_stack.restore(&return_stack_backup);
                 env.control_flow_stack.restore(&control_flow_stack_backup);
                 env.counted_loop_stack.restore(&counted_loop_stack_backup);
+                env.floating_point_stack
+                    .restore(&floating_point_stack_backup);
 
                 env.input_buffer_head = input_buffer_head_backup;
                 env.input_buffer.copy_from_slice(&input_buffer_backup);
@@ -1288,6 +1303,10 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         if n != 0 {
             return Err(Exception { value: n });
         }
+    }),
+    declare_primitive!("f.", env, {
+        let f = env.floating_point_stack.pop()?;
+        println!("{}", f);
     }),
 ];
 
@@ -1392,6 +1411,7 @@ impl<'a> Environment<'a> {
         return_stack_byte_count: usize,
         control_flow_stack_byte_count: usize,
         counted_loop_stack_byte_count: usize,
+        floating_point_stack_byte_count: usize,
     ) -> Option<Environment<'a>> {
         let mut data_space_manager = DataSpaceManager::new(data_space);
         let input_buffer = data_space_manager.allot(input_buffer_byte_count)?;
@@ -1400,6 +1420,8 @@ impl<'a> Environment<'a> {
         let return_stack_buffer = data_space_manager.allot(return_stack_byte_count)?;
         let control_flow_stack_buffer = data_space_manager.allot(control_flow_stack_byte_count)?;
         let counted_loop_stack_buffer = data_space_manager.allot(counted_loop_stack_byte_count)?;
+        let floating_point_stack_buffer =
+            data_space_manager.allot(floating_point_stack_byte_count)?;
 
         fn stack_from_byte_slice<
             'a,
@@ -1426,6 +1448,7 @@ impl<'a> Environment<'a> {
         let return_stack = stack_from_byte_slice(return_stack_buffer);
         let control_flow_stack = stack_from_byte_slice(control_flow_stack_buffer);
         let counted_loop_stack = stack_from_byte_slice(counted_loop_stack_buffer);
+        let floating_point_stack = stack_from_byte_slice(floating_point_stack_buffer);
 
         let dictionary =
             std::collections::LinkedList::from_iter(STATIC_DICTIONARY.iter().map(|static_entry| {
@@ -1448,6 +1471,7 @@ impl<'a> Environment<'a> {
             control_flow_stack,
             parsed_word,
             counted_loop_stack,
+            floating_point_stack,
         };
 
         for line in FORTH_RUNTIME_INIT.lines() {
@@ -1466,6 +1490,7 @@ impl<'a> Environment<'a> {
             100 * std::mem::size_of::<*const ForthOperation>(),
             100 * std::mem::size_of::<UCell>(),
             100 * std::mem::size_of::<CountedLoopState>(),
+            100 * std::mem::size_of::<Float>(),
         )
     }
 
@@ -1550,7 +1575,10 @@ impl<'a> Environment<'a> {
     fn handle_token(&mut self, token: &[Byte]) -> Result<(), Exception> {
         match parse_number(self.base as u32, token) {
             Some(number) => self.handle_number_token(number),
-            _ => self.handle_text_token(token),
+            _ => match parse_float(token) {
+                Some(float) => self.handle_float_token(float),
+                _ => self.handle_text_token(token),
+            },
         }
     }
 
@@ -1561,6 +1589,16 @@ impl<'a> Environment<'a> {
             Ok(())
         } else {
             self.data_stack.push(token)
+        }
+    }
+
+    fn handle_float_token(&mut self, token: Float) -> Result<(), Exception> {
+        if self.compile_mode() {
+            let float_literal = ForthOperation::PushFloat(token);
+            self.latest_mut().body.push(float_literal);
+            Ok(())
+        } else {
+            self.floating_point_stack.push(token)
         }
     }
 
@@ -1615,6 +1653,7 @@ impl<'a> Environment<'a> {
                 ForthOperation::Unresolved(_) => {
                     panic!("Unresolved branch!")
                 }
+                ForthOperation::PushFloat(f) => self.floating_point_stack.push(*f)?,
             }
 
             instruction_pointer = unsafe { instruction_pointer.add(1) };
@@ -1701,6 +1740,7 @@ fn main() {
                         environment.return_stack.clear();
                         environment.control_flow_stack.clear();
                         environment.counted_loop_stack.clear();
+                        environment.floating_point_stack.clear();
                     }
                 }
 

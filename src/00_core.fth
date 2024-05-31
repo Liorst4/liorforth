@@ -26,6 +26,7 @@
 : ForthOperation::CallPrimitive ( a -- d ) 4 swap ;
 : ForthOperation::Return        ( -- d )   5 0    ;
 : ForthOperation::Unresolved    ( n -- d ) 6 swap ; \ Use with UnresolvedOperation::*
+\ TODO: ForthOperation::PushFloat
 
 : exit
   ForthOperation::Return
