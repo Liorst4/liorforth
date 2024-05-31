@@ -1325,6 +1325,35 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.data_stack.push(Flag::from(f == 0.0) as Cell)?;
     }),
     declare_compare_operator_primitive!("f<", <, floating_point_stack),
+    declare_primitive!("fdrop", env, {
+        env.floating_point_stack.pop()?;
+    }),
+    declare_primitive!("fdup", env, {
+        let f = env.floating_point_stack.pop()?;
+        env.floating_point_stack.push(f)?;
+        env.floating_point_stack.push(f)?;
+    }),
+    declare_primitive!("fover", env, {
+        let a = env.floating_point_stack.pop()?;
+        let b = env.floating_point_stack.pop()?;
+        env.floating_point_stack.push(b)?;
+        env.floating_point_stack.push(a)?;
+        env.floating_point_stack.push(b)?;
+    }),
+    declare_primitive!("frot", env, {
+        let a = env.floating_point_stack.pop()?;
+        let b = env.floating_point_stack.pop()?;
+        let c = env.floating_point_stack.pop()?;
+        env.floating_point_stack.push(b)?;
+        env.floating_point_stack.push(a)?;
+        env.floating_point_stack.push(c)?;
+    }),
+    declare_primitive!("fswap", env, {
+        let a = env.floating_point_stack.pop()?;
+        let b = env.floating_point_stack.pop()?;
+        env.floating_point_stack.push(a)?;
+        env.floating_point_stack.push(b)?;
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));

@@ -179,6 +179,11 @@ Implemented words:
 		 F0<
 		 F0=
 		 F<
+		 FDROP
+		 FDUP
+		 FOVER
+		 FROT
+		 FSWAP
 	Floating point extension:
 		 F.
 	Extra:
