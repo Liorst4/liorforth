@@ -1354,6 +1354,10 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.floating_point_stack.push(a)?;
         env.floating_point_stack.push(b)?;
     }),
+    declare_primitive!("fdepth", env, {
+        env.data_stack
+            .push(env.floating_point_stack.len() as Cell)?;
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));

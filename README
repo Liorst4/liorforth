@@ -184,6 +184,7 @@ Implemented words:
 		 FOVER
 		 FROT
 		 FSWAP
+		 FDEPTH
 	Floating point extension:
 		 F.
 	Extra:
