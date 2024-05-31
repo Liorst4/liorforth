@@ -1358,6 +1358,14 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.data_stack
             .push(env.floating_point_stack.len() as Cell)?;
     }),
+    declare_primitive!("floor", env, {
+        let f = env.floating_point_stack.pop()?;
+        env.floating_point_stack.push(f.floor())?;
+    }),
+    declare_primitive!("fround", env, {
+        let f = env.floating_point_stack.pop()?;
+        env.floating_point_stack.push(f.round())?;
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));

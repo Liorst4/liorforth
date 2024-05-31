@@ -185,6 +185,8 @@ Implemented words:
 		 FROT
 		 FSWAP
 		 FDEPTH
+		 FLOOR
+		 FROUND
 	Floating point extension:
 		 F.
 	Extra:
