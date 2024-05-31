@@ -176,6 +176,9 @@ Implemented words:
 		 F+
 		 F-
 		 F/
+		 F0<
+		 F0=
+		 F<
 	Floating point extension:
 		 F.
 	Extra:

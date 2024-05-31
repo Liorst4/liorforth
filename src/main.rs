@@ -691,10 +691,10 @@ macro_rules! declare_unary_operator_primitive {
 }
 
 macro_rules! declare_compare_operator_primitive {
-    ($name:literal, $operator:tt) => {
+    ($name:literal, $operator:tt, $input_stack:ident) => {
 	declare_primitive!($name, env, {
-            let b = env.data_stack.pop()?;
-            let a = env.data_stack.pop()?;
+            let b = env.$input_stack.pop()?;
+            let a = env.$input_stack.pop()?;
             let c = a $operator b;
 	    let f : Flag = c.into();
             env.data_stack.push(f as Cell)?;
@@ -885,9 +885,9 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_binary_operator_primitive!("rshift", shr, data_stack),
     declare_unary_operator_primitive!("negate", -),
     declare_unary_operator_primitive!("invert", !),
-    declare_compare_operator_primitive!("=", ==),
-    declare_compare_operator_primitive!("<", <),
-    declare_compare_operator_primitive!(">", >),
+    declare_compare_operator_primitive!("=", ==, data_stack),
+    declare_compare_operator_primitive!("<", <, data_stack),
+    declare_compare_operator_primitive!(">", >, data_stack),
     declare_primitive!(":", env, {
         let name = env.read_name_from_input_buffer()?;
         env.dictionary.push_front(DictionaryEntry {
@@ -1320,6 +1320,11 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let divided = env.floating_point_stack.pop()?;
         env.floating_point_stack.push(divided / divisor)?;
     }),
+    declare_primitive!("f0=", env, {
+        let f = env.floating_point_stack.pop()?;
+        env.data_stack.push(Flag::from(f == 0.0) as Cell)?;
+    }),
+    declare_compare_operator_primitive!("f<", <, floating_point_stack),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
