@@ -708,4 +708,31 @@ test4
             Exception::DIVISION_BY_ZERO.into()
         );
     }
+
+    #[test]
+    fn test_float_parser() {
+        const INPUT_OUTPUT: &[(&'static [Byte], Option<Float>)] = &[
+            (b"", None),
+            (b"1E", Some(1.0)),
+            (b"1.E", Some(1.0)),
+            (b"1.E0", Some(1.0)),
+            (b"1E0", Some(1.0)),
+            (b"1Eb", None),
+            (b"-1E", Some(-1.0)),
+            (b"+1E", Some(1.0)),
+            (b"+1E", Some(1.0)),
+            (b"+1.23E", Some(1.23)),
+            (b"1.23E", Some(1.23)),
+            (b"1.23E1", Some(12.3)),
+            (b"1.23E-1", Some(0.123)),
+            (b"1E2", Some(100.0)),
+            (b"1.23E2", Some(123.0)),
+            (b"1.23E+2", Some(123.0)),
+        ];
+
+        for (word, expected) in INPUT_OUTPUT {
+            eprintln!("Parsing {}", std::str::from_utf8(word).unwrap());
+            assert_eq!(*expected, parse_float(word));
+        }
+    }
 }

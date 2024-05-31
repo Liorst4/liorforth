@@ -14,6 +14,7 @@
 
 use std::io::{IsTerminal, Read, Write};
 use std::ops::{BitAnd, BitOr, BitXor, Shl, Shr};
+use std::str::FromStr;
 
 /// Forth's basic data type. Holds a number
 type Cell = isize;
@@ -26,6 +27,8 @@ enum Flag {
     False = (0 as Cell),
     True = !(Flag::False as Cell),
 }
+
+type Float = f32;
 
 impl From<bool> for Flag {
     fn from(b: bool) -> Self {
@@ -1326,6 +1329,58 @@ fn parse_number(default_base: u32, word: &[Byte]) -> Option<Cell> {
             _ => None,
         },
     }
+}
+
+fn without_plus_at_the_start(b: &[Byte]) -> Option<&[Byte]> {
+    if b.is_empty() {
+        return None;
+    }
+
+    if b[0] == b'+' {
+        Some(&b[1..])
+    } else {
+        Some(b)
+    }
+}
+
+fn parse_float_significand(b: &[Byte]) -> Option<Float> {
+    Float::from_str(core::str::from_utf8(without_plus_at_the_start(b)?).unwrap()).ok()
+}
+
+fn parse_float_exponent(b: &[Byte]) -> Option<i32> {
+    if b.is_empty() {
+        return Some(0);
+    }
+
+    match core::str::from_utf8(without_plus_at_the_start(b).unwrap())
+        .unwrap()
+        .parse()
+    {
+        Ok(e) => Some(e),
+        Err(e) => match e.kind() {
+            std::num::IntErrorKind::PosOverflow | std::num::IntErrorKind::NegOverflow => {
+                panic!("number too long!")
+            }
+            std::num::IntErrorKind::Empty | std::num::IntErrorKind::Zero => Some(0),
+            _ => None,
+        },
+    }
+}
+
+fn parse_float(word: &[Byte]) -> Option<Float> {
+    let e_index = word
+        .iter()
+        .enumerate()
+        .find(|(_, b)| [b'E', b'e'].contains(*b))
+        .map(|(index, _)| index)?;
+
+    let (before_e, e_and_after) = word.split_at(e_index);
+    let after_e = &e_and_after[1..];
+
+    let significand = parse_float_significand(before_e)?;
+    let exponent = parse_float_exponent(after_e)?;
+
+    Some(significand * 10_f32.powi(exponent))
 }
 
 impl<'a> Environment<'a> {
