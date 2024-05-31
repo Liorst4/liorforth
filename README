@@ -172,6 +172,10 @@ Implemented words:
 		catch (work in progress)
 		throw (work in progress)
 	Floating point:
+		 F*
+		 F+
+		 F-
+		 F/
 	Floating point extension:
 		 F.
 	Extra:

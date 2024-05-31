@@ -13,7 +13,7 @@
 // liorforth. If not, see <https://www.gnu.org/licenses/>.
 
 use std::io::{IsTerminal, Read, Write};
-use std::ops::{BitAnd, BitOr, BitXor, Shl, Shr};
+use std::ops::{Add, BitAnd, BitOr, BitXor, Mul, Shl, Shr};
 use std::str::FromStr;
 
 /// Forth's basic data type. Holds a number
@@ -175,7 +175,7 @@ declare_system_exception_codes!(
     // (-39, UNEXPECTED_END_OF_FILE),
     // (-40, INVALID_BASE_FOR_FLOATING_POINT_CONVERSION),
     // (-41, LOSS_OF_PRECISION),
-    // (-42, FLOATING_POINT_DIVIDE_BY_ZERO),
+    (-42, FLOATING_POINT_DIVIDE_BY_ZERO),
     // (-43, FLOATING_POINT_RESULT_OUT_OF_RANGE),
     (-44, FLOATING_POINT_STACK_OVERFLOW),
     (-45, FLOATING_POINT_STACK_UNDERFLOW),
@@ -670,12 +670,12 @@ macro_rules! declare_primitive {
 }
 
 macro_rules! declare_binary_operator_primitive {
-    ($name:literal, $method:tt) => {
+    ($name:literal, $method:tt, $stack: ident) => {
         declare_primitive!($name, env, {
-            let b = env.data_stack.pop()?;
-            let a = env.data_stack.pop()?;
+            let b = env.$stack.pop()?;
+            let a = env.$stack.pop()?;
             let c = a.$method(b);
-            env.data_stack.push(c)?;
+            env.$stack.push(c)?;
         })
     };
 }
@@ -874,15 +874,15 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let base_address: *mut Cell = &mut env.base;
         env.data_stack.push(base_address as Cell)?;
     }),
-    declare_binary_operator_primitive!("+", wrapping_add),
-    declare_binary_operator_primitive!("-", wrapping_sub),
-    declare_binary_operator_primitive!("*", wrapping_mul),
-    declare_binary_operator_primitive!("and", bitand),
-    declare_binary_operator_primitive!("or", bitor),
-    declare_binary_operator_primitive!("xor", bitxor),
-    declare_binary_operator_primitive!("mod", wrapping_rem),
-    declare_binary_operator_primitive!("lshift", shl),
-    declare_binary_operator_primitive!("rshift", shr),
+    declare_binary_operator_primitive!("+", wrapping_add, data_stack),
+    declare_binary_operator_primitive!("-", wrapping_sub, data_stack),
+    declare_binary_operator_primitive!("*", wrapping_mul, data_stack),
+    declare_binary_operator_primitive!("and", bitand, data_stack),
+    declare_binary_operator_primitive!("or", bitor, data_stack),
+    declare_binary_operator_primitive!("xor", bitxor, data_stack),
+    declare_binary_operator_primitive!("mod", wrapping_rem, data_stack),
+    declare_binary_operator_primitive!("lshift", shl, data_stack),
+    declare_binary_operator_primitive!("rshift", shr, data_stack),
     declare_unary_operator_primitive!("negate", -),
     declare_unary_operator_primitive!("invert", !),
     declare_compare_operator_primitive!("=", ==),
@@ -1307,6 +1307,18 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_primitive!("f.", env, {
         let f = env.floating_point_stack.pop()?;
         println!("{}", f);
+    }),
+    declare_binary_operator_primitive!("f*", mul, floating_point_stack),
+    declare_binary_operator_primitive!("f+", add, floating_point_stack),
+    declare_binary_operator_primitive!("f-", add, floating_point_stack),
+    declare_primitive!("f/", env, {
+        let divisor = env.floating_point_stack.pop()?;
+        if divisor == 0.0 {
+            return Err(Exception::from(Exception::FLOATING_POINT_DIVIDE_BY_ZERO));
+        }
+
+        let divided = env.floating_point_stack.pop()?;
+        env.floating_point_stack.push(divided / divisor)?;
     }),
 ];
 
