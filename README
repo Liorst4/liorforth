@@ -187,6 +187,7 @@ Implemented words:
 		 FDEPTH
 		 FLOOR
 		 FROUND
+		 FNEGATE
 	Floating point extension:
 		 F.
 	Extra:

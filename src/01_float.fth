@@ -13,3 +13,4 @@
 \ liorforth. If not, see <https://www.gnu.org/licenses/>.
 
 : f0< 0e f< ;
+: fnegate -1e f* ;
