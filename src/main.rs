@@ -1376,6 +1376,20 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let f = env.floating_point_stack.pop()?;
         unsafe { std::ptr::write_unaligned(address, f) };
     }),
+    declare_primitive!(">float", env, {
+        let string_byte_count = env.data_stack.pop()? as UCell;
+        let string_address = env.data_stack.pop()? as *const Byte;
+        let string = unsafe { core::slice::from_raw_parts(string_address, string_byte_count) };
+        match parse_float(string) {
+            Some(float) => {
+                env.floating_point_stack.push(float)?;
+                env.data_stack.push(Flag::True as Cell)?;
+            }
+            _ => {
+                env.data_stack.push(Flag::False as Cell)?;
+            }
+        }
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));

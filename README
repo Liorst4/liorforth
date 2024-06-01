@@ -190,6 +190,7 @@ Implemented words:
 		 FNEGATE
 		 F@
 		 F!
+		 >FLOAT
 	Floating point extension:
 		 F.
 	Extra:
