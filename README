@@ -195,6 +195,9 @@ Implemented words:
 		 F>D
 		 FALIGN
 		 FALIGNED
+		 FLITERAL
+		 FCONSTANT
+		 FVARIABLE
 	Floating point extension:
 		 F.
 	Extra:

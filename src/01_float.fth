@@ -14,3 +14,18 @@
 
 : f0< 0e f< ;
 : fnegate -1e f* ;
+
+\ NOTE: Takes argument from the floating point stack!
+: fliteral
+  ForthOperation::PushFloat
+  latest-push
+; immediate
+
+: fconstant : postpone fliteral postpone ; ;
+
+: fvariable
+  create
+  here
+  1 allot falign
+  0e f!
+;

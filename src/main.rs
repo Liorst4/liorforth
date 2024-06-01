@@ -221,6 +221,10 @@ declare_system_exception_codes!(
     // (-77, MALFORMED_XCHAR),
     // (-78, SUBSTITUTE),
     // (-79, REPLACES),
+
+    // Implementation related
+    (-80, INVALID_FORTH_OPERATION_KIND),
+    (-81, INVALID_UNRESOLVED_FORTH_OPERATION_KIND),
 );
 
 struct Stack<
@@ -382,19 +386,6 @@ enum UnresolvedOperation {
     Leave,
 }
 
-impl TryFrom<Cell> for UnresolvedOperation {
-    type Error = ();
-    fn try_from(x: Cell) -> Result<Self, Self::Error> {
-        match x {
-            0 => Ok(UnresolvedOperation::If),
-            1 => Ok(UnresolvedOperation::Else),
-            2 => Ok(UnresolvedOperation::While),
-            3 => Ok(UnresolvedOperation::Leave),
-            _ => Err(()),
-        }
-    }
-}
-
 /// Instructions for the interpreter
 #[derive(Clone, PartialEq)]
 enum ForthOperation {
@@ -422,30 +413,6 @@ enum ForthOperation {
 
     /// Used when compiling conditionals and loops
     Unresolved(UnresolvedOperation),
-}
-
-impl TryFrom<DoubleCell> for ForthOperation {
-    type Error = ();
-    fn try_from(x: DoubleCell) -> Result<Self, Self::Error> {
-        let x = double_cell_to_array(x);
-        let first = x[0];
-        let second = x[1];
-        match first {
-            0 => Ok(ForthOperation::PushData(second)),
-            1 => Ok(ForthOperation::CallEntry(second as *const DictionaryEntry)),
-            2 => Ok(ForthOperation::BranchOnFalse(second)),
-            3 => Ok(ForthOperation::Branch(second as *const ForthOperation)),
-            4 => Ok(ForthOperation::CallPrimitive(unsafe {
-                std::mem::transmute(second)
-            })),
-            5 => Ok(ForthOperation::Return),
-            6 => Ok(ForthOperation::Unresolved(UnresolvedOperation::try_from(
-                second,
-            )?)),
-            // TODO: ForthOperation::PushFloat
-            _ => Err(()),
-        }
-    }
 }
 
 impl std::fmt::Display for ForthOperation {
@@ -1095,8 +1062,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.currently_compiling = Flag::False as Cell;
     }),
     declare_primitive!("latest-push", env, {
-        let x = env.data_stack.pop_double_cell()?;
-        let op = ForthOperation::try_from(x).unwrap();
+        let op = env.pop_forth_operation()?;
         env.latest_mut().body.push(op);
     }),
     declare_primitive!("latest-len", env, {
@@ -1105,7 +1071,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_primitive!("latest!", env, {
         let index = env.data_stack.pop()? as UCell;
-        let op = ForthOperation::try_from(env.data_stack.pop_double_cell()?).unwrap();
+        let op = env.pop_forth_operation()?;
         *env.latest_mut().body.get_mut(index).unwrap() = op;
     }),
     declare_primitive!("latest-last-unres-if-or-else", env, {
@@ -1813,6 +1779,38 @@ impl<'a> Environment<'a> {
     fn read_name_from_input_buffer(&mut self) -> Result<Name, Exception> {
         let name = self.next_token(USUAL_LEADING_DELIMITERS_TO_IGNORE, b' ');
         Name::from_ascii(name)
+    }
+
+    fn pop_forth_operation(&mut self) -> Result<ForthOperation, Exception> {
+        let kind = self.data_stack.pop()?;
+        match kind {
+            0 => Ok(ForthOperation::PushData(self.data_stack.pop()?)),
+            1 => Ok(ForthOperation::CallEntry(
+                self.data_stack.pop()? as *const DictionaryEntry
+            )),
+            2 => Ok(ForthOperation::BranchOnFalse(self.data_stack.pop()?)),
+            3 => Ok(ForthOperation::Branch(
+                self.data_stack.pop()? as *const ForthOperation
+            )),
+            4 => Ok(ForthOperation::CallPrimitive(unsafe {
+                std::mem::transmute(self.data_stack.pop()?)
+            })),
+            5 => Ok(ForthOperation::Return),
+            6 => {
+                let unresolved_kind: Result<UnresolvedOperation, Exception> =
+                    match self.data_stack.pop()? {
+                        0 => Ok(UnresolvedOperation::If),
+                        1 => Ok(UnresolvedOperation::Else),
+                        2 => Ok(UnresolvedOperation::While),
+                        3 => Ok(UnresolvedOperation::Leave),
+                        _ => Err(Exception::INVALID_UNRESOLVED_FORTH_OPERATION_KIND.into()),
+                    };
+
+                Ok(ForthOperation::Unresolved(unresolved_kind?))
+            }
+            7 => Ok(ForthOperation::PushFloat(self.floating_point_stack.pop()?)),
+            _ => Err(Exception::INVALID_FORTH_OPERATION_KIND.into()),
+        }
     }
 }
 

@@ -12,21 +12,21 @@
 \ You should have received a copy of the GNU General Public License along with
 \ liorforth. If not, see <https://www.gnu.org/licenses/>.
 
-\ See UnresolvedOperation in main.rs
+\ See pop_forth_operation in main.rs
 : UnresolvedOperation::If    ( -- n ) 0 ;
 : UnresolvedOperation::Else  ( -- n ) 1 ;
 : UnresolvedOperation::While ( -- n ) 2 ;
 : UnresolvedOperation::Leave ( -- n ) 3 ;
 
-\ See ForthOperation in main.rs
-: ForthOperation::PushData      ( n -- d ) 0 swap ;
-: ForthOperation::CallEntry     ( a -- d ) 1 swap ;
-: ForthOperation::BranchOnFalse ( n -- d ) 2 swap ;
-: ForthOperation::Branch        ( a -- d ) 3 swap ;
-: ForthOperation::CallPrimitive ( a -- d ) 4 swap ;
-: ForthOperation::Return        ( -- d )   5 0    ;
-: ForthOperation::Unresolved    ( n -- d ) 6 swap ; \ Use with UnresolvedOperation::*
-\ TODO: ForthOperation::PushFloat
+\ See pop_forth_operation in main.rs
+: ForthOperation::PushData      ( -- n ) 0 ;
+: ForthOperation::CallEntry     ( -- n ) 1 ;
+: ForthOperation::BranchOnFalse ( -- n ) 2 ;
+: ForthOperation::Branch        ( -- n ) 3 ;
+: ForthOperation::CallPrimitive ( -- n ) 4 ;
+: ForthOperation::Return        ( -- n ) 5 ;
+: ForthOperation::Unresolved    ( -- n ) 6 ; \ Use with UnresolvedOperation::*
+: ForthOperation::PushFloat     ( -- n ) 7 ;
 
 : exit
   ForthOperation::Return
