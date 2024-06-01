@@ -1366,6 +1366,16 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let f = env.floating_point_stack.pop()?;
         env.floating_point_stack.push(f.round())?;
     }),
+    declare_primitive!("f@", env, {
+        let address = env.data_stack.pop()? as *const Float;
+        let f = unsafe { std::ptr::read_unaligned::<Float>(address) };
+        env.floating_point_stack.push(f)?;
+    }),
+    declare_primitive!("f!", env, {
+        let address = env.data_stack.pop()? as *mut Float;
+        let f = env.floating_point_stack.pop()?;
+        unsafe { std::ptr::write_unaligned(address, f) };
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));

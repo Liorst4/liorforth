@@ -188,6 +188,8 @@ Implemented words:
 		 FLOOR
 		 FROUND
 		 FNEGATE
+		 F@
+		 F!
 	Floating point extension:
 		 F.
 	Extra:
