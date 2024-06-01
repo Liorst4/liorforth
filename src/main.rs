@@ -1390,6 +1390,16 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             }
         }
     }),
+    declare_primitive!("d>f", env, {
+        let d = env.data_stack.pop_double_cell()?;
+        let f = d as Float;
+        env.floating_point_stack.push(f)?;
+    }),
+    declare_primitive!("f>d", env, {
+        let f = env.floating_point_stack.pop()?;
+        let d = f as DoubleCell;
+        env.data_stack.push_double_cell(d)?;
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));

@@ -191,6 +191,8 @@ Implemented words:
 		 F@
 		 F!
 		 >FLOAT
+		 D>F
+		 F>D
 	Floating point extension:
 		 F.
 	Extra:
