@@ -29,3 +29,5 @@
   1 allot falign
   0e f!
 ;
+
+: float+ ( addr -- addr ) 1 + faligned ;
