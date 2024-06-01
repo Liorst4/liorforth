@@ -30,6 +30,14 @@ enum Flag {
 
 type Float = f32;
 
+const fn align_to_float(addr: usize) -> usize {
+    if addr % std::mem::size_of::<Float>() == 0 {
+        return addr;
+    }
+
+    addr + (std::mem::size_of::<Float>() - (addr % std::mem::size_of::<Float>()))
+}
+
 impl From<bool> for Flag {
     fn from(b: bool) -> Self {
         match b {
@@ -1399,6 +1407,16 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let f = env.floating_point_stack.pop()?;
         let d = f as DoubleCell;
         env.data_stack.push_double_cell(d)?;
+    }),
+    declare_primitive!("falign", env, {
+        let here = unsafe { env.data_space_manager.here() } as usize;
+        env.data_space_manager
+            .allot(align_to_float(here) - here)
+            .unwrap();
+    }),
+    declare_primitive!("faligned", env, {
+        let address = env.data_stack.pop()? as usize;
+        env.data_stack.push(align_to_float(address) as Cell)?;
     }),
 ];
 

@@ -193,6 +193,8 @@ Implemented words:
 		 >FLOAT
 		 D>F
 		 F>D
+		 FALIGN
+		 FALIGNED
 	Floating point extension:
 		 F.
 	Extra:
