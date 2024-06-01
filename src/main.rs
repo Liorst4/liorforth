@@ -225,6 +225,8 @@ declare_system_exception_codes!(
     // Implementation related
     (-80, INVALID_FORTH_OPERATION_KIND),
     (-81, INVALID_UNRESOLVED_FORTH_OPERATION_KIND),
+    (-82, CONTROL_FLOW_STACK_UNDERFLOW),
+    (-83, DO_LOOPS_STACK_UNDERFLOW),
 );
 
 struct Stack<
@@ -572,7 +574,7 @@ impl From<CountedLoopState> for DoubleCell {
 struct Environment<'a> {
     data_space_manager: DataSpaceManager<'a>,
 
-    data_stack: Stack<'a, Cell>,
+    data_stack: Stack<'a, Cell, { Exception::STACK_OVERFLOW }, { Exception::STACK_UNDERFLOW }>,
     return_stack: Stack<
         'a,
         *const ForthOperation,
@@ -588,12 +590,21 @@ struct Environment<'a> {
     base: Cell,
 
     currently_compiling: Cell,
-    control_flow_stack: Stack<'a, UCell, { Exception::CONTROL_FLOW_STACK_OVERFLOW }>,
+    control_flow_stack: Stack<
+        'a,
+        UCell,
+        { Exception::CONTROL_FLOW_STACK_OVERFLOW },
+        { Exception::CONTROL_FLOW_STACK_UNDERFLOW },
+    >,
 
     parsed_word: &'a mut [Byte],
 
-    counted_loop_stack:
-        Stack<'a, CountedLoopState, { Exception::DO_LOOPS_NESTED_TOO_DEEPLY_DURING_EXECUTION }>,
+    counted_loop_stack: Stack<
+        'a,
+        CountedLoopState,
+        { Exception::DO_LOOPS_NESTED_TOO_DEEPLY_DURING_EXECUTION },
+        { Exception::DO_LOOPS_STACK_UNDERFLOW },
+    >,
 
     floating_point_stack: Stack<
         'a,
