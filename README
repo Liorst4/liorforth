@@ -228,6 +228,9 @@ Core words to implement:
 	
 	>number
 
+Floating point words to implement:
+	 REPRESENT
+
 
 What's next:
        Some features I'll might implement in the future
