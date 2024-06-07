@@ -548,7 +548,7 @@ impl std::fmt::Display for DictionaryEntry {
 
 type Dictionary = std::collections::LinkedList<DictionaryEntry>;
 
-#[derive(Copy, Clone, Default)]
+#[derive(Copy, Clone, Default, Debug)]
 struct CountedLoopState {
     loop_counter: Cell,
     limit: Cell,
@@ -1875,6 +1875,15 @@ macro_rules! default_fixed_sized_environment {
     };
 }
 
+fn dump_stack<'a, T, const OVERFLOW_ERROR_CODE: Cell, const UNDERFLOW_ERROR_CODE: Cell>(
+    name: &str,
+    s: &Stack<'a, T, OVERFLOW_ERROR_CODE, UNDERFLOW_ERROR_CODE>,
+) where
+    T: Copy + std::fmt::Debug,
+{
+    eprintln!("\t{}: len={} items: {:?}", name, s.len(), s.as_slice());
+}
+
 fn main() {
     let interactive = std::io::stdin().is_terminal();
     default_fixed_sized_environment!(environment);
@@ -1890,7 +1899,12 @@ fn main() {
             }
             Err(exception) => {
                 eprintln!("{:?} was thrown", exception);
-                // TODO: Print stacks
+                eprintln!("Stack state at throw:");
+                dump_stack("data", &environment.data_stack);
+                dump_stack("return", &environment.return_stack);
+                dump_stack("control flow", &environment.control_flow_stack);
+                dump_stack("counted loops", &environment.counted_loop_stack);
+                dump_stack("floating point", &environment.floating_point_stack);
 
                 if !interactive {
                     std::io::stdout().flush().unwrap();
