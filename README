@@ -221,6 +221,8 @@ Implemented words:
 		 FSQRT
 		 F**
 		 FSINCOS
+		 FEXPM1
+		 FLNP1
 	Extra:
 		words
 		dump-row-size

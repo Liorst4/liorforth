@@ -1420,6 +1420,8 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.floating_point_stack.push(r2)?;
         env.floating_point_stack.push(r3)?;
     }),
+    declare_unary_operator_primitive!("fexpm1", exp_m1, floating_point_stack),
+    declare_unary_operator_primitive!("flnp1", ln_1p, floating_point_stack),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
