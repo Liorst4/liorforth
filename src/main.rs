@@ -1772,7 +1772,8 @@ impl<'a> Environment<'a> {
                 ForthOperation::CallPrimitive(func) => func(self)?,
                 ForthOperation::Return => match self.return_stack.len() {
                     0 => {
-                        break 'instruction_loop; // Nothing left to execute
+                        // Nothing left to execute
+                        return Ok(());
                     }
                     _ => {
                         instruction_pointer = self.return_stack.pop()?;
@@ -1787,7 +1788,6 @@ impl<'a> Environment<'a> {
 
             instruction_pointer = unsafe { instruction_pointer.add(1) };
         }
-        Ok(())
     }
 
     fn format_number<T: std::fmt::Binary + std::fmt::LowerHex + std::fmt::Display>(
