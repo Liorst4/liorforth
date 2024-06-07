@@ -1748,35 +1748,35 @@ impl<'a> Environment<'a> {
 
     fn execute_word(&mut self, entry: *const ForthOperation) -> Result<(), Exception> {
         let mut instruction_pointer = entry;
-        loop {
+        'instruction_loop: loop {
             match unsafe { instruction_pointer.as_ref() }.unwrap() {
                 ForthOperation::CallEntry(dest) => {
                     let return_address = unsafe { instruction_pointer.add(1) };
                     let dest_instruction = unsafe { dest.as_ref() }.unwrap().body.first().unwrap();
                     self.return_stack.push(return_address)?;
                     instruction_pointer = dest_instruction;
-                    continue;
+                    continue 'instruction_loop;
                 }
                 ForthOperation::PushData(l) => self.data_stack.push(*l)?,
                 ForthOperation::BranchOnFalse(offset) => {
                     let cond = self.data_stack.pop()?;
                     if cond == Flag::False as Cell {
                         instruction_pointer = unsafe { instruction_pointer.offset(*offset) };
-                        continue;
+                        continue 'instruction_loop;
                     }
                 }
                 ForthOperation::Branch(destination) => {
                     instruction_pointer = *destination;
-                    continue;
+                    continue 'instruction_loop;
                 }
                 ForthOperation::CallPrimitive(func) => func(self)?,
                 ForthOperation::Return => match self.return_stack.len() {
                     0 => {
-                        break; // Nothing left to execute
+                        break 'instruction_loop; // Nothing left to execute
                     }
                     _ => {
                         instruction_pointer = self.return_stack.pop()?;
-                        continue;
+                        continue 'instruction_loop;
                     }
                 },
                 ForthOperation::Unresolved(_) => {
