@@ -1750,13 +1750,11 @@ impl<'a> Environment<'a> {
         let mut instruction_pointer = entry;
         loop {
             match unsafe { instruction_pointer.as_ref() }.unwrap() {
-                ForthOperation::CallEntry(w) => {
-                    let w = unsafe { w.as_ref() }.unwrap();
-                    let to_execute = &w.body;
-
-                    let next = unsafe { instruction_pointer.add(1) };
-                    self.return_stack.push(next).unwrap();
-                    instruction_pointer = to_execute.first().unwrap();
+                ForthOperation::CallEntry(dest) => {
+                    let return_address = unsafe { instruction_pointer.add(1) };
+                    let dest_instruction = unsafe { dest.as_ref() }.unwrap().body.first().unwrap();
+                    self.return_stack.push(return_address)?;
+                    instruction_pointer = dest_instruction;
                     continue;
                 }
                 ForthOperation::PushData(l) => self.data_stack.push(*l)?,
