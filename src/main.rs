@@ -1423,6 +1423,22 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_unary_operator_primitive!("fexpm1", exp_m1, floating_point_stack),
     declare_unary_operator_primitive!("flnp1", ln_1p, floating_point_stack),
     declare_binary_operator_primitive!("fatan2", atan2, floating_point_stack),
+    declare_primitive!("f~", env, {
+        let r3 = env.floating_point_stack.pop()?;
+        let r2 = env.floating_point_stack.pop()?;
+        let r1 = env.floating_point_stack.pop()?;
+
+        let f: Flag = if r3 > 0_f32 {
+            (r1 - r2) < r3
+        } else if r3 == 0_f32 {
+            r1 == r2
+        } else {
+            (r1 - r2) < (r3 * (r1.abs() + r2.abs())).abs()
+        }
+        .into();
+
+        env.data_stack.push(f as Cell)?;
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));

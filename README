@@ -224,6 +224,7 @@ Implemented words:
 		 FEXPM1
 		 FLNP1
 		 FATAN2
+		 F~
 	Extra:
 		words
 		dump-row-size
