@@ -1880,38 +1880,36 @@ macro_rules! default_fixed_sized_environment {
 fn main() {
     let interactive = std::io::stdin().is_terminal();
     default_fixed_sized_environment!(environment);
-    for maybe_line in std::io::stdin().lines() {
-        match maybe_line {
-            Ok(line) => {
-                match environment.interpret_line(line.as_bytes()) {
-                    Ok(_) => {
-                        if interactive {
-                            println!(" ok. ");
-                        }
-                    }
-                    Err(exception) => {
-                        eprintln!("{:?} was thrown", exception);
-                        // TODO: Print stacks
+    for line in std::io::stdin()
+        .lines()
+        .map_while(|maybe_line| maybe_line.ok())
+    {
+        match environment.interpret_line(line.as_bytes()) {
+            Ok(_) => {
+                if interactive {
+                    println!(" ok. ");
+                }
+            }
+            Err(exception) => {
+                eprintln!("{:?} was thrown", exception);
+                // TODO: Print stacks
 
-                        if !interactive {
-                            std::io::stdout().flush().unwrap();
-                            std::io::stderr().flush().unwrap();
-                            std::process::exit(1);
-                        }
-
-                        environment.data_stack.clear();
-                        environment.return_stack.clear();
-                        environment.control_flow_stack.clear();
-                        environment.counted_loop_stack.clear();
-                        environment.floating_point_stack.clear();
-                    }
+                if !interactive {
+                    std::io::stdout().flush().unwrap();
+                    std::io::stderr().flush().unwrap();
+                    std::process::exit(1);
                 }
 
-                std::io::stdout().flush().unwrap();
-                std::io::stderr().flush().unwrap();
+                environment.data_stack.clear();
+                environment.return_stack.clear();
+                environment.control_flow_stack.clear();
+                environment.counted_loop_stack.clear();
+                environment.floating_point_stack.clear();
             }
-            _ => break,
         }
+
+        std::io::stdout().flush().unwrap();
+        std::io::stderr().flush().unwrap();
     }
 }
 
