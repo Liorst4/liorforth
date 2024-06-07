@@ -223,6 +223,7 @@ Implemented words:
 		 FSINCOS
 		 FEXPM1
 		 FLNP1
+		 FATAN2
 	Extra:
 		words
 		dump-row-size
