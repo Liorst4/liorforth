@@ -201,6 +201,24 @@ Implemented words:
 		 FLOAT+
 	Floating point extension:
 		 F.
+		 FABS
+		 FACOS
+		 FACOSH
+		 FALOG
+		 FASIN
+		 FASINH
+		 FATAN
+		 FATANH
+		 FCOS
+		 FCOSH
+		 FEXP
+		 FLN
+		 FLOG
+		 FSIN
+		 FSINH
+		 FTAN
+		 FTANH
+		 FSQRT
 	Extra:
 		words
 		dump-row-size

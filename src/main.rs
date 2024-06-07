@@ -13,7 +13,7 @@
 // liorforth. If not, see <https://www.gnu.org/licenses/>.
 
 use std::io::{IsTerminal, Read, Write};
-use std::ops::{Add, BitAnd, BitOr, BitXor, Mul, Shl, Shr};
+use std::ops::{Add, BitAnd, BitOr, BitXor, Mul, Not, Shl, Shr};
 use std::str::FromStr;
 
 /// Forth's basic data type. Holds a number
@@ -667,12 +667,12 @@ macro_rules! declare_binary_operator_primitive {
 }
 
 macro_rules! declare_unary_operator_primitive {
-    ($name:literal, $operator:tt) => {
-	declare_primitive!($name, env, {
-            let a = env.data_stack.pop()?;
-	    let b = $operator a;
-            env.data_stack.push(b)?;
-	})
+    ($name:literal, $method:tt, $stack:ident) => {
+        declare_primitive!($name, env, {
+            let a = env.$stack.pop()?;
+            let b = a.$method();
+            env.$stack.push(b)?;
+        })
     };
 }
 
@@ -869,8 +869,8 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_binary_operator_primitive!("mod", wrapping_rem, data_stack),
     declare_binary_operator_primitive!("lshift", shl, data_stack),
     declare_binary_operator_primitive!("rshift", shr, data_stack),
-    declare_unary_operator_primitive!("negate", -),
-    declare_unary_operator_primitive!("invert", !),
+    declare_unary_operator_primitive!("negate", wrapping_neg, data_stack),
+    declare_unary_operator_primitive!("invert", not, data_stack),
     declare_compare_operator_primitive!("=", ==, data_stack),
     declare_compare_operator_primitive!("<", <, data_stack),
     declare_compare_operator_primitive!(">", >, data_stack),
@@ -1395,6 +1395,24 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let address = env.data_stack.pop()? as usize;
         env.data_stack.push(align_to_float(address) as Cell)?;
     }),
+    declare_unary_operator_primitive!("fabs", abs, floating_point_stack),
+    declare_unary_operator_primitive!("facos", acos, floating_point_stack),
+    declare_unary_operator_primitive!("facosh", acosh, floating_point_stack),
+    declare_unary_operator_primitive!("falog", log10, floating_point_stack),
+    declare_unary_operator_primitive!("fasin", asin, floating_point_stack),
+    declare_unary_operator_primitive!("fasinh", asinh, floating_point_stack),
+    declare_unary_operator_primitive!("fatan", atan, floating_point_stack),
+    declare_unary_operator_primitive!("fatanh", atanh, floating_point_stack),
+    declare_unary_operator_primitive!("fcos", cos, floating_point_stack),
+    declare_unary_operator_primitive!("fcosh", cosh, floating_point_stack),
+    declare_unary_operator_primitive!("fexp", exp, floating_point_stack),
+    declare_unary_operator_primitive!("fln", ln, floating_point_stack),
+    declare_unary_operator_primitive!("flog", log10, floating_point_stack),
+    declare_unary_operator_primitive!("fsin", sin, floating_point_stack),
+    declare_unary_operator_primitive!("fsinh", sinh, floating_point_stack),
+    declare_unary_operator_primitive!("ftan", tan, floating_point_stack),
+    declare_unary_operator_primitive!("ftanh", tanh, floating_point_stack),
+    declare_unary_operator_primitive!("fsqrt", sqrt, floating_point_stack),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
