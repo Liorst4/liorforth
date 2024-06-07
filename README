@@ -220,6 +220,7 @@ Implemented words:
 		 FTANH
 		 FSQRT
 		 F**
+		 FSINCOS
 	Extra:
 		words
 		dump-row-size

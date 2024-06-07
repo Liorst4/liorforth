@@ -1414,6 +1414,12 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_unary_operator_primitive!("ftanh", tanh, floating_point_stack),
     declare_unary_operator_primitive!("fsqrt", sqrt, floating_point_stack),
     declare_binary_operator_primitive!("f**", powf, floating_point_stack),
+    declare_primitive!("fsincos", env, {
+        let r1 = env.floating_point_stack.pop()?;
+        let (r2, r3) = r1.sin_cos();
+        env.floating_point_stack.push(r2)?;
+        env.floating_point_stack.push(r3)?;
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
