@@ -1660,37 +1660,37 @@ impl<'a> Environment<'a> {
     }
 
     fn handle_token(&mut self, token: &[Byte]) -> Result<(), Exception> {
-        match parse_number(self.base as u32, token) {
-            Some(number) => self.handle_number_token(number),
-            _ => match parse_float(token) {
-                Some(float) => self.handle_float_token(float),
-                _ => self.handle_text_token(token),
-            },
+        if let Some(number) = parse_number(self.base as u32, token) {
+            self.handle_number_token(number)
+        } else if let Some(float) = parse_float(token) {
+            self.handle_float_token(float)
+        } else {
+            self.handle_text_token(token)
         }
     }
 
-    fn handle_number_token(&mut self, token: Cell) -> Result<(), Exception> {
+    fn handle_number_token(&mut self, data: Cell) -> Result<(), Exception> {
         if self.compile_mode() {
-            let literal = ForthOperation::PushData(token);
+            let literal = ForthOperation::PushData(data);
             self.latest_mut().body.push(literal);
             Ok(())
         } else {
-            self.data_stack.push(token)
+            self.data_stack.push(data)
         }
     }
 
-    fn handle_float_token(&mut self, token: Float) -> Result<(), Exception> {
+    fn handle_float_token(&mut self, float: Float) -> Result<(), Exception> {
         if self.compile_mode() {
-            let float_literal = ForthOperation::PushFloat(token);
+            let float_literal = ForthOperation::PushFloat(float);
             self.latest_mut().body.push(float_literal);
             Ok(())
         } else {
-            self.floating_point_stack.push(token)
+            self.floating_point_stack.push(float)
         }
     }
 
-    fn handle_text_token(&mut self, token: &[Byte]) -> Result<(), Exception> {
-        let dict_entry = search_dictionary(&self.dictionary, &Name::from_ascii(token)?)?;
+    fn handle_text_token(&mut self, word_name: &[Byte]) -> Result<(), Exception> {
+        let dict_entry = search_dictionary(&self.dictionary, &Name::from_ascii(word_name)?)?;
 
         if self.compile_mode() && !dict_entry.immediate {
             let operation = ForthOperation::CallEntry(dict_entry);
