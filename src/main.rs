@@ -1413,6 +1413,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_unary_operator_primitive!("ftan", tan, floating_point_stack),
     declare_unary_operator_primitive!("ftanh", tanh, floating_point_stack),
     declare_unary_operator_primitive!("fsqrt", sqrt, floating_point_stack),
+    declare_binary_operator_primitive!("f**", powf, floating_point_stack),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));

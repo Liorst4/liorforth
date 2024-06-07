@@ -219,6 +219,7 @@ Implemented words:
 		 FTAN
 		 FTANH
 		 FSQRT
+		 F**
 	Extra:
 		words
 		dump-row-size
