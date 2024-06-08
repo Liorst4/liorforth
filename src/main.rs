@@ -1444,6 +1444,10 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.data_stack.push(f as Cell)?;
     }),
     declare_constant!("sizeof-float", std::mem::size_of::<Float>()),
+    declare_primitive!("ms", env, {
+        let ms = env.data_stack.pop()?;
+        std::thread::sleep(std::time::Duration::from_millis(ms as u64));
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));

@@ -233,6 +233,7 @@ Implemented words:
 		 FIELD:
 		 FFIELD:
 		 END-STRUCTURE
+		 MS
 	Extra:
 		words
 		dump-row-size
