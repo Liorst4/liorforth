@@ -199,6 +199,7 @@ Implemented words:
 		 FCONSTANT
 		 FVARIABLE
 		 FLOAT+
+		 FLOATS
 	Floating point extension:
 		 F.
 		 FABS

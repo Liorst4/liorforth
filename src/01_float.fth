@@ -31,3 +31,5 @@
 ;
 
 : float+ ( addr -- addr ) 1 + faligned ;
+
+: floats sizeof-float * ;
