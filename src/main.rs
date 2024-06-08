@@ -1025,6 +1025,10 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let input_buffer_head_backup = env.input_buffer_head;
         let input_buffer_backup = env.input_buffer.to_vec();
 
+        // TODO: Should the return stack be saved?
+        // Should this print "1 2 3" or "1 3 2" ?
+        // : a s" 1 . cr 2 . cr " evaluate 3 . cr ; a
+
         // TODO: Set the input buffer to be `string`, don't just copy it.
         let result = env.interpret_line(string);
 
