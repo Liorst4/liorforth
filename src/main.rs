@@ -1893,6 +1893,52 @@ fn dump_stack<'a, T, const OVERFLOW_ERROR_CODE: Cell, const UNDERFLOW_ERROR_CODE
     eprintln!("\t{}: len={} items: {:?}", name, s.len(), s.as_slice());
 }
 
+fn find_dictionary_entry_from_operation(
+    dict: &Dictionary,
+    operation: *const ForthOperation,
+) -> Option<(&str, usize)> {
+    if ((operation as usize) % std::mem::align_of::<ForthOperation>()) != 0 {
+        return None;
+    }
+
+    return dict.iter().find_map(|entry| {
+        if entry.body.as_ptr() <= operation {
+            let byte_offset = unsafe { operation.byte_offset_from(entry.body.as_ptr()) } as usize;
+            let body_byte_count = entry.body.len() * std::mem::size_of::<ForthOperation>();
+            if byte_offset < body_byte_count {
+                let name = entry.name.as_str().ok()?;
+                return Some((name, byte_offset));
+            }
+        }
+        None
+    });
+}
+
+fn dump_return_stack(
+    stack: &Stack<
+        *const ForthOperation,
+        { Exception::RETURN_STACK_OVERFLOW },
+        { Exception::RETURN_STACK_UNDERFLOW },
+    >,
+    dict: &Dictionary,
+) {
+    eprintln!("\treturn stack:");
+    for (depth, operation) in stack.as_slice().iter().rev().enumerate() {
+        eprint!("\t\t{}:\t${:x}", depth, *operation as usize);
+
+        if let Some((name, offset)) = find_dictionary_entry_from_operation(dict, *operation) {
+            eprint!(
+                "\t({}+({} * {}))",
+                name,
+                offset / std::mem::size_of::<ForthOperation>(),
+                std::mem::size_of::<ForthOperation>()
+            );
+        }
+
+        eprintln!();
+    }
+}
+
 fn main() {
     let interactive = std::io::stdin().is_terminal();
     default_fixed_sized_environment!(environment);
@@ -1910,10 +1956,10 @@ fn main() {
                 eprintln!("{:?} was thrown", exception);
                 eprintln!("Stack state at throw:");
                 dump_stack("data", &environment.data_stack);
-                dump_stack("return", &environment.return_stack);
                 dump_stack("control flow", &environment.control_flow_stack);
                 dump_stack("counted loops", &environment.counted_loop_stack);
                 dump_stack("floating point", &environment.floating_point_stack);
+                dump_return_stack(&environment.return_stack, &environment.dictionary);
 
                 if !interactive {
                     std::io::stdout().flush().unwrap();
