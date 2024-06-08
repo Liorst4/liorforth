@@ -1461,7 +1461,12 @@ fn search_dictionary<'a>(
         .ok_or(Exception::UNDEFINED_WORD.into())
 }
 
-fn parse_number(default_base: u32, word: &[Byte]) -> Option<Cell> {
+enum ParsedNumber {
+    Single(Cell),
+    Double(DoubleCell),
+}
+
+fn parse_number(default_base: u32, word: &[Byte]) -> Option<ParsedNumber> {
     if word.is_empty() {
         return None;
     }
@@ -1478,15 +1483,28 @@ fn parse_number(default_base: u32, word: &[Byte]) -> Option<Cell> {
     };
 
     let digits = word.split_at(if has_base_indicator { 1 } else { 0 }).1;
+    let double = *digits.last()? == b'.';
+    let digits = core::str::from_utf8(if double {
+        &digits[0..digits.len() - 1]
+    } else {
+        digits
+    })
+    .ok()?;
 
-    match Cell::from_str_radix(core::str::from_utf8(digits).unwrap(), base) {
-        Ok(x) => Some(x),
+    let parsed_number: Result<ParsedNumber, std::num::ParseIntError> = if double {
+        DoubleCell::from_str_radix(digits, base).map(ParsedNumber::Double)
+    } else {
+        Cell::from_str_radix(digits, base).map(ParsedNumber::Single)
+    };
+
+    match parsed_number {
         Err(e) => match e.kind() {
             std::num::IntErrorKind::PosOverflow | std::num::IntErrorKind::NegOverflow => {
                 panic!("number too long!")
             }
             _ => None,
         },
+        Ok(number) => Some(number),
     }
 }
 
@@ -1713,8 +1731,14 @@ impl<'a> Environment<'a> {
     }
 
     fn handle_token(&mut self, token: &[Byte]) -> Result<(), Exception> {
-        if let Some(number) = parse_number(self.base as u32, token) {
+        let parse_number_result = parse_number(self.base as u32, token);
+        if let Some(ParsedNumber::Single(number)) = parse_number_result {
             self.handle_number_token(number)
+        } else if let Some(ParsedNumber::Double(number)) = parse_number_result {
+            // TODO: Do this only after checking that `token` is not a defined word
+            let arr = double_cell_to_array(number);
+            self.handle_number_token(arr[0])?;
+            self.handle_number_token(arr[1])
         } else if let Some(float) = parse_float(token) {
             self.handle_float_token(float)
         } else {
