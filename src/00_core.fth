@@ -173,10 +173,10 @@
 
 : abort-with-message ( f c-addr u -- )
   rot
-  if
-    type -2 throw
-  else
+  0 = if
     2drop
+  else
+    type -2 throw
   then
 ;
 
