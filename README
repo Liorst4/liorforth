@@ -226,6 +226,13 @@ Implemented words:
 		 FLNP1
 		 FATAN2
 		 F~
+	Facility extentsion:
+		 BEGIN-STRUCTURE
+		 +field
+		 CFIELD:
+		 FIELD:
+		 FFIELD:
+		 END-STRUCTURE
 	Extra:
 		words
 		dump-row-size

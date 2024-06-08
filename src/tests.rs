@@ -735,4 +735,91 @@ test4
             assert_eq!(*expected, parse_float(word));
         }
     }
+
+    #[test]
+    fn test_structs() {
+        #[derive(Default)]
+        #[repr(C)]
+        struct TestStruct {
+            a: [Cell; 2],
+            b: [Cell; 5],
+            c: Byte,
+            d: Cell,
+            e: Float,
+        }
+        let mut x: TestStruct = Default::default();
+        let x_ptr: *mut TestStruct = &mut x;
+        let x_addr = x_ptr as Cell;
+
+        let test_struct_byte_count = std::mem::size_of::<TestStruct>();
+        let a_offset = std::mem::offset_of!(TestStruct, a);
+        let b_offset = std::mem::offset_of!(TestStruct, b);
+        let c_offset = std::mem::offset_of!(TestStruct, c);
+        let d_offset = std::mem::offset_of!(TestStruct, d);
+        let e_offset = std::mem::offset_of!(TestStruct, e);
+
+        let program = format!(
+            "
+constant x_addr
+
+begin-structure TestStruct
+  2 cells +field  TestStruct.a
+  5 cells +field  TestStruct.b
+          cfield: TestStruct.c
+          field:  TestStruct.d
+          ffield: TestStruct.e
+end-structure
+
+: assert-eq
+  over . dup . cr
+  = invert if
+    abort
+  then
+;
+
+TestStruct {test_struct_byte_count} assert-eq
+
+0 TestStruct.a {a_offset} assert-eq
+0 TestStruct.b {b_offset} assert-eq
+0 TestStruct.c {c_offset} assert-eq
+0 TestStruct.d {d_offset} assert-eq
+0 TestStruct.e {e_offset} assert-eq
+
+0 x_addr TestStruct.a !
+1 x_addr TestStruct.a 1 cells + !
+
+2 x_addr TestStruct.b !
+3 x_addr TestStruct.b 1 cells + !
+4 x_addr TestStruct.b 2 cells + !
+5 x_addr TestStruct.b 3 cells + !
+6 x_addr TestStruct.b 4 cells + !
+
+7 x_addr TestStruct.c c!
+
+8 x_addr TestStruct.d !
+
+9.1011e x_addr TestStruct.e f!
+"
+        );
+
+        default_fixed_sized_environment!(environment);
+
+        environment.data_stack.push(x_addr).unwrap();
+        for line in program.lines() {
+            environment.interpret_line(line.as_bytes()).unwrap();
+        }
+
+        assert!(environment.data_stack.is_empty());
+
+        assert_eq!(x.a[0], 0);
+        assert_eq!(x.a[1], 1);
+        assert_eq!(x.b[0], 2);
+        assert_eq!(x.b[1], 3);
+        assert_eq!(x.b[2], 4);
+        assert_eq!(x.b[3], 5);
+        assert_eq!(x.b[4], 6);
+        assert_eq!(x.c, 7);
+        assert_eq!(x.d, 8);
+        assert_eq!(x.e, 9.1011);
+    }
 }
