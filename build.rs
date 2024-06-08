@@ -12,27 +12,15 @@
 // You should have received a copy of the GNU General Public License along with
 // liorforth. If not, see <https://www.gnu.org/licenses/>.
 
-fn find_forth_runtime_sources() -> Vec<std::path::PathBuf> {
-    let project_root_directory = std::env::var_os("CARGO_MANIFEST_DIR").unwrap();
-    let project_root_directory = std::path::Path::new(&project_root_directory);
-
-    let mut forth_runtime_paths = vec![];
-    for entry in project_root_directory
-        .join("src")
-        .read_dir()
-        .unwrap()
-        .flatten()
-    {
-        let path = entry.path();
-        if path.extension().unwrap() == "fth" {
-            forth_runtime_paths.push(path);
-        }
-    }
-
-    forth_runtime_paths
+fn project_root_directory() -> std::path::PathBuf {
+    std::path::Path::new(&std::env::var_os("CARGO_MANIFEST_DIR").unwrap()).into()
 }
 
-fn forth_runtime_priority(path: &std::path::Path) -> usize {
+fn forth_sources_directory() -> std::path::PathBuf {
+    project_root_directory().join("fth")
+}
+
+fn forth_runtime_priority(path: &std::path::PathBuf) -> usize {
     path.file_name()
         .unwrap()
         .to_str()
@@ -57,14 +45,20 @@ fn concat_files(paths: &[std::path::PathBuf]) -> String {
 }
 
 fn main() {
-    // TODO: Re-run when new fth files are added to the project
+    println!(
+        "cargo:rerun-if-changed={}",
+        forth_sources_directory().to_str().unwrap()
+    );
 
-    let mut fth_files = find_forth_runtime_sources();
-    fth_files.sort_by_key(|a| forth_runtime_priority(a));
-
-    for path in &fth_files {
-        println!("cargo:rerun-if-changed={}", path.to_str().unwrap());
-    }
+    let mut fth_files: Vec<std::path::PathBuf> = forth_sources_directory()
+        .read_dir()
+        .unwrap()
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().unwrap() == "fth")
+        .collect();
+    fth_files.sort_by_key(forth_runtime_priority);
+    let fth_files = fth_files;
 
     let forth_runtime = concat_files(&fth_files);
 
