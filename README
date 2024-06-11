@@ -234,6 +234,10 @@ Implemented words:
 		 FFIELD:
 		 END-STRUCTURE
 		 MS
+	Double:
+		2CONSTANT
+		2VARIABLE
+		2LITERAL
 	Extra:
 		words
 		dump-row-size
