@@ -20,7 +20,7 @@ fn forth_sources_directory() -> std::path::PathBuf {
     project_root_directory().join("fth")
 }
 
-fn forth_runtime_priority(path: &std::path::PathBuf) -> usize {
+fn forth_runtime_priority(path: &std::path::Path) -> usize {
     path.file_name()
         .unwrap()
         .to_str()
@@ -57,7 +57,7 @@ fn main() {
         .map(|entry| entry.path())
         .filter(|path| path.extension().unwrap() == "fth")
         .collect();
-    fth_files.sort_by_key(forth_runtime_priority);
+    fth_files.sort_by_key(|path_buf| forth_runtime_priority(path_buf));
     let fth_files = fth_files;
 
     let forth_runtime = concat_files(&fth_files);
