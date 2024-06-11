@@ -1732,18 +1732,35 @@ impl<'a> Environment<'a> {
 
     fn handle_token(&mut self, token: &[Byte]) -> Result<(), Exception> {
         let parse_number_result = parse_number(self.base as u32, token);
+
         if let Some(ParsedNumber::Single(number)) = parse_number_result {
-            self.handle_number_token(number)
-        } else if let Some(ParsedNumber::Double(number)) = parse_number_result {
-            // TODO: Do this only after checking that `token` is not a defined word
+            return self.handle_number_token(number);
+        }
+
+        if let Some(float) = parse_float(token) {
+            return self.handle_float_token(float);
+        }
+
+        if let Ok(dict_entry) =
+            search_dictionary(&self.dictionary, &Name::from_ascii(token).unwrap())
+        {
+            if self.compile_mode() && !dict_entry.immediate {
+                let operation = ForthOperation::CallEntry(dict_entry);
+                self.latest_mut().body.push(operation);
+                return Ok(());
+            }
+
+            let next_word = &dict_entry.body;
+            return self.execute_word(next_word.first().unwrap());
+        }
+
+        if let Some(ParsedNumber::Double(number)) = parse_number_result {
             let arr = double_cell_to_array(number);
             self.handle_number_token(arr[0])?;
-            self.handle_number_token(arr[1])
-        } else if let Some(float) = parse_float(token) {
-            self.handle_float_token(float)
-        } else {
-            self.handle_text_token(token)
+            return self.handle_number_token(arr[1]);
         }
+
+        Err(Exception::UNDEFINED_WORD.into())
     }
 
     fn handle_number_token(&mut self, data: Cell) -> Result<(), Exception> {
@@ -1763,19 +1780,6 @@ impl<'a> Environment<'a> {
             Ok(())
         } else {
             self.floating_point_stack.push(float)
-        }
-    }
-
-    fn handle_text_token(&mut self, word_name: &[Byte]) -> Result<(), Exception> {
-        let dict_entry = search_dictionary(&self.dictionary, &Name::from_ascii(word_name)?)?;
-
-        if self.compile_mode() && !dict_entry.immediate {
-            let operation = ForthOperation::CallEntry(dict_entry);
-            self.latest_mut().body.push(operation);
-            Ok(())
-        } else {
-            let next_word = &dict_entry.body;
-            self.execute_word(next_word.first().unwrap())
         }
     }
 
