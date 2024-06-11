@@ -1884,9 +1884,9 @@ macro_rules! default_fixed_sized_environment {
     };
 }
 
-fn dump_stack<'a, T, const OVERFLOW_ERROR_CODE: Cell, const UNDERFLOW_ERROR_CODE: Cell>(
+fn dump_stack<T, const OVERFLOW_ERROR_CODE: Cell, const UNDERFLOW_ERROR_CODE: Cell>(
     name: &str,
-    s: &Stack<'a, T, OVERFLOW_ERROR_CODE, UNDERFLOW_ERROR_CODE>,
+    s: &Stack<T, OVERFLOW_ERROR_CODE, UNDERFLOW_ERROR_CODE>,
 ) where
     T: Copy + std::fmt::Debug,
 {
