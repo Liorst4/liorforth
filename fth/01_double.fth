@@ -25,3 +25,7 @@
 : 2literal ( x1 x2 -- )
   swap postpone literal postpone literal
 ; immediate
+
+: d0= ( d -- f )
+  0= swap 0= and
+;

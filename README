@@ -238,6 +238,7 @@ Implemented words:
 		2CONSTANT
 		2VARIABLE
 		2LITERAL
+		D0=
 	Extra:
 		words
 		dump-row-size
