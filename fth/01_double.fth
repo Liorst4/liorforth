@@ -26,6 +26,14 @@
   swap postpone literal postpone literal
 ; immediate
 
+: d= ( d d -- f )
+  >r swap >r
+  =
+  r> r>
+  =
+  and
+;
+
 : d0= ( d -- f )
-  0= swap 0= and
+  0. d=
 ;
