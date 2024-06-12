@@ -249,6 +249,8 @@ Implemented words:
 		DNEGATE
 		DABS
 		D>S
+		D.R
+		D.
 	Extra:
 		words
 		dump-row-size

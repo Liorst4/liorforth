@@ -1479,6 +1479,12 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
             .unwrap();
         env.data_stack.push(n)?;
     }),
+    declare_primitive!("d.r", env, {
+        let alignment = env.data_stack.pop()?;
+        let d = env.data_stack.pop_double_cell()?;
+        let string = env.format_number(d, alignment as usize);
+        print!("{}", string);
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));

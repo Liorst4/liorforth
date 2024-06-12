@@ -71,3 +71,7 @@
     dnegate
   then
 ;
+
+: d. ( d -- )
+  0 d.r
+;
