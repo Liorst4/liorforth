@@ -242,6 +242,8 @@ Implemented words:
 		D0=
 		D+
 		D-
+		D<
+		D0<
 	Extra:
 		words
 		dump-row-size
