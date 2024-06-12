@@ -1471,6 +1471,14 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let d2 = d1.wrapping_neg();
         env.data_stack.push_double_cell(d2)?;
     }),
+    declare_primitive!("d>s", env, {
+        let d = env.data_stack.pop_double_cell()?;
+        let n: Cell = d
+            .clamp(Cell::MIN as DoubleCell, Cell::MAX as DoubleCell)
+            .try_into()
+            .unwrap();
+        env.data_stack.push(n)?;
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));

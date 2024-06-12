@@ -248,6 +248,7 @@ Implemented words:
 		DMAX
 		DNEGATE
 		DABS
+		D>S
 	Extra:
 		words
 		dump-row-size
