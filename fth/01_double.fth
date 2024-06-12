@@ -41,3 +41,27 @@
 : d0< ( d -- f )
   0. d<
 ;
+
+: dmax ( d d -- d )
+  2dup >r >r
+  2swap 2dup >r >r
+  d< if
+    r> r>
+    r> r> 2drop
+  else
+    r> r> 2drop
+    r> r>
+  then
+;
+
+: dmin ( d d -- d )
+  2dup >r >r
+  2swap 2dup >r >r
+  d< if
+    r> r> 2drop
+    r> r>
+  else
+    r> r>
+    r> r> 2drop
+  then
+;

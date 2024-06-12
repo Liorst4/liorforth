@@ -244,6 +244,8 @@ Implemented words:
 		D-
 		D<
 		D0<
+		DMIN
+		DMAX
 	Extra:
 		words
 		dump-row-size
