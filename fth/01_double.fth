@@ -65,3 +65,9 @@
     r> r> 2drop
   then
 ;
+
+: dabs ( d -- d )
+  2dup d0< if
+    dnegate
+  then
+;

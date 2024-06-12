@@ -246,6 +246,8 @@ Implemented words:
 		D0<
 		DMIN
 		DMAX
+		DNEGATE
+		DABS
 	Extra:
 		words
 		dump-row-size

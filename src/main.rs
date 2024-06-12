@@ -1466,6 +1466,11 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let f: Flag = (d1 < d2).into();
         env.data_stack.push(f as Cell)?;
     }),
+    declare_primitive!("dnegate", env, {
+        let d1 = env.data_stack.pop_double_cell()?;
+        let d2 = d1.wrapping_neg();
+        env.data_stack.push_double_cell(d2)?;
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
