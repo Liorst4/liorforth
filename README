@@ -240,6 +240,8 @@ Implemented words:
 		2LITERAL
 		D=
 		D0=
+		D+
+		D-
 	Extra:
 		words
 		dump-row-size
