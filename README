@@ -251,6 +251,8 @@ Implemented words:
 		D>S
 		D.R
 		D.
+		D2*
+		D2/
 	Extra:
 		words
 		dump-row-size
