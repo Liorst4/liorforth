@@ -1493,6 +1493,12 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let d = env.data_stack.pop_double_cell()?;
         env.data_stack.push_double_cell(d >> 1)?;
     }),
+    declare_primitive!("m+", env, {
+        let n = env.data_stack.pop()?;
+        let d1 = env.data_stack.pop_double_cell()?;
+        let d2 = d1 + n as DoubleCell;
+        env.data_stack.push_double_cell(d2)?;
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));
