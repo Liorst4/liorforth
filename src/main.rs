@@ -1531,11 +1531,11 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
 
         // Convert `number` into a three digit number. Each digit is in Cell::MAX base.
         const BASE: DoubleUCell = Cell::MAX as DoubleUCell;
-        let mut triple_cell_number: [DoubleUCell; 3] = [0, 0, 0];
-        triple_cell_number[2] = number.rem_euclid(BASE);
-        triple_cell_number[1] = number.div_euclid(BASE);
-        triple_cell_number[0] = triple_cell_number[1].div_euclid(BASE);
-        triple_cell_number[1] = triple_cell_number[1].rem_euclid(BASE);
+        let triple_cell_number: [DoubleUCell; 3] = [
+            number.div_euclid(BASE).div_euclid(BASE),
+            number.div_euclid(BASE).rem_euclid(BASE),
+            number.rem_euclid(BASE),
+        ];
         debug_assert!(triple_cell_number[0] <= BASE);
         debug_assert!(triple_cell_number[1] <= BASE);
         debug_assert!(triple_cell_number[2] <= BASE);
