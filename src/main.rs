@@ -1536,9 +1536,9 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         triple_cell_number[1] = number.div_euclid(BASE);
         triple_cell_number[0] = triple_cell_number[1].div_euclid(BASE);
         triple_cell_number[1] = triple_cell_number[1].rem_euclid(BASE);
-        assert!(triple_cell_number[0] <= BASE);
-        assert!(triple_cell_number[1] <= BASE);
-        assert!(triple_cell_number[2] <= BASE);
+        debug_assert!(triple_cell_number[0] <= BASE);
+        debug_assert!(triple_cell_number[1] <= BASE);
+        debug_assert!(triple_cell_number[2] <= BASE);
         let number = triple_cell_number;
 
         // Multiply, by using the long multiplication algorithm
@@ -1561,9 +1561,9 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
 
         mul_result[0] += number[0];
         mul_result[0] *= multiplier;
-        assert!(mul_result[0] <= BASE);
-        assert!(mul_result[1] <= BASE);
-        assert!(mul_result[2] <= BASE);
+        debug_assert!(mul_result[0] <= BASE);
+        debug_assert!(mul_result[1] <= BASE);
+        debug_assert!(mul_result[2] <= BASE);
         let mul_result = mul_result;
 
         // Divide, by using the long division algorithm
@@ -1578,9 +1578,9 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         divided[2] += divided[1].rem_euclid(divisor) * BASE;
 
         div_result[2] = divided[2].div_euclid(divisor);
-        assert!(div_result[0] <= BASE);
-        assert!(div_result[1] <= BASE);
-        assert!(div_result[2] <= BASE);
+        debug_assert!(div_result[0] <= BASE);
+        debug_assert!(div_result[1] <= BASE);
+        debug_assert!(div_result[2] <= BASE);
         let div_result = div_result;
 
         // Lastly we convert the result back into a DoubleCell
