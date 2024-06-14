@@ -1499,6 +1499,104 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let d2 = d1 + n as DoubleCell;
         env.data_stack.push_double_cell(d2)?;
     }),
+    declare_primitive!("m*/", env, {
+        let divisor = env.data_stack.pop()?;
+        if divisor == 0 {
+            return Err(Exception::DIVISION_BY_ZERO.into());
+        }
+
+        if divisor < 0 {
+            panic!("negative divisor");
+        }
+
+        let multiplier = env.data_stack.pop()?;
+        let number = env.data_stack.pop_double_cell()?;
+
+        // Extract sign, and treat numbers as unsigned
+        let sign: DoubleCell =
+            (if number < 0 { -1 } else { 1 }) * (if multiplier < 0 { -1 } else { 1 });
+
+        let number: DoubleUCell = if number == DoubleCell::MIN {
+            DoubleCell::MAX as DoubleUCell + 1
+        } else {
+            number.abs().try_into().unwrap()
+        };
+
+        let multiplier: UCell = DoubleCell::try_from(multiplier)
+            .unwrap()
+            .abs()
+            .try_into()
+            .unwrap();
+        let divisor: UCell = divisor.try_into().unwrap();
+
+        // Convert `number` into a three digit number. Each digit is in Cell::MAX base.
+        const BASE: DoubleUCell = Cell::MAX as DoubleUCell;
+        let mut triple_cell_number: [DoubleUCell; 3] = [0, 0, 0];
+        triple_cell_number[2] = number.rem_euclid(BASE);
+        triple_cell_number[1] = number.div_euclid(BASE);
+        triple_cell_number[0] = triple_cell_number[1].div_euclid(BASE);
+        triple_cell_number[1] = triple_cell_number[1].rem_euclid(BASE);
+        assert!(triple_cell_number[0] <= BASE);
+        assert!(triple_cell_number[1] <= BASE);
+        assert!(triple_cell_number[2] <= BASE);
+        let number = triple_cell_number;
+
+        // Multiply, by using the long multiplication algorithm
+        let mut mul_result: [DoubleUCell; 3] = [0, 0, 0];
+        let multiplier: DoubleUCell = multiplier.try_into().unwrap();
+
+        mul_result[2] += number[2];
+        mul_result[2] *= multiplier;
+        if mul_result[2] >= BASE {
+            mul_result[1] += mul_result[2].div_euclid(BASE);
+            mul_result[2] = mul_result[2].rem_euclid(BASE);
+        }
+
+        mul_result[1] += number[1];
+        mul_result[1] *= multiplier;
+        if mul_result[1] >= BASE {
+            mul_result[0] += mul_result[1].div_euclid(BASE);
+            mul_result[1] = mul_result[1].rem_euclid(BASE);
+        }
+
+        mul_result[0] += number[0];
+        mul_result[0] *= multiplier;
+        assert!(mul_result[0] <= BASE);
+        assert!(mul_result[1] <= BASE);
+        assert!(mul_result[2] <= BASE);
+        let mul_result = mul_result;
+
+        // Divide, by using the long division algorithm
+        let mut divided: [DoubleUCell; 3] = mul_result;
+        let divisor: DoubleUCell = divisor.try_into().unwrap();
+        let mut div_result: [DoubleUCell; 3] = [0, 0, 0];
+
+        div_result[0] = divided[0].div_euclid(divisor);
+        divided[1] += divided[0].rem_euclid(divisor) * BASE;
+
+        div_result[1] = divided[1].div_euclid(divisor);
+        divided[2] += divided[1].rem_euclid(divisor) * BASE;
+
+        div_result[2] = divided[2].div_euclid(divisor);
+        assert!(div_result[0] <= BASE);
+        assert!(div_result[1] <= BASE);
+        assert!(div_result[2] <= BASE);
+        let div_result = div_result;
+
+        // Lastly we convert the result back into a DoubleCell
+        let unsigned_result =
+            (div_result[0] * BASE * BASE) + (div_result[1] * BASE) + (div_result[2]);
+
+        let result;
+        if unsigned_result == (DoubleCell::MAX as DoubleUCell + 1) {
+            assert_eq!(sign, -1);
+            result = DoubleCell::MIN;
+        } else {
+            result = DoubleCell::try_from(unsigned_result).unwrap() * sign;
+        }
+
+        env.data_stack.push_double_cell(result)?;
+    }),
 ];
 
 const FORTH_RUNTIME_INIT: &str = include_str!(concat!(env!("OUT_DIR"), "/runtime.fth"));

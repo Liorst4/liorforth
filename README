@@ -254,6 +254,7 @@ Implemented words:
 		D2*
 		D2/
 		M+
+		M*/ (experimental)
 	Extra:
 		words
 		dump-row-size

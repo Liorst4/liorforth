@@ -822,4 +822,47 @@ TestStruct {test_struct_byte_count} assert-eq
         assert_eq!(x.d, 8);
         assert_eq!(x.e, 9.1011);
     }
+
+    #[test]
+    fn test_triple_cell_arithmetic() {
+        const INPUT_AND_EXPECTED_OUTPUT: &[((DoubleCell, Cell, Cell), DoubleCell)] = &[
+            //
+            ((0, 0, 1), 0),
+            ((1, 0, 1), 0),
+            ((0, 1, 1), 0),
+            //
+            ((1, 1, 1), 1),
+            ((1, -1, 1), -1),
+            ((-1, 1, 1), -1),
+            ((-1, -1, 1), 1),
+            //
+            ((5, 7, 11), 3),
+            ((5, -7, 11), -3),
+            //
+            ((DoubleCell::MAX, 1, 1), DoubleCell::MAX),
+            ((DoubleCell::MIN, 1, 1), DoubleCell::MIN),
+            ((DoubleCell::MAX, 2, 2), (DoubleCell::MAX)),
+            ((DoubleCell::MIN, 2, 2), (DoubleCell::MIN)),
+            //
+            ((DoubleCell::MAX, 2, 4), (DoubleCell::MAX / 2)),
+            ((DoubleCell::MAX, 8, 16), (DoubleCell::MAX / 2)),
+            ((DoubleCell::MAX, -8, 16), -(DoubleCell::MAX / 2)),
+            //
+            ((DoubleCell::MAX, 10, 100), (DoubleCell::MAX / 10)),
+        ];
+
+        default_fixed_sized_environment!(environment);
+        for ((base, multiplier, divisor), expected_result) in INPUT_AND_EXPECTED_OUTPUT.to_owned() {
+            println!("===========");
+            println!("({base} * {multiplier} / {divisor}) -> {expected_result}");
+
+            environment.data_stack.push_double_cell(base).unwrap();
+            environment.data_stack.push(multiplier).unwrap();
+            environment.data_stack.push(divisor).unwrap();
+            environment.interpret_line(b"m*/").unwrap();
+            let result = environment.data_stack.pop_double_cell().unwrap();
+            assert!(environment.data_stack.is_empty());
+            assert_eq!(result, expected_result);
+        }
+    }
 }
