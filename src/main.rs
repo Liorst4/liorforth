@@ -1542,7 +1542,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let number = triple_cell_number;
 
         // Multiply, by using the long multiplication algorithm
-        let mut mul_result: [DoubleUCell; 3] = [0, 0, 0];
+        let mut mul_result: [DoubleUCell; 3] = Default::default();
         let multiplier: DoubleUCell = multiplier.try_into().unwrap();
 
         mul_result[2] = number[2] * multiplier;
@@ -1565,7 +1565,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         // Divide, by using the long division algorithm
         let mut divided: [DoubleUCell; 3] = mul_result;
         let divisor: DoubleUCell = divisor.try_into().unwrap();
-        let mut div_result: [DoubleUCell; 3] = [0, 0, 0];
+        let mut div_result: [DoubleUCell; 3] = Default::default();
 
         div_result[0] = divided[0].div_euclid(divisor);
         divided[1] += divided[0].rem_euclid(divisor) * BASE;
