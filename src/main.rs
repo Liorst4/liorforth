@@ -1545,22 +1545,18 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let mut mul_result: [DoubleUCell; 3] = [0, 0, 0];
         let multiplier: DoubleUCell = multiplier.try_into().unwrap();
 
-        mul_result[2] += number[2];
-        mul_result[2] *= multiplier;
-        if mul_result[2] >= BASE {
-            mul_result[1] += mul_result[2].div_euclid(BASE);
-            mul_result[2] = mul_result[2].rem_euclid(BASE);
-        }
+        mul_result[2] = number[2] * multiplier;
+        mul_result[1] = mul_result[2].div_euclid(BASE);
+        mul_result[2] = mul_result[2].rem_euclid(BASE);
 
         mul_result[1] += number[1];
         mul_result[1] *= multiplier;
-        if mul_result[1] >= BASE {
-            mul_result[0] += mul_result[1].div_euclid(BASE);
-            mul_result[1] = mul_result[1].rem_euclid(BASE);
-        }
+        mul_result[0] = mul_result[1].div_euclid(BASE);
+        mul_result[1] = mul_result[1].rem_euclid(BASE);
 
         mul_result[0] += number[0];
         mul_result[0] *= multiplier;
+
         debug_assert!(mul_result[0] <= BASE);
         debug_assert!(mul_result[1] <= BASE);
         debug_assert!(mul_result[2] <= BASE);
