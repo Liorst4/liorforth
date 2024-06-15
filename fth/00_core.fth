@@ -206,19 +206,6 @@
 : unloop cl> 2drop ;
 : loop 1 postpone literal postpone +loop ; immediate
 
-: fill ( c-addr u char -- )
-  over 0= if 2drop drop exit then
-  swap 0 do
-    \ c-addr char
-    over \ c-addr char c-addr
-    i +  \ c-addr char c-addr+i
-    over \ c-addr char c-addr+i char
-    swap \ c-addr char char c-addr+i
-    c!   \ c-addr char
-  loop
-  2drop
-;
-
 : abs ( n -- n )
   dup 0 < if
     negate
@@ -265,6 +252,15 @@
 \ the three commands r> dup and >r need to be
 \ inline-d inside the word that uses r@
 : r@ s" postpone r> postpone dup postpone >r " evaluate ; immediate
+
+: fill ( c-addr u char -- )
+  >r
+  0 do
+    r@ over i + c!
+  loop
+  r>
+  2drop
+;
 
 \ create a temporary counted string in "here"
 : tmp-counted ( addr n -- addr )
