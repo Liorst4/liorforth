@@ -155,6 +155,7 @@
 : [ false state ! ; immediate
 : ] true state ! ;
 
+: count ( addr -- addr c ) dup 1+ swap c@ ; \ See `CountedString` in main.rs
 : char bl word count drop c@ ;
 : [char] char postpone literal ; immediate
 

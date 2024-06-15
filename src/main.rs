@@ -950,16 +950,6 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let token_address: *const CountedString = token;
         env.data_stack.push(token_address as Cell)?;
     }),
-    declare_primitive!("count", env, {
-        let counted_string_address = env.data_stack.pop()?;
-        let counted_string: &CountedString =
-            unsafe { (counted_string_address as *const CountedString).as_ref() }.unwrap();
-        let address_of_first_character: *const Byte = counted_string.data.as_ptr();
-        let byte_count = counted_string.len;
-
-        env.data_stack.push(address_of_first_character as Cell)?;
-        env.data_stack.push(byte_count as Cell)?;
-    }),
     declare_primitive!("'", env, {
         let name = env.read_name_from_input_buffer()?;
         let entry = search_dictionary(&env.dictionary, &name)?;
