@@ -12,31 +12,40 @@
 \ You should have received a copy of the GNU General Public License along with
 \ liorforth. If not, see <https://www.gnu.org/licenses/>.
 
-variable dump-row-size
-$10 dump-row-size !
+variable dump::row-size
+$10 dump::row-size !
+
+: dump::emit-byte ( c -- )
+  dup $10 < if
+    [char] 0 emit
+  then
+  .
+;
+
+: dump::emit-prefix-on-row-start ( addr n+:current-byte-offset -- )
+  dup dump::row-size @ mod 0= if
+    + . space
+  else
+    drop drop
+  then
+;
+
+: dump::emit-newline-on-row-end ( n+:current-byte-offset -- )
+  dump::row-size @ mod dump::row-size @ 1- = if
+    cr
+  then
+;
+
 : dump ( addr u -- )
-  base @ rot rot
-  16 base !
+  base @ >r hex \ Temporarily set base to hex
+
   0 do
-    i dump-row-size @ mod 0= if
-      dup i + . space
-    then
-
-    dup i + c@
-    dup $10 < if
-      [char] 0 emit
-    then
-    .
-
-    i dump-row-size @ mod dump-row-size @ 1- = if
-      cr
-    then
-
+    dup i dump::emit-prefix-on-row-start
+    dup i + c@ dump::emit-byte
+    i dump::emit-newline-on-row-end
     loop
-
+  cr
   drop
 
-  base !
-
-  cr
+  r> base ! \ Restore base
 ;
