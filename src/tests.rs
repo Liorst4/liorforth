@@ -865,4 +865,73 @@ TestStruct {test_struct_byte_count} assert-eq
             assert_eq!(result, expected_result);
         }
     }
+
+    #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
+    #[test]
+    fn test_linux_x86_64_syscalls() {
+        let program = "
+
+\\ C-string
+s\" /dev/zero\" drop 0 c, constant dev-zero
+
+: open-dev-zero
+  dev-zero 0 511 SYS_open
+  dup -1 = if
+    1 throw
+  then
+;
+
+create arr
+100 allot
+
+: read-from-dev-zero
+  arr 100 $ff fill
+  arr 100 SYS_read
+  100 = invert if
+    2 throw
+  then
+
+  100 0 do
+    arr i + c@ 0 = invert if
+      arr 100 dump
+      3 throw
+    then
+  loop
+;
+
+: close-dev-zero
+  dup SYS_close
+  -1 = if
+    4 throw
+  then
+
+  ['] read-from-dev-zero catch 0 = if
+    5 throw
+  else
+    3 = invert if
+      6 throw
+    then
+  then
+;
+
+: test-read
+  open-dev-zero
+  dup read-from-dev-zero
+  close-dev-zero
+;
+
+: test
+  test-read
+;
+
+test
+";
+
+        default_fixed_sized_environment!(environment);
+        for line in program.lines() {
+            environment.interpret_line(line.as_bytes()).unwrap();
+        }
+
+        assert!(environment.data_stack.is_empty());
+    }
 }

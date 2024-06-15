@@ -36,6 +36,15 @@ fn concat_files(paths: &[std::path::PathBuf]) -> String {
     let mut result = String::new();
 
     for path in paths {
+        // TODO: Implement [IF] [ELSE] [THEN] ?
+        if (std::env::var_os("CARGO_CFG_TARGET_ARCH").unwrap() != "x86_64"
+            || std::env::var_os("CARGO_CFG_TARGET_OS").unwrap() != "linux")
+            && path.to_str().unwrap().contains("x86_64_linux")
+        {
+            println!("cargo::warning=skipping {}", path.to_str().unwrap());
+            continue;
+        }
+
         let content = std::fs::read(path).unwrap();
         let content = String::from_utf8(content).unwrap();
         result.push_str(&content);
