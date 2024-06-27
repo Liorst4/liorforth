@@ -2029,7 +2029,7 @@ impl<'a> Environment<'a> {
                 self.data_stack.pop()? as *const ForthOperation
             )),
             4 => Ok(ForthOperation::CallPrimitive(unsafe {
-                std::mem::transmute(self.data_stack.pop()?)
+                std::mem::transmute::<Cell, Primitive>(self.data_stack.pop()?)
             })),
             5 => Ok(ForthOperation::Return),
             6 => {
