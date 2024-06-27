@@ -803,6 +803,17 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.data_stack.push(a)?;
         env.data_stack.push(c)?;
     }),
+    declare_primitive!("roll", env, {
+        let u = env.data_stack.pop()? as UCell;
+        let amount_of_items_to_rotate = u + 1;
+        let depth = env.data_stack.len();
+        if depth < amount_of_items_to_rotate {
+            return Err(Exception::STACK_UNDERFLOW.into());
+        }
+
+        let items_to_rotate = &mut env.data_stack.data[depth - amount_of_items_to_rotate..depth];
+        items_to_rotate.rotate_left(1);
+    }),
     declare_primitive!("/mod", env, {
         let divisor = env.data_stack.pop()?;
         if divisor == 0 {
