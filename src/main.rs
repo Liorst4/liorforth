@@ -1584,13 +1584,12 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let unsigned_result =
             (div_result[0] * BASE * BASE) + (div_result[1] * BASE) + (div_result[2]);
 
-        let result;
-        if unsigned_result == (DoubleCell::MAX as DoubleUCell + 1) {
+        let result = if unsigned_result == (DoubleCell::MAX as DoubleUCell + 1) {
             assert_eq!(sign, -1);
-            result = DoubleCell::MIN;
+            DoubleCell::MIN
         } else {
-            result = DoubleCell::try_from(unsigned_result).unwrap() * sign;
-        }
+            DoubleCell::try_from(unsigned_result).unwrap() * sign
+        };
 
         env.data_stack.push_double_cell(result)?;
     }),
