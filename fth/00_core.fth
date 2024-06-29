@@ -125,7 +125,14 @@
 : 2swap rot >r rot >r r> r> ;
 : 2over >r >r 2dup r> r> 2swap ;
 : constant : postpone literal postpone ; ;
-: create here postpone constant ;
+: align ( -- )
+  here sizeof-cell mod dup 0= if
+    drop
+  else
+    sizeof-cell swap - allot
+  then
+;
+: create align here postpone constant ;
 : variable create 0 , ;
 : aligned
   dup sizeof-cell mod dup 0= if
@@ -238,14 +245,6 @@
 
 : */ ( n n n -- n )
   */mod nip
-;
-
-: align ( -- )
-  here sizeof-cell mod dup 0= if
-    drop
-  else
-    sizeof-cell swap - allot
-  then
 ;
 
 \ Since invoking words effects the stack itself,
