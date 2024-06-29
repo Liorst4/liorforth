@@ -170,6 +170,7 @@ Implemented words:
 		2R@
 		unused
 		roll
+		buffer:
 	Exception:
 		catch (work in progress)
 		throw (work in progress)
