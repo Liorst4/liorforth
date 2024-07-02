@@ -405,7 +405,7 @@ enum ForthOperation {
     CallPrimitive(Primitive),
 
     /// Pop the return stack, jump to the popped operation.
-    Return,
+    Next,
 
     /// Push the given floating number to the floating number stack
     PushFloat(Float),
@@ -439,7 +439,7 @@ impl std::fmt::Display for ForthOperation {
                 let primitive: usize = unsafe { std::mem::transmute(primitive) };
                 write!(f, "CALL-PRIMITIVE\t${:x}", primitive)
             }
-            ForthOperation::Return => write!(f, "RETURN"),
+            ForthOperation::Next => write!(f, "NEXT"),
             ForthOperation::Unresolved(x) => write!(f, "UNRESOLVED\t{:?}", x),
             ForthOperation::PushFloat(float) => write!(f, "PUSH-FLOAT\t{}", float),
         }
@@ -1067,7 +1067,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.data_stack.push(quotient)?;
     }),
     declare_immediate_primitive!(";", env, {
-        env.latest_mut().body.push(ForthOperation::Return);
+        env.latest_mut().body.push(ForthOperation::Next);
         env.currently_compiling = Flag::False as Cell;
     }),
     declare_primitive!("latest-push", env, {
@@ -1745,7 +1745,7 @@ impl<'a> Environment<'a> {
                 DictionaryEntry {
                     name: Name::from_ascii(static_entry.name.as_bytes()).unwrap(),
                     immediate: static_entry.immediate,
-                    body: vec![static_entry.body.clone(), ForthOperation::Return],
+                    body: vec![static_entry.body.clone(), ForthOperation::Next],
                 }
             }));
 
@@ -1935,7 +1935,7 @@ impl<'a> Environment<'a> {
                     }
                 }
                 ForthOperation::CallPrimitive(func) => func(self)?,
-                ForthOperation::Return => match self.return_stack.len() {
+                ForthOperation::Next => match self.return_stack.len() {
                     0 => {
                         // Nothing left to execute
                         return Ok(());
@@ -2010,7 +2010,7 @@ impl<'a> Environment<'a> {
             3 => Ok(ForthOperation::CallPrimitive(unsafe {
                 std::mem::transmute::<Cell, Primitive>(self.data_stack.pop()?)
             })),
-            4 => Ok(ForthOperation::Return),
+            4 => Ok(ForthOperation::Next),
             5 => {
                 let unresolved_kind: Result<UnresolvedOperation, Exception> =
                     match self.data_stack.pop()? {

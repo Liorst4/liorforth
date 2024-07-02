@@ -23,7 +23,7 @@
 : ForthOperation::CallEntry     ( -- n ) 1 ;
 : ForthOperation::BranchOnFalse ( -- n ) 2 ;
 : ForthOperation::CallPrimitive ( -- n ) 3 ;
-: ForthOperation::Return        ( -- n ) 4 ;
+: ForthOperation::Next          ( -- n ) 4 ;
 : ForthOperation::Unresolved    ( -- n ) 5 ; \ Use with UnresolvedOperation::*
 : ForthOperation::PushFloat     ( -- n ) 6 ;
 
@@ -32,7 +32,7 @@
 ; immediate
 
 : exit
-  ForthOperation::Return
+  ForthOperation::Next
   latest-push
 ; immediate
 
@@ -290,16 +290,16 @@ false constant FLOORED
 \ Use the part before the `does>` to `create` a new word
 \ Kind of like a constructor
 : does>
-  \ Crate an arbitrary jump by replacing the `Return` at the end of the latest word with:
+  \ Crate an arbitrary jump by replacing the `Next` at the end of the latest word with:
   \ * push data (address) instruction
   \ * call >r instruction
-  \ * Return instruction
+  \ * Next instruction
   \ The address pushed is what comes after `does>` in the calling word
   \ Moving this address from the return stack also prevents the environment from
   \ executing the rest of the calling word (the stuff after `does>`)
 
   r> ForthOperation::PushData latest-len 1 - latest!
   ['] >r ForthOperation::CallEntry latest-push
-  ForthOperation::Return latest-push
+  ForthOperation::Next latest-push
 ;
 

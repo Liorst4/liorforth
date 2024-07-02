@@ -292,7 +292,7 @@ Floating point words to implement:
 What's next:
        Some features I'll might implement in the future
 
-       Implement the `Return` opcode using a primitive.
+       Implement the `Next` opcode using a primitive.
 
        Move the dictionary to the data space.
        no_std for the core code. Use traits for a standard target.
