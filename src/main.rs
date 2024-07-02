@@ -1119,12 +1119,6 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.control_flow_stack
             .push(env.data_stack.pop()?.try_into().unwrap())?;
     }),
-    declare_immediate_primitive!("postpone", env, {
-        let name = env.read_name_from_input_buffer()?;
-        let entry = search_dictionary(&env.dictionary, &name)?; // TODO: Throw invalid postpone instead?
-        let operation = ForthOperation::CallEntry(entry);
-        env.latest_mut().body.push(operation);
-    }),
     declare_immediate_primitive!("(", env, {
         env.next_token(&[], b')');
     }),

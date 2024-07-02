@@ -28,6 +28,10 @@
 : ForthOperation::Unresolved    ( -- n ) 6 ; \ Use with UnresolvedOperation::*
 : ForthOperation::PushFloat     ( -- n ) 7 ;
 
+: postpone
+  ' ForthOperation::CallEntry latest-push
+; immediate
+
 : exit
   ForthOperation::Return
   latest-push
