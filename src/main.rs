@@ -28,6 +28,15 @@ enum Flag {
     True = !(Flag::False as Cell),
 }
 
+impl From<bool> for Flag {
+    fn from(b: bool) -> Self {
+        match b {
+            true => Flag::True,
+            false => Flag::False,
+        }
+    }
+}
+
 type Float = f32;
 
 const fn align_to_float(addr: usize) -> usize {
@@ -36,15 +45,6 @@ const fn align_to_float(addr: usize) -> usize {
     }
 
     addr + (std::mem::size_of::<Float>() - (addr % std::mem::size_of::<Float>()))
-}
-
-impl From<bool> for Flag {
-    fn from(b: bool) -> Self {
-        match b {
-            true => Flag::True,
-            false => Flag::False,
-        }
-    }
 }
 
 #[cfg(target_pointer_width = "64")]
