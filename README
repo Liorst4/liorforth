@@ -299,9 +299,6 @@ What's next:
        Move the dictionary to the data space.
        no_std for the core code. Use traits for a standard target.
 
-       Floating point word set
-       Exception word set
-
        Image system:
        	     Save and load the state of the current running program from disk.
 	     Textual image format, for version control!
