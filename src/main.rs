@@ -401,9 +401,6 @@ enum ForthOperation {
     /// Pop the data stack. Jump to the given offset if the popped value is `Flag::False`
     BranchOnFalse(isize),
 
-    /// Jump to the given operation
-    Branch(*const ForthOperation),
-
     /// Execute the given primitive function
     CallPrimitive(Primitive),
 
@@ -437,10 +434,6 @@ impl std::fmt::Display for ForthOperation {
                 let byte_offset = offset * (std::mem::size_of::<ForthOperation>() as isize);
                 let dest: usize = ((address as isize) + byte_offset) as usize;
                 write!(f, "BRANCH-ON-FALSE\t{}\t(${:x})", offset, dest)
-            }
-            ForthOperation::Branch(destination) => {
-                let destination_address = *destination as Cell;
-                write!(f, "BRANCH\t${:x}", destination_address)
             }
             ForthOperation::CallPrimitive(primitive) => {
                 let primitive: usize = unsafe { std::mem::transmute(primitive) };
@@ -1941,10 +1934,6 @@ impl<'a> Environment<'a> {
                         continue 'instruction_loop;
                     }
                 }
-                ForthOperation::Branch(destination) => {
-                    instruction_pointer = *destination;
-                    continue 'instruction_loop;
-                }
                 ForthOperation::CallPrimitive(func) => func(self)?,
                 ForthOperation::Return => match self.return_stack.len() {
                     0 => {
@@ -2018,14 +2007,11 @@ impl<'a> Environment<'a> {
                 self.data_stack.pop()? as *const DictionaryEntry
             )),
             2 => Ok(ForthOperation::BranchOnFalse(self.data_stack.pop()?)),
-            3 => Ok(ForthOperation::Branch(
-                self.data_stack.pop()? as *const ForthOperation
-            )),
-            4 => Ok(ForthOperation::CallPrimitive(unsafe {
+            3 => Ok(ForthOperation::CallPrimitive(unsafe {
                 std::mem::transmute::<Cell, Primitive>(self.data_stack.pop()?)
             })),
-            5 => Ok(ForthOperation::Return),
-            6 => {
+            4 => Ok(ForthOperation::Return),
+            5 => {
                 let unresolved_kind: Result<UnresolvedOperation, Exception> =
                     match self.data_stack.pop()? {
                         0 => Ok(UnresolvedOperation::If),
@@ -2037,7 +2023,7 @@ impl<'a> Environment<'a> {
 
                 Ok(ForthOperation::Unresolved(unresolved_kind?))
             }
-            7 => Ok(ForthOperation::PushFloat(self.floating_point_stack.pop()?)),
+            6 => Ok(ForthOperation::PushFloat(self.floating_point_stack.pop()?)),
             _ => Err(Exception::INVALID_FORTH_OPERATION_KIND.into()),
         }
     }

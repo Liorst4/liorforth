@@ -293,8 +293,6 @@ What's next:
        Some features I'll might implement in the future
 
        Implement the `Return` opcode using a primitive.
-       Merge the `BranchOnFalse` and `Branch` opcodes.
-       Implement the `Branch` opcode using a primitive.
 
        Move the dictionary to the data space.
        no_std for the core code. Use traits for a standard target.
