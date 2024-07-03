@@ -1069,6 +1069,30 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_immediate_primitive!(";", env, {
         env.latest_mut().body.push(ForthOperation::Next);
         env.currently_compiling = Flag::False as Cell;
+
+        debug_assert!(
+            !env.latest()
+                .body
+                .iter()
+                .any(|op| matches!(op, ForthOperation::Unresolved(_))),
+            "Found an unresolved operation in a compiled word. {}",
+            env.latest()
+        );
+
+        debug_assert!(
+            !env.latest()
+                .body
+                .iter()
+                .enumerate()
+                .any(|(index, op)| match op {
+                    ForthOperation::BranchOnFalse(offset) => {
+                        let dest = (index as Cell) + *offset;
+                        dest < 0 || (dest >= env.latest().body.len() as Cell)
+                    }
+                    _ => false,
+                }),
+            "Found a relative out of bound jump"
+        );
     }),
     declare_primitive!("latest-push", env, {
         let op = env.pop_forth_operation()?;
