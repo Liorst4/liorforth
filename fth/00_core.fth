@@ -41,30 +41,35 @@
   latest-push
 ; immediate
 
-: if
+: if ( -- n )
   UnresolvedOperation::If ForthOperation::Unresolved
-  postpone latest-push
+  latest-push
+
+  \ Save the offset of the unresolved operation on stack
+  latest-len 1 -
 ; immediate
 
-: then
-  latest-last-unres-if-or-else
-  dup >r
-  latest-len swap - ForthOperation::BranchOnFalse
-  r> latest!
+: then ( n -- )
+  latest-len over - ForthOperation::BranchOnFalse
+  rot latest!
 ; immediate
 
-: else
-  latest-last-unres-if-or-else
-
+: else ( n -- n )
   \ Append unresolved else
-  false postpone literal
+  false postpone literal \ The following unresolved else will be replaced with a
+                         \ "BranchOnFalse", adding a false to make it an
+                         \ "unconditional" jump
   UnresolvedOperation::Else ForthOperation::Unresolved
   latest-push
 
-  \ Edit unresolved if/else
-  dup >r
-  latest-len swap - ForthOperation::BranchOnFalse
-  r> latest!
+  \ Save offset of unresolved else
+  latest-len 1 - >r
+
+  \ Edit previous unresolved if/else
+  latest-len over - ForthOperation::BranchOnFalse
+  rot latest!
+
+  r> \ Move offset of unresolved else to data stack
 ; immediate
 
 : begin latest-len >cf ; immediate

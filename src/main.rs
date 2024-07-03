@@ -1107,18 +1107,6 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let op = env.pop_forth_operation()?;
         *env.latest_mut().body.get_mut(index).unwrap() = op;
     }),
-    declare_primitive!("latest-last-unres-if-or-else", env, {
-        let unresolved_if_branch_index = env
-            .reverse_find_in_latest(|item| {
-                matches!(
-                    item,
-                    ForthOperation::Unresolved(UnresolvedOperation::If | UnresolvedOperation::Else)
-                )
-            })
-            .unwrap();
-        env.data_stack
-            .push(unresolved_if_branch_index as UCell as Cell)?;
-    }),
     declare_primitive!("latest-last-unres-while", env, {
         let unresolved_if_branch_index = env
             .reverse_find_in_latest(|item| {

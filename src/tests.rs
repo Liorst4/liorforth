@@ -256,6 +256,57 @@ mod tests {
     }
 
     #[test]
+    fn test_if_and_else() {
+        let program = "
+: even? 2 mod 0 = ;
+see even?
+
+: x
+  even? if
+    5
+  then
+;
+see x
+: test-if
+       depth     abort\" Stack is not empty!\"
+  5 x  depth     abort\" 1 failed!\"
+  10 x 5 -       abort\" 2 failed!\"
+  7 x  depth     abort\" 3 failed!\"
+  2 x  5 -       abort\" 4 failed!\"
+;
+see test-if
+
+: y
+  even? if
+    5
+  else
+    100
+  then
+;
+see y
+: test-if-else
+  5 y   100 - abort\" 5 failed!\"
+  10 y  5 -   abort\" 6 failed!\"
+  7 y   100 - abort\" 7 failed!\"
+  200 y 5 -   abort\" 8 failed!\"
+;
+see test-if-else
+
+: test
+  test-if
+  test-if-else
+;
+see test
+
+test
+";
+        default_fixed_sized_environment!(environment);
+        for line in program.lines() {
+            environment.interpret_line(line.as_bytes()).unwrap();
+        }
+    }
+
+    #[test]
     fn test_do_loop() {
         let code_result_map: Vec<(&str, Vec<Cell>)> = vec![
             (
