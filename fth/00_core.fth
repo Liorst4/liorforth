@@ -109,13 +109,6 @@
   \ to get a better understanding on what is going on here
 ; immediate
 
-: leave
-  s" postpone unloop" evaluate
-  false postpone literal
-  UnresolvedOperation::Leave ForthOperation::Unresolved
-  latest-push
-; immediate
-
 : 1+ 1 + ;
 : 1- 1 - ;
 : 0< 0 < ;
@@ -223,6 +216,14 @@
 : i ( -- n ) cl> 2dup >cl drop ;
 : j ( -- n ) cl> cl> over >r >cl >cl r> ;
 : unloop cl> 2drop ;
+
+: leave
+  s" postpone unloop" evaluate
+  false postpone literal
+  UnresolvedOperation::Leave ForthOperation::Unresolved
+  latest-push
+; immediate
+
 : loop 1 postpone literal postpone +loop ; immediate
 
 : abs ( n -- n )
