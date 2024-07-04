@@ -1107,15 +1107,6 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let op = env.pop_forth_operation()?;
         *env.latest_mut().body.get_mut(index).unwrap() = op;
     }),
-    declare_primitive!("latest-last-unres-while", env, {
-        let unresolved_if_branch_index = env
-            .reverse_find_in_latest(|item| {
-                matches!(item, ForthOperation::Unresolved(UnresolvedOperation::While))
-            })
-            .unwrap();
-        env.data_stack
-            .push(unresolved_if_branch_index as UCell as Cell)?;
-    }),
     declare_primitive!("cf>", env, {
         env.data_stack
             .push(env.control_flow_stack.pop()?.try_into().unwrap())?;
@@ -1991,19 +1982,6 @@ impl<'a> Environment<'a> {
 
     fn print_number<T: std::fmt::Binary + std::fmt::LowerHex + std::fmt::Display>(&self, n: T) {
         print!("{} ", self.format_number(n, 0));
-    }
-
-    fn reverse_find_in_latest<F>(&self, test: F) -> Option<usize>
-    where
-        F: Fn(&ForthOperation) -> bool,
-    {
-        self.latest()
-            .body
-            .iter()
-            .enumerate()
-            .rev()
-            .find(|(_, operation)| test(operation))
-            .map(|(index, _)| index)
     }
 
     fn read_name_from_input_buffer(&mut self) -> Result<Name, Exception> {

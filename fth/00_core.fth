@@ -82,6 +82,10 @@
 : while
   UnresolvedOperation::While ForthOperation::Unresolved
   latest-push
+  cf>
+  latest-len 1 -
+  >cf
+  >cf
 ; immediate
 
 : repeat
@@ -93,7 +97,7 @@
 
   \ Add a jump to after the previously added jump in the place of
   \ the last unresolved "while"
-  latest-len latest-last-unres-while
+  latest-len cf>
   dup >r
   -
   ForthOperation::BranchOnFalse
