@@ -687,61 +687,6 @@ macro_rules! declare_immediate_primitive {
     };
 }
 
-macro_rules! get_primitive {
-    ($name:literal) => {
-        {
-            const fn const_compare_bytes(
-		a: &'static [Byte],
-		b: &'static [Byte]
-	    ) -> bool {
-                if a.len() != b.len() {
-                    return false;
-                }
-
-                if a.is_empty() {
-                    return true;
-                }
-
-		if let (
-		    Some((a_first, a_rest)),
-		    Some((b_first, b_rest))
-		) = (a.split_first(), b.split_first()) {
-                    if *a_first != *b_first {
-                        return false;
-                    }
-
-                    return const_compare_bytes(a_rest, b_rest);
-		}
-
-                false
-            }
-
-            const fn get_primitive_inner(
-		name: &'static str,
-		dictionary: &'static [StaticDictionaryEntry]
-	    ) -> Primitive {
-                if let Some((first, rest)) = dictionary.split_first() {
-                    if const_compare_bytes(
-			first.name.as_bytes(),
-			name.as_bytes()
-		    ) {
-                        return match first.body  {
-                            ForthOperation::CallPrimitive(p) => p,
-                            _ => panic!("Given static dictionary item name isn't associated with a primitive"),
-                        };
-                    }
-
-                    return get_primitive_inner(name, rest);
-                }
-                panic!("Given name not found in static dictionary");
-            }
-
-            const ENTRY: Primitive = get_primitive_inner($name, STATIC_DICTIONARY);
-	    ENTRY
-        }
-    };
-}
-
 const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_constant!("true", Flag::True),
     declare_constant!("false", Flag::False),
@@ -1153,44 +1098,18 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.counted_loop_stack
             .push(env.data_stack.pop_double_cell().unwrap().into())?;
     }),
-    declare_immediate_primitive!("+loop", env, {
-        if env.compile_mode() {
-            // Append the `else` section of this implementation
-            env.latest_mut()
-                .body
-                .push(ForthOperation::CallPrimitive(get_primitive!("+loop")));
+    declare_primitive!("+loop:resolve-leaves", env, {
+        let loop_start_index = env.control_flow_stack.pop()?;
+        let after_loop_index = env.latest().body.len();
 
-            let loop_start_index = env.control_flow_stack.pop()?;
-            let loop_operation_count = env.latest_mut().body.len() - loop_start_index;
-
-            // Append the jump back to the beginning of the do loop
-            env.latest_mut().body.push(ForthOperation::BranchOnFalse(
-                -(Cell::try_from(loop_operation_count).unwrap()),
-            ));
-
-            // Resolve all the `UnresolvedOperation::Leave` in the do loop
-            let after_loop_index = env.latest().body.len();
-            for index in loop_start_index..env.latest().body.len() {
-                let item = env.latest_mut().body.get_mut(index).unwrap();
-                if let ForthOperation::Unresolved(UnresolvedOperation::Leave) = item {
-                    let amount_to_advance_to_exit_the_loop = after_loop_index - index;
-                    *item = ForthOperation::BranchOnFalse(
-                        isize::try_from(amount_to_advance_to_exit_the_loop).unwrap(),
-                    );
-                }
+        for index in loop_start_index..env.latest().body.len() {
+            let item = env.latest_mut().body.get_mut(index).unwrap();
+            if let ForthOperation::Unresolved(UnresolvedOperation::Leave) = item {
+                let amount_to_advance_to_exit_the_loop = after_loop_index - index;
+                *item = ForthOperation::BranchOnFalse(
+                    isize::try_from(amount_to_advance_to_exit_the_loop).unwrap(),
+                );
             }
-        } else {
-            let mut loop_state = env.counted_loop_stack.pop()?;
-            let addition = env.data_stack.pop()?;
-            loop_state.loop_counter += addition;
-            if loop_state.loop_counter >= loop_state.limit {
-                env.data_stack.push(Flag::True as Cell)?; // Jump back to the start of the do loop
-            } else {
-                env.counted_loop_stack.push(loop_state)?;
-                env.data_stack.push(Flag::False as Cell)?; // Loop is done, continue
-            }
-
-            // The next instruction is BranchOnFalse
         }
     }),
     #[cfg(all(target_arch = "x86_64", target_os = "linux"))]

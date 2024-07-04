@@ -224,6 +224,45 @@
   latest-push
 ; immediate
 
+
+\ TODO
+\ : +loop:resolve-leaves ( cf: n:do-start -- )
+\ ;
+
+: +loop:push-branch-to-start ( cf: n:do-start -- n:do-start )
+  cf> dup >cf latest-len - ForthOperation::BranchOnFalse latest-push
+;
+
+: +loop:over? ( -- f:loop-done )
+              ( cl: d:state -- d:state )
+  cl> 2dup >cl
+  < invert
+;
+
+: +loop:update ( n:addition -- )
+               ( cl: d:state -- d:new-state )
+  cl> >r + r> >cl
+;
+
+: +loop:discard-state ( cl: d:state -- )
+  cl> 2drop
+;
+
+: +loop:update-and-check-if-done ( n:addition -- f:loop-done )
+                                 ( cl: d:state -- )
+  +loop:update
+  +loop:over? dup if
+    +loop:discard-state
+  then
+;
+
+
+: +loop
+  s" postpone +loop:update-and-check-if-done" evaluate
+  +loop:push-branch-to-start
+  +loop:resolve-leaves
+; immediate
+
 : loop 1 postpone literal postpone +loop ; immediate
 
 : abs ( n -- n )
