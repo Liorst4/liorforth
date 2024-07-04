@@ -214,11 +214,25 @@
   latest-len >cf
 ; immediate
 
-: i ( -- n ) cl> 2dup >cl drop ;
-: j ( -- n ) cl> cl> over >r >cl >cl r> ;
-: unloop cl> 2drop ;
+: i ( -- n:iteration-index )
+    ( cl: d:state -- d:state )
+  cl> 2dup >cl
+  drop
+;
 
-: leave
+: j ( -- n:iteration-index )
+    ( cl d:outer-loop-state d:inner-loop-state -- d:outer-loop-state d:inner-loop-state )
+  cl> cl>
+  over >r
+  >cl >cl
+  r>
+;
+
+: unloop ( cl: d:state -- )
+  cl> 2drop
+;
+
+: leave ( -- )
   s" postpone unloop" evaluate
   false postpone literal
   UnresolvedOperation::Leave ForthOperation::Unresolved
