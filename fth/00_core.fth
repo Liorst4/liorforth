@@ -204,13 +204,14 @@
   drop
 ;
 
-: do ( n n -- )
-  state @ if
-    s" postpone do" evaluate
-    latest-len >cf
-  else
-    swap >cl
-  then
+: do:start ( n:limit n:start-index -- )
+           ( cl: -- d:starting-state )
+  swap >cl
+;
+
+: do ( cf: -- u:offset-of-the-loop-in-the-body )
+  s" postpone do:start" evaluate
+  latest-len >cf
 ; immediate
 
 : i ( -- n ) cl> 2dup >cl drop ;
