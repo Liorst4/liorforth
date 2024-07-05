@@ -1098,20 +1098,6 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.counted_loop_stack
             .push(env.data_stack.pop_double_cell().unwrap().into())?;
     }),
-    declare_primitive!("+loop:resolve-leaves", env, {
-        let loop_start_index = env.control_flow_stack.pop()?;
-        let after_loop_index = env.latest().body.len();
-
-        for index in loop_start_index..env.latest().body.len() {
-            let item = env.latest_mut().body.get_mut(index).unwrap();
-            if let ForthOperation::Unresolved(UnresolvedOperation::Leave) = item {
-                let amount_to_advance_to_exit_the_loop = after_loop_index - index;
-                *item = ForthOperation::BranchOnFalse(
-                    isize::try_from(amount_to_advance_to_exit_the_loop).unwrap(),
-                );
-            }
-        }
-    }),
     #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
     declare_primitive!("syscall", env, {
         let arg6: u64 = env.data_stack.pop()? as u64;

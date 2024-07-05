@@ -209,8 +209,9 @@
   swap >cl
 ;
 
-: do ( cf: -- u:offset-of-the-loop-in-the-body )
+: do ( cf: -- u:amount-of-leave-instructions u:offset-of-the-loop-in-the-body )
   s" postpone do:start" evaluate
+  0 >cf
   latest-len >cf
 ; immediate
 
@@ -232,20 +233,40 @@
   cl> 2drop
 ;
 
-: leave ( -- )
+: leave ( cf: u:x*y u:y u:z -- u:x*[y+1] u:[y+1] u:z )
+        \ x - offset of leave instruction
+        \ y - amount of leave instructions
+        \ z - offset of do loop
   s" postpone unloop" evaluate
   false postpone literal
   UnresolvedOperation::Leave ForthOperation::Unresolved
   latest-push
+  cf> >r
+  cf> 1 + >r
+  latest-len 1 - >cf
+  r> >cf
+  r> >cf
 ; immediate
 
 
-\ TODO
-\ : +loop:resolve-leaves ( cf: n:do-start -- )
-\ ;
+: +loop:resolve-leaves ( cf: u:x*y u:y -- )
+                       \ x - offset of leave instruction
+                       \ y - amount of leave instructions
+  \ Iterate over all "leave" instances
+  cf> begin
+    dup 0 > while
+    1 -
+
+    \ Write a jump to the end of the loop
+    cf>
+    dup latest-len swap - ForthOperation::BranchOnFalse
+    rot latest!
+
+  repeat drop
+;
 
 : +loop:push-branch-to-start ( cf: n:do-start -- n:do-start )
-  cf> dup >cf latest-len - ForthOperation::BranchOnFalse latest-push
+  cf> latest-len - ForthOperation::BranchOnFalse latest-push
 ;
 
 : +loop:over? ( -- f:loop-done )
