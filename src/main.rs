@@ -379,15 +379,6 @@ impl CountedString {
 /// Native code to execute from the forth environment
 type Primitive = fn(&mut Environment) -> Result<(), Exception>;
 
-/// Used when compiling conditionals and loops
-#[derive(Clone, Debug, PartialEq)]
-enum UnresolvedOperation {
-    If,
-    Else,
-    While,
-    Leave,
-}
-
 /// Instructions for the interpreter
 #[derive(Clone, PartialEq)]
 enum ForthOperation {
@@ -409,9 +400,6 @@ enum ForthOperation {
 
     /// Push the given floating number to the floating number stack
     PushFloat(Float),
-
-    /// Used when compiling conditionals and loops
-    Unresolved(UnresolvedOperation),
 }
 
 impl std::fmt::Display for ForthOperation {
@@ -440,7 +428,6 @@ impl std::fmt::Display for ForthOperation {
                 write!(f, "CALL-PRIMITIVE\t${:x}", primitive)
             }
             ForthOperation::Next => write!(f, "NEXT"),
-            ForthOperation::Unresolved(x) => write!(f, "UNRESOLVED\t{:?}", x),
             ForthOperation::PushFloat(float) => write!(f, "PUSH-FLOAT\t{}", float),
         }
     }
@@ -1014,15 +1001,6 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_immediate_primitive!(";", env, {
         env.latest_mut().body.push(ForthOperation::Next);
         env.currently_compiling = Flag::False as Cell;
-
-        debug_assert!(
-            !env.latest()
-                .body
-                .iter()
-                .any(|op| matches!(op, ForthOperation::Unresolved(_))),
-            "Found an unresolved operation in a compiled word. {}",
-            env.latest()
-        );
 
         debug_assert!(
             !env.latest()
@@ -1853,9 +1831,6 @@ impl<'a> Environment<'a> {
                         continue 'instruction_loop;
                     }
                 },
-                ForthOperation::Unresolved(_) => {
-                    panic!("Unresolved branch!")
-                }
                 ForthOperation::PushFloat(f) => self.floating_point_stack.push(*f)?,
             }
 
@@ -1906,19 +1881,7 @@ impl<'a> Environment<'a> {
                 std::mem::transmute::<Cell, Primitive>(self.data_stack.pop()?)
             })),
             4 => Ok(ForthOperation::Next),
-            5 => {
-                let unresolved_kind: Result<UnresolvedOperation, Exception> =
-                    match self.data_stack.pop()? {
-                        0 => Ok(UnresolvedOperation::If),
-                        1 => Ok(UnresolvedOperation::Else),
-                        2 => Ok(UnresolvedOperation::While),
-                        3 => Ok(UnresolvedOperation::Leave),
-                        _ => Err(Exception::INVALID_UNRESOLVED_FORTH_OPERATION_KIND.into()),
-                    };
-
-                Ok(ForthOperation::Unresolved(unresolved_kind?))
-            }
-            6 => Ok(ForthOperation::PushFloat(self.floating_point_stack.pop()?)),
+            5 => Ok(ForthOperation::PushFloat(self.floating_point_stack.pop()?)),
             _ => Err(Exception::INVALID_FORTH_OPERATION_KIND.into()),
         }
     }

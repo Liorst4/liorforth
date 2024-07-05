@@ -13,19 +13,12 @@
 \ liorforth. If not, see <https://www.gnu.org/licenses/>.
 
 \ See pop_forth_operation in main.rs
-: UnresolvedOperation::If    ( -- n ) 0 ;
-: UnresolvedOperation::Else  ( -- n ) 1 ;
-: UnresolvedOperation::While ( -- n ) 2 ;
-: UnresolvedOperation::Leave ( -- n ) 3 ;
-
-\ See pop_forth_operation in main.rs
 : ForthOperation::PushData      ( -- n ) 0 ;
 : ForthOperation::CallEntry     ( -- n ) 1 ;
 : ForthOperation::BranchOnFalse ( -- n ) 2 ;
 : ForthOperation::CallPrimitive ( -- n ) 3 ;
 : ForthOperation::Next          ( -- n ) 4 ;
-: ForthOperation::Unresolved    ( -- n ) 5 ; \ Use with UnresolvedOperation::*
-: ForthOperation::PushFloat     ( -- n ) 6 ;
+: ForthOperation::PushFloat     ( -- n ) 5 ;
 
 : postpone
   ' ForthOperation::CallEntry latest-push
@@ -41,9 +34,10 @@
   latest-push
 ; immediate
 
+: unresolved-if -1 throw ;
+
 : if ( -- n )
-  UnresolvedOperation::If ForthOperation::Unresolved
-  latest-push
+  s" postpone unresolved-if" evaluate
 
   \ Save the offset of the unresolved operation on stack
   latest-len 1 -
@@ -54,13 +48,14 @@
   rot latest!
 ; immediate
 
+: unresolved-else -1 throw ;
+
 : else ( n -- n )
   \ Append unresolved else
   false postpone literal \ The following unresolved else will be replaced with a
                          \ "BranchOnFalse", adding a false to make it an
                          \ "unconditional" jump
-  UnresolvedOperation::Else ForthOperation::Unresolved
-  latest-push
+  s" postpone unresolved-else" evaluate
 
   \ Save offset of unresolved else
   latest-len 1 - >r
@@ -79,9 +74,10 @@
   latest-push
 ; immediate
 
+: unresolved-while  -1 throw ;
+
 : while
-  UnresolvedOperation::While ForthOperation::Unresolved
-  latest-push
+  s" postpone unresolved-while" evaluate
   cf>
   latest-len 1 -
   >cf
@@ -233,14 +229,15 @@
   cl> 2drop
 ;
 
+: unresolved-leave -1 throw ;
+
 : leave ( cf: u:x*y u:y u:z -- u:x*[y+1] u:[y+1] u:z )
         \ x - offset of leave instruction
         \ y - amount of leave instructions
         \ z - offset of do loop
   s" postpone unloop" evaluate
   false postpone literal
-  UnresolvedOperation::Leave ForthOperation::Unresolved
-  latest-push
+  s" postpone unresolved-leave" evaluate
   cf> >r
   cf> 1 + >r
   latest-len 1 - >cf
