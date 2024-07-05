@@ -363,6 +363,101 @@ test-j
                     0, 2, 1, 2, 2, 2, 3, 2, 4, 2, //
                 ],
             ),
+            (
+                "
+: test-immediate-leave
+  10 0 do
+       i
+       leave
+  loop
+  1
+  2
+  3
+;
+see test-immediate-leave
+test-immediate-leave
+",
+                vec![0, 1, 2, 3],
+            ),
+            (
+                "
+: test-nested-immediate-leave
+  3 0 do
+    5 0 do
+      i
+      leave
+    loop
+    i
+    leave
+  loop
+;
+
+see test-nested-immediate-leave
+test-nested-immediate-leave
+",
+                vec![0, 0],
+            ),
+            (
+                "
+: test-leave-in-nested
+  10 0 do
+    5 0 do
+      i j
+      2dup + 5 > if
+        2drop
+        leave
+      then
+      i . j . cr
+    loop
+    555 dup . cr
+  loop
+;
+
+see test-leave-in-nested
+test-leave-in-nested
+",
+                vec![
+                    //
+                    0, 0, //
+                    1, 0, //
+                    2, 0, //
+                    3, 0, //
+                    4, 0,   //
+                    555, //
+                    //
+                    //
+                    0, 1, //
+                    1, 1, //
+                    2, 1, //
+                    3, 1, //
+                    4, 1,   //
+                    555, //
+                    //
+                    //
+                    0, 2, //
+                    1, 2, //
+                    2, 2, //
+                    3, 2,   //
+                    555, //
+                    //
+                    //
+                    0, 3, //
+                    1, 3, //
+                    2, 3,   //
+                    555, //
+                    //
+                    //
+                    0, 4, //
+                    1, 4,   //
+                    555, //
+                    //
+                    0, 5,   //
+                    555, //
+                    //
+                    //
+                    555, 555, 555, 555,
+                ],
+            ),
         ];
         test_stack_effects(code_result_map.as_slice());
     }
