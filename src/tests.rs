@@ -87,7 +87,7 @@ mod tests {
 
         #[test]
         fn empty_stack_backup() {
-            let mut stack_buffer: [Cell; 0] = [];
+            let mut stack_buffer: [Cell; 10] = Default::default();
             let mut stack: Stack<Cell> = Stack::new(&mut stack_buffer);
 
             let x = stack.backup();

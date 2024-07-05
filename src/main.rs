@@ -293,25 +293,15 @@ where
         self.head == 0
     }
 
-    #[allow(unused)]
     fn as_slice(&self) -> &[T] {
         &self.data[0..self.head]
     }
 
     fn backup(&self) -> Vec<T> {
-        if self.head == 0 {
-            return vec![];
-        }
-
-        self.data[0..self.head].to_owned()
+        self.as_slice().to_owned()
     }
 
     fn restore(&mut self, backup: &[T]) {
-        if backup.is_empty() {
-            self.head = 0;
-            return;
-        }
-
         self.head = backup.len();
         self.data[0..self.head].copy_from_slice(backup);
     }
