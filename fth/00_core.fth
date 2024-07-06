@@ -45,12 +45,10 @@
 \ Offset can be a negative number as well
 : branch-relative? ( f:condition n:op-offset -- )
                    ( r: addr:return-address -- addr:return-address-plus-offset|return-address )
-  sizeof-forth-operation * \ f:condition n:byte-offset
-  r> dup                   \ f:condition n:byte-offset addr:return-address addr:return-address
-  >r + r>                  \ f:condition addr:return-address+bytes-offset addr:return-address
-  swap                     \ f:condition addr:return-address addr:return-address+bytes-offset
-  rot                      \ addr:return-address addr:return-address+bytes-offset f:condition
-  select >r
+  0 swap
+  sizeof-forth-operation *
+  rot select
+  r> + >r
 ;
 
 : unresolved-if -1 throw ;
