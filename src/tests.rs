@@ -256,6 +256,11 @@ mod tests {
     }
 
     #[test]
+    fn test_select() {
+        test_stack_effects(&[("1 2 true select", vec![1]), ("1 2 false select", vec![2])]);
+    }
+
+    #[test]
     fn test_if_and_else() {
         let program = "
 : even? 2 mod 0 = ;

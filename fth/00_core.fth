@@ -34,6 +34,13 @@
   latest-push
 ; immediate
 
+\ Select between two items in the data stack
+\ When the given condition is true, only "a" remains on top of the stack
+\ When the given condition is false, only "b" remains on top of the stack
+: select ( x:a x:b f:cond -- x:a|b )
+  invert 1 and roll drop
+;
+
 : unresolved-if -1 throw ;
 
 : if ( -- n )
