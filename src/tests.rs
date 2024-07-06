@@ -261,6 +261,77 @@ mod tests {
     }
 
     #[test]
+    fn test_branch_relative() {
+        let program = "
+: one-or-two
+  2
+  branch-relative?
+
+  1
+  exit
+
+  2
+  exit
+;
+see one-or-two
+
+: nop-branch
+  0 branch-relative?
+;
+see nop-branch
+
+: loopy-thing
+  1
+
+  dup
+  .
+  cr
+
+  dup
+  1
+  +
+
+
+  dup
+  5
+  =
+
+  -11
+  branch-relative?
+
+  dup . cr \\ Also print the 5
+;
+see loopy-thing
+
+: test
+  true nop-branch depth abort\" stack not empty\"
+  false nop-branch depth abort\" stack not empty\"
+
+  true one-or-two 1 - abort\" didn't result in 1\"
+  false one-or-two 2 - abort\" didn't result in 2\"
+
+  loopy-thing
+  .s cr
+  5 - throw
+  4 - throw
+  3 - throw
+  2 - throw
+  1 - throw
+  depth throw
+;
+see test
+
+test
+";
+        default_fixed_sized_environment!(environment);
+        for line in program.lines() {
+            environment.interpret_line(line.as_bytes()).unwrap();
+        }
+
+        assert!(environment.data_stack.is_empty());
+    }
+
+    #[test]
     fn test_if_and_else() {
         let program = "
 : even? 2 mod 0 = ;
