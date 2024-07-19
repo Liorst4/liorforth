@@ -303,9 +303,41 @@ see nop-branch
 ;
 see loopy-thing
 
+: seven-or-nothing
+  1
+  branch-relative?
+  7
+  \\ NEXT (added by the compiler)
+;
+see seven-or-nothing
+
+: crash -1 -1 ! ;
+see crash
+: skip-crashes
+  false
+  1
+  branch-relative?
+  crash
+  false
+  2
+  branch-relative?
+  crash
+  crash
+  false
+  3
+  branch-relative?
+  crash
+  crash
+  crash
+;
+see skip-crashes
+
 : test
   true nop-branch depth abort\" stack not empty\"
   false nop-branch depth abort\" stack not empty\"
+
+  false seven-or-nothing depth 0 - abort\" stack is not empty\"
+  true seven-or-nothing depth 1 - abort\" should have had a single item on the stack\" 7 - abort\" the single item wasn't 7\"
 
   true one-or-two 1 - abort\" didn't result in 1\"
   false one-or-two 2 - abort\" didn't result in 2\"
@@ -318,6 +350,8 @@ see loopy-thing
   2 - throw
   1 - throw
   depth throw
+
+  skip-crashes
 ;
 see test
 
