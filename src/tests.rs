@@ -394,11 +394,11 @@ see even?
 ;
 see x
 : test-if
-       depth     abort\" Stack is not empty!\"
-  5 x  depth     abort\" 1 failed!\"
-  10 x 5 -       abort\" 2 failed!\"
-  7 x  depth     abort\" 3 failed!\"
-  2 x  5 -       abort\" 4 failed!\"
+  1 .      depth throw
+  2 . 5 x  depth throw
+  3 . 10 x 5 -   throw
+  4 . 7 x  depth throw
+  5 . 2 x  5 -   throw
 ;
 see test-if
 
@@ -411,10 +411,10 @@ see test-if
 ;
 see y
 : test-if-else
-  5 y   100 - abort\" 5 failed!\"
-  10 y  5 -   abort\" 6 failed!\"
-  7 y   100 - abort\" 7 failed!\"
-  200 y 5 -   abort\" 8 failed!\"
+  6 . 5 y   100 - throw
+  7 . 10 y  5 -   throw
+  8 . 7 y   100 - throw
+  9 . 200 y 5 -   throw
 ;
 see test-if-else
 
@@ -426,11 +426,11 @@ see test-if-else
 ;
 see z
 : test-if-empty-else
-       depth abort\" Stack is not empty!\"
-  5  z depth abort\" 7  failed!\"
-  10 z 5 -   abort\" 8  failed!\"
-  7  z depth abort\" 9  failed!\"
-  2  z 5 -   abort\" 10 failed!\"
+  10 .      depth throw
+  11 . 5  z depth throw
+  12 . 10 z 5 -   throw
+  13 . 7  z depth throw
+  14 . 2  z 5 -   throw
 ;
 see test-if-empty-else
 
@@ -442,11 +442,11 @@ see test-if-empty-else
 ;
 see h
 : test-empty-if-else
-       depth abort\" Stack is not empty!\"
-  5  h 100 - abort\" 11 failed!\"
-  10 h depth abort\" 12 failed!\"
-  7  h 100 - abort\" 13 failed!\"
-  2  h depth abort\" 14 failed!\"
+  15 .      depth throw
+  16 . 5  h 100 - throw
+  17 . 10 h depth throw
+  18 . 7  h 100 - throw
+  19 . 2  h depth throw
 ;
 see test-empty-if-else
 
@@ -457,11 +457,11 @@ see test-empty-if-else
 ;
 see q
 : test-empty-if-empty-else
-       depth abort\" Stack is not empty!\"
-  5  q depth abort\" 15 failed!\"
-  10 q depth abort\" 16 failed!\"
-  7  q depth abort\" 17 failed!\"
-  2  q depth abort\" 18 failed!\"
+  20 .      depth throw
+  21 . 5  q depth throw
+  22 . 10 q depth throw
+  23 . 7  q depth throw
+  24 . 2  q depth throw
 ;
 see test-empty-if-empty-else
 
