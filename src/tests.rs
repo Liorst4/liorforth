@@ -418,9 +418,59 @@ see y
 ;
 see test-if-else
 
+: z
+  even? if
+    5
+  else
+  then
+;
+see z
+: test-if-empty-else
+       depth abort\" Stack is not empty!\"
+  5  z depth abort\" 7  failed!\"
+  10 z 5 -   abort\" 8  failed!\"
+  7  z depth abort\" 9  failed!\"
+  2  z 5 -   abort\" 10 failed!\"
+;
+see test-if-empty-else
+
+: h
+  even? if
+  else
+    100
+  then
+;
+see h
+: test-empty-if-else
+       depth abort\" Stack is not empty!\"
+  5  h 100 - abort\" 11 failed!\"
+  10 h depth abort\" 12 failed!\"
+  7  h 100 - abort\" 13 failed!\"
+  2  h depth abort\" 14 failed!\"
+;
+see test-empty-if-else
+
+: q
+  even? if
+  else
+  then
+;
+see q
+: test-empty-if-empty-else
+       depth abort\" Stack is not empty!\"
+  5  q depth abort\" 15 failed!\"
+  10 q depth abort\" 16 failed!\"
+  7  q depth abort\" 17 failed!\"
+  2  q depth abort\" 18 failed!\"
+;
+see test-empty-if-empty-else
+
 : test
   test-if
   test-if-else
+  test-if-empty-else
+  test-empty-if-else
+  test-empty-if-empty-else
 ;
 see test
 
