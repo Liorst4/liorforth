@@ -59,35 +59,35 @@
   r> + >r
 ;
 
-: unresolved-if -1 throw ;
+: unresolved-if-push -1 throw ;
 
-: if ( -- n )
-  s" postpone unresolved-if" evaluate
+: if ( -- n:offset-of-unresolved-push )
+  s" postpone unresolved-if-push" evaluate
 
   \ Save the offset of the unresolved operation on stack
   latest-len 1 -
+
+  s" postpone branch-relative?" evaluate
 ; immediate
 
-: then ( n -- )
-  latest-len over - ForthOperation::BranchOnFalse
+: then ( n:offset-of-unresolved-push -- )
+  latest-len over 2 + - ForthOperation::PushData
   rot latest!
 ; immediate
 
-: unresolved-else -1 throw ;
+: unresolved-else-push -1 throw ;
 
-: else ( n -- n )
-  \ Append unresolved else
-  false postpone literal \ The following unresolved else will be replaced with a
-                         \ "BranchOnFalse", adding a false to make it an
-                         \ "unconditional" jump
-  s" postpone unresolved-else" evaluate
+: else ( n:offset-of-unresolved-if-push -- n:offset-of-unresolved-else-push )
 
-  \ Save offset of unresolved else
-  latest-len 1 - >r
+  \ Append code to the end of the "if" clause to skip the "else" clause
+  false postpone literal
+  s" postpone unresolved-else-push" evaluate
+  latest-len 1 - >r \ Save unresolved push for later
+  s" postpone branch-relative?" evaluate
 
-  \ Edit previous unresolved if/else
-  latest-len over - ForthOperation::BranchOnFalse
-  rot latest!
+  \ Resolve the "if" clause branch
+  latest-len over 2 + - \ Calculate the offset for the branch in the "if" clause
+  ForthOperation::PushData rot latest!
 
   r> \ Move offset of unresolved else to data stack
 ; immediate
