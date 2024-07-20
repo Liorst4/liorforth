@@ -41,6 +41,14 @@
   invert 1 and roll drop
 ;
 
+\ Add the given operation offset to the return address
+\ Offset can be a negative number as well
+: branch-relative ( n:op-offset -- )
+                  ( r: addr:return-address -- addr:return-address-plus-offset )
+  sizeof-forth-operation *
+  r> + >r
+;
+
 \ When the given condition is **false**, add the given operation offset to the return address
 \ Offset can be a negative number as well
 : branch-relative? ( f:condition n:op-offset -- )

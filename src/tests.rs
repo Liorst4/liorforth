@@ -331,6 +331,21 @@ see crash
   crash
 ;
 see skip-crashes
+: skip-crashes-2
+  1
+  branch-relative
+  crash
+  2
+  branch-relative
+  crash
+  crash
+  3
+  branch-relative
+  crash
+  crash
+  crash
+;
+see skip-crashes-2
 
 : test
   true nop-branch depth abort\" stack not empty\"
@@ -352,6 +367,7 @@ see skip-crashes
   depth throw
 
   skip-crashes
+  skip-crashes-2
 ;
 see test
 
