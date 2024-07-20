@@ -80,10 +80,9 @@
 : else ( n:offset-of-unresolved-if-push -- n:offset-of-unresolved-else-push )
 
   \ Append code to the end of the "if" clause to skip the "else" clause
-  false postpone literal
   s" postpone unresolved-else-push" evaluate
   latest-len 1 - >r \ Save unresolved push for later
-  s" postpone branch-relative?" evaluate
+  s" postpone branch-relative" evaluate
 
   \ Resolve the "if" clause branch
   latest-len over 2 + - \ Calculate the offset for the branch in the "if" clause
