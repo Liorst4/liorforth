@@ -394,11 +394,11 @@ see even?
 ;
 see x
 : test-if
-  1 .      depth throw
-  2 . 5 x  depth throw
-  3 . 10 x 5 -   throw
-  4 . 7 x  depth throw
-  5 . 2 x  5 -   throw
+  1 .                depth throw
+  2 . 5 x            depth throw
+  3 . 10 x 5 - throw depth throw
+  4 . 7 x            depth throw
+  5 . 2 x  5 - throw depth throw
 ;
 see test-if
 
@@ -411,10 +411,11 @@ see test-if
 ;
 see y
 : test-if-else
-  6 . 5 y   100 - throw
-  7 . 10 y  5 -   throw
-  8 . 7 y   100 - throw
-  9 . 200 y 5 -   throw
+  6  .                   depth throw
+  7  . 5 y   100 - throw depth throw
+  8  . 10 y  5 -   throw depth throw
+  9  . 7 y   100 - throw depth throw
+  10 . 200 y 5 -   throw depth throw
 ;
 see test-if-else
 
@@ -426,11 +427,11 @@ see test-if-else
 ;
 see z
 : test-if-empty-else
-  10 .      depth throw
-  11 . 5  z depth throw
-  12 . 10 z 5 -   throw
-  13 . 7  z depth throw
-  14 . 2  z 5 -   throw
+  11 .                depth throw
+  12 . 5  z           depth throw
+  13 . 10 z 5 - throw depth throw
+  14 . 7  z           depth throw
+  15 . 2  z 5 - throw depth throw
 ;
 see test-if-empty-else
 
@@ -442,11 +443,11 @@ see test-if-empty-else
 ;
 see h
 : test-empty-if-else
-  15 .      depth throw
-  16 . 5  h 100 - throw
-  17 . 10 h depth throw
-  18 . 7  h 100 - throw
-  19 . 2  h depth throw
+  16 .                  depth throw
+  17 . 5  h 100 - throw depth throw
+  18 . 10 h             depth throw
+  19 . 7  h 100 - throw depth throw
+  20 . 2  h             depth throw
 ;
 see test-empty-if-else
 
@@ -457,11 +458,11 @@ see test-empty-if-else
 ;
 see q
 : test-empty-if-empty-else
-  20 .      depth throw
-  21 . 5  q depth throw
-  22 . 10 q depth throw
-  23 . 7  q depth throw
-  24 . 2  q depth throw
+  21 .      depth throw
+  22 . 5  q depth throw
+  23 . 10 q depth throw
+  24 . 7  q depth throw
+  25 . 2  q depth throw
 ;
 see test-empty-if-empty-else
 
