@@ -19,8 +19,10 @@
 : ForthOperation::Next          ( -- n ) 3 ;
 : ForthOperation::PushFloat     ( -- n ) 4 ;
 
+: compile, ( xt -- ) ForthOperation::CallEntry latest-push ;
+
 : postpone
-  ' ForthOperation::CallEntry latest-push
+  ' compile,
 ; immediate
 
 : exit
@@ -58,15 +60,17 @@
   r> + >r
 ;
 
+: ['] ' postpone literal ; immediate
+
 : unresolved-if-push -1 throw ;
 
 : if ( -- n:offset-of-unresolved-push )
-  s" postpone unresolved-if-push" evaluate
+  ['] unresolved-if-push compile,
 
   \ Save the offset of the unresolved operation on stack
   latest-len 1 -
 
-  s" postpone branch-relative?" evaluate
+  ['] branch-relative? compile,
 ; immediate
 
 : then ( n:offset-of-unresolved-push -- )
@@ -79,9 +83,9 @@
 : else ( n:offset-of-unresolved-if-push -- n:offset-of-unresolved-else-push )
 
   \ Append code to the end of the "if" clause to skip the "else" clause
-  s" postpone unresolved-else-push" evaluate
+  ['] unresolved-else-push compile,
   latest-len 1 - >r \ Save unresolved push for later
-  s" postpone branch-relative" evaluate
+  ['] branch-relative compile,
 
   \ Resolve the "if" clause branch
   latest-len over 2 + - \ Calculate the offset for the branch in the "if" clause
@@ -96,7 +100,7 @@
 
 : until ( cf: n:offset-of-first-instruction-in-loop-body -- )
   latest-len 2 + cf> swap - ForthOperation::PushData latest-push
-  s" postpone branch-relative?" evaluate
+  ['] branch-relative? compile,
 ; immediate
 
 : unresolved-while-push  -1 throw ;
@@ -104,10 +108,10 @@
 : while ( cf: n:a -- n:b n:a )
         ( a -> offset-of-first-instruction-in-loop-body )
         ( b -> offset-of-unresolved-while-push )
-  s" postpone unresolved-while-push" evaluate
+  ['] unresolved-while-push compile,
   cf>
   latest-len 1 -
-  s" postpone branch-relative?" evaluate
+  ['] branch-relative? compile,
   >cf
   >cf
 ; immediate
@@ -118,7 +122,7 @@
 
   \ Append a branch to the beginning of the loop
   cf> latest-len 2 + - postpone literal
-  s" postpone branch-relative" evaluate
+  ['] branch-relative compile,
 
   \ Resolve the push for the branch in while
   \ Add an exit
@@ -187,12 +191,10 @@
 : char bl word count drop c@ ;
 : [char] char postpone literal ; immediate
 
-: ['] ' postpone literal ; immediate
-
 : ."
   postpone s"
   state @ if
-    s" postpone type" evaluate \ TODO: anyway better?
+    ['] type compile,
   else
     type
   then
@@ -211,7 +213,7 @@
 
 : abort"
   postpone s"
-  s" postpone abort-with-message" evaluate
+  ['] abort-with-message compile,
 ; immediate
 
 : spaces ( n -- )
@@ -226,7 +228,7 @@
 ;
 
 : do ( cf: -- u:amount-of-leave-instructions u:offset-of-the-loop-in-the-body )
-  s" postpone do:start" evaluate
+  ['] do:start compile,
   0 >cf
   latest-len >cf
 ; immediate
@@ -255,14 +257,14 @@
         \ x - offset of leave instruction
         \ y - amount of leave instructions
         \ z - offset of do loop
-  s" postpone unloop" evaluate
-  s" postpone unresolved-leave-push" evaluate
+  ['] unloop compile,
+  ['] unresolved-leave-push compile,
   cf> >r
   cf> 1 + >r
   latest-len 1 - >cf
   r> >cf
   r> >cf
-  s" postpone branch-relative" evaluate
+  ['] branch-relative compile,
 ; immediate
 
 
@@ -284,7 +286,7 @@
 
 : +loop:push-branch-to-start ( cf: n:do-start -- n:do-start )
   cf> latest-len 2 + - postpone literal
-  s" postpone branch-relative?" evaluate
+  ['] branch-relative? compile,
 ;
 
 : +loop:over? ( -- f:loop-done )
@@ -312,7 +314,7 @@
 
 
 : +loop
-  s" postpone +loop:update-and-check-if-done" evaluate
+  ['] +loop:update-and-check-if-done compile,
   +loop:push-branch-to-start
   +loop:resolve-leaves
 ; immediate
@@ -356,7 +358,11 @@
 \ Since invoking words effects the stack itself,
 \ the three commands r> dup and >r need to be
 \ inline-d inside the word that uses r@
-: r@ s" postpone r> postpone dup postpone >r " evaluate ; immediate
+: r@
+  ['] r> compile,
+  ['] dup compile,
+  ['] >r compile,
+; immediate
 
 : fill ( c-addr u char -- )
   >r

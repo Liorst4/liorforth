@@ -171,6 +171,7 @@ Implemented words:
 		unused
 		roll
 		buffer:
+		compile,
 	Exception:
 		catch (work in progress)
 		throw (work in progress)
