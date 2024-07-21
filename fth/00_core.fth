@@ -91,42 +91,40 @@
   r> \ Move offset of unresolved else to data stack
 ; immediate
 
-: begin latest-len >cf ; immediate
-
-: until
-  latest-len cf> swap - ForthOperation::BranchOnFalse
-  latest-push
+: begin ( cf: -- n:offset-of-first-instruction-in-loop-body )
+  latest-len >cf
 ; immediate
 
-: unresolved-while  -1 throw ;
+: until ( cf: n:offset-of-first-instruction-in-loop-body -- )
+  latest-len 2 + cf> swap - ForthOperation::PushData latest-push
+  s" postpone branch-relative?" evaluate
+; immediate
 
-: while
-  s" postpone unresolved-while" evaluate
+: unresolved-while-push  -1 throw ;
+
+: while ( cf: n:a -- n:b n:a )
+        ( a -> offset-of-first-instruction-in-loop-body )
+        ( b -> offset-of-unresolved-while-push )
+  s" postpone unresolved-while-push" evaluate
   cf>
   latest-len 1 -
+  s" postpone branch-relative?" evaluate
   >cf
   >cf
 ; immediate
 
-: repeat
-  \ Add a jump to the beginning of the word, at the end of the word
-  \ (when the "while" condition is not met)
+: repeat ( cf: n:b n:a -- )
+         ( a -> offset-of-first-instruction-in-loop-body )
+         ( b -> offset-of-unresolved-while-push )
+
+  \ Append a branch to the beginning of the loop
   false postpone literal
-  cf> latest-len - ForthOperation::BranchOnFalse
-  latest-push
+  cf> latest-len 2 + - postpone literal
+  s" postpone branch-relative?" evaluate
 
-  \ Add a jump to after the previously added jump in the place of
-  \ the last unresolved "while"
-  latest-len cf>
-  dup >r
-  -
-  ForthOperation::BranchOnFalse
-  r>
-  latest!
-
-  \ This one is a bit confusing, I recommend creating a word
-  \ that uses a "repeat" loop, and inspecting the results with "see"
-  \ to get a better understanding on what is going on here
+  \ Resolve the push for the branch in while
+  \ Add an exit
+  cf> dup latest-len swap 2 + - ForthOperation::PushData rot latest!
 ; immediate
 
 : 1+ 1 + ;

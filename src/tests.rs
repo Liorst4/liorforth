@@ -765,6 +765,7 @@ b";
    1+
    dup 5 > until
 ;
+see test1
 test1
 ",
                 vec![6],
@@ -781,6 +782,7 @@ test1
   true while
   repeat
 ;
+see test2
 test2
 ",
                 vec![6],
@@ -795,7 +797,7 @@ test2
    dup
   repeat
 ;
-
+see test3
 test3
 ",
                 vec![1, 2, 3, 4, 5],
@@ -817,7 +819,7 @@ variable test4-counter
    drop
   repeat
 ;
-
+see test4
 test4
 ",
                 vec![0],
