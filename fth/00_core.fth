@@ -118,9 +118,8 @@
          ( b -> offset-of-unresolved-while-push )
 
   \ Append a branch to the beginning of the loop
-  false postpone literal
   cf> latest-len 2 + - postpone literal
-  s" postpone branch-relative?" evaluate
+  s" postpone branch-relative" evaluate
 
   \ Resolve the push for the branch in while
   \ Add an exit
