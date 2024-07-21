@@ -257,14 +257,13 @@
         \ y - amount of leave instructions
         \ z - offset of do loop
   s" postpone unloop" evaluate
-  false postpone literal
   s" postpone unresolved-leave-push" evaluate
   cf> >r
   cf> 1 + >r
   latest-len 1 - >cf
   r> >cf
   r> >cf
-  s" postpone branch-relative?" evaluate
+  s" postpone branch-relative" evaluate
 ; immediate
 
 
