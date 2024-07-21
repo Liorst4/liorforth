@@ -15,10 +15,9 @@
 \ See pop_forth_operation in main.rs
 : ForthOperation::PushData      ( -- n ) 0 ;
 : ForthOperation::CallEntry     ( -- n ) 1 ;
-: ForthOperation::BranchOnFalse ( -- n ) 2 ;
-: ForthOperation::CallPrimitive ( -- n ) 3 ;
-: ForthOperation::Next          ( -- n ) 4 ;
-: ForthOperation::PushFloat     ( -- n ) 5 ;
+: ForthOperation::CallPrimitive ( -- n ) 2 ;
+: ForthOperation::Next          ( -- n ) 3 ;
+: ForthOperation::PushFloat     ( -- n ) 4 ;
 
 : postpone
   ' ForthOperation::CallEntry latest-push

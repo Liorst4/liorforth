@@ -379,9 +379,6 @@ enum ForthOperation {
     /// Jump to the first instruction of the given dictionary entry.
     CallEntry(*const DictionaryEntry),
 
-    /// Pop the data stack. Jump to the given offset if the popped value is `Flag::False`
-    BranchOnFalse(isize),
-
     /// Execute the given primitive function
     CallPrimitive(Primitive),
 
@@ -407,11 +404,6 @@ impl std::fmt::Display for ForthOperation {
                     another_entry_addr,
                     name.as_str().unwrap()
                 )
-            }
-            ForthOperation::BranchOnFalse(offset) => {
-                let byte_offset = offset * (std::mem::size_of::<ForthOperation>() as isize);
-                let dest: usize = ((address as isize) + byte_offset) as usize;
-                write!(f, "BRANCH-ON-FALSE\t{}\t(${:x})", offset, dest)
             }
             ForthOperation::CallPrimitive(primitive) => {
                 let primitive: usize = unsafe { std::mem::transmute(primitive) };
@@ -995,21 +987,6 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_immediate_primitive!(";", env, {
         env.latest_mut().body.push(ForthOperation::Next);
         env.currently_compiling = Flag::False as Cell;
-
-        debug_assert!(
-            !env.latest()
-                .body
-                .iter()
-                .enumerate()
-                .any(|(index, op)| match op {
-                    ForthOperation::BranchOnFalse(offset) => {
-                        let dest = (index as Cell) + *offset;
-                        dest < 0 || (dest >= env.latest().body.len() as Cell)
-                    }
-                    _ => false,
-                }),
-            "Found a relative out of bound jump"
-        );
     }),
     declare_primitive!("latest-push", env, {
         let op = env.pop_forth_operation()?;
@@ -1807,13 +1784,6 @@ impl<'a> Environment<'a> {
                     continue 'instruction_loop;
                 }
                 ForthOperation::PushData(l) => self.data_stack.push(*l)?,
-                ForthOperation::BranchOnFalse(offset) => {
-                    let cond = self.data_stack.pop()?;
-                    if cond == Flag::False as Cell {
-                        instruction_pointer = unsafe { instruction_pointer.offset(*offset) };
-                        continue 'instruction_loop;
-                    }
-                }
                 ForthOperation::CallPrimitive(func) => func(self)?,
                 ForthOperation::Next => match self.return_stack.len() {
                     0 => {
@@ -1870,12 +1840,11 @@ impl<'a> Environment<'a> {
             1 => Ok(ForthOperation::CallEntry(
                 self.data_stack.pop()? as *const DictionaryEntry
             )),
-            2 => Ok(ForthOperation::BranchOnFalse(self.data_stack.pop()?)),
-            3 => Ok(ForthOperation::CallPrimitive(unsafe {
+            2 => Ok(ForthOperation::CallPrimitive(unsafe {
                 std::mem::transmute::<Cell, Primitive>(self.data_stack.pop()?)
             })),
-            4 => Ok(ForthOperation::Next),
-            5 => Ok(ForthOperation::PushFloat(self.floating_point_stack.pop()?)),
+            3 => Ok(ForthOperation::Next),
+            4 => Ok(ForthOperation::PushFloat(self.floating_point_stack.pop()?)),
             _ => Err(Exception::INVALID_FORTH_OPERATION_KIND.into()),
         }
     }
