@@ -250,7 +250,7 @@
   cl> 2drop
 ;
 
-: unresolved-leave -1 throw ;
+: unresolved-leave-push -1 throw ;
 
 : leave ( cf: u:x*y u:y u:z -- u:x*[y+1] u:[y+1] u:z )
         \ x - offset of leave instruction
@@ -258,12 +258,13 @@
         \ z - offset of do loop
   s" postpone unloop" evaluate
   false postpone literal
-  s" postpone unresolved-leave" evaluate
+  s" postpone unresolved-leave-push" evaluate
   cf> >r
   cf> 1 + >r
   latest-len 1 - >cf
   r> >cf
   r> >cf
+  s" postpone branch-relative?" evaluate
 ; immediate
 
 
@@ -277,14 +278,15 @@
 
     \ Write a jump to the end of the loop
     cf>
-    dup latest-len swap - ForthOperation::BranchOnFalse
+    dup latest-len swap 2 + - ForthOperation::PushData
     rot latest!
 
   repeat drop
 ;
 
 : +loop:push-branch-to-start ( cf: n:do-start -- n:do-start )
-  cf> latest-len - ForthOperation::BranchOnFalse latest-push
+  cf> latest-len 2 + - postpone literal
+  s" postpone branch-relative?" evaluate
 ;
 
 : +loop:over? ( -- f:loop-done )
