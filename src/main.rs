@@ -406,8 +406,8 @@ impl std::fmt::Display for ForthOperation {
                 )
             }
             ForthOperation::CallPrimitive(primitive) => {
-                let primitive: usize = unsafe { std::mem::transmute(primitive) };
-                write!(f, "CALL-PRIMITIVE\t${:x}", primitive)
+                let primitive_addr = *primitive as usize;
+                write!(f, "CALL-PRIMITIVE\t${:x}", primitive_addr)
             }
             ForthOperation::Next => write!(f, "NEXT"),
             ForthOperation::PushFloat(float) => write!(f, "PUSH-FLOAT\t{}", float),
