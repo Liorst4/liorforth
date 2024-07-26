@@ -157,7 +157,14 @@
     sizeof-cell swap - allot
   then
 ;
-: create align here postpone constant ;
+: create
+  :
+  0 postpone literal \ placeholder
+  postpone ;
+
+  \ Overwrite placeholder
+  align here ForthOperation::PushData 0 latest!
+;
 : variable create 0 , ;
 : aligned
   dup sizeof-cell mod dup 0= if
