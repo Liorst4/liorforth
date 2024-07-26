@@ -141,7 +141,7 @@ declare_system_exception_codes!(
     (-5, RETURN_STACK_OVERFLOW),
     (-6, RETURN_STACK_UNDERFLOW),
     (-7, DO_LOOPS_NESTED_TOO_DEEPLY_DURING_EXECUTION),
-    // (-8, DICTIONARY_OVERFLOW),
+    (-8, DICTIONARY_OVERFLOW),
     // (-9, INVALID_MEMORY_ADDRESS),
     (-10, DIVISION_BY_ZERO),
     // (-11, RESULT_OUT_OF_RANGE),
@@ -447,10 +447,22 @@ impl<'a> DataSpaceManager<'a> {
         self.unused_area = new_unused_area;
         Some(area)
     }
+
+    fn align_to(&mut self, amount: usize) -> Option<()> {
+        let x = self.unused_area.as_ptr() as usize % amount;
+        if x != 0 {
+            let y = amount - x;
+            self.allot(y).map(|_| ())
+        } else {
+            Some(())
+        }
+    }
 }
 
 /// A forth word
 struct DictionaryEntry {
+    prev: *mut DictionaryEntry,
+
     name: Name,
 
     /// Execute word during compilation
@@ -460,7 +472,44 @@ struct DictionaryEntry {
     body: Vec<ForthOperation>,
 }
 
-type Dictionary = std::collections::LinkedList<DictionaryEntry>;
+struct Dictionary {
+    latest: *mut DictionaryEntry,
+}
+
+struct DictionaryIterator<'a> {
+    ptr: *const DictionaryEntry,
+    marker: core::marker::PhantomData<&'a DictionaryEntry>,
+}
+
+impl Dictionary {
+    fn iter(&self) -> DictionaryIterator {
+        DictionaryIterator {
+            ptr: self.latest,
+            marker: core::marker::PhantomData,
+        }
+    }
+}
+
+impl Default for Dictionary {
+    fn default() -> Self {
+        Dictionary {
+            latest: std::ptr::null_mut(),
+        }
+    }
+}
+
+impl<'a> Iterator for DictionaryIterator<'a> {
+    type Item = &'a DictionaryEntry;
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.ptr.is_null() {
+            None
+        } else {
+            let r = unsafe { self.ptr.as_ref() }.unwrap();
+            self.ptr = unsafe { self.ptr.as_ref() }.unwrap().prev;
+            Some(r)
+        }
+    }
+}
 
 #[derive(Copy, Clone, Default, Debug)]
 struct CountedLoopState {
@@ -750,11 +799,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_compare_operator_primitive!(">", >, data_stack),
     declare_primitive!(":", env, {
         let name = env.read_name_from_input_buffer()?;
-        env.dictionary.push_front(DictionaryEntry {
-            name,
-            immediate: false,
-            body: Vec::new(),
-        });
+        env.push_new_dictionary_entry(name, false, Default::default())?;
         env.currently_compiling = Flag::True as Cell;
     }),
     declare_primitive!("r>", env, {
@@ -1577,22 +1622,13 @@ impl<'a> Environment<'a> {
         let counted_loop_stack = stack_from_byte_slice(counted_loop_stack_buffer);
         let floating_point_stack = stack_from_byte_slice(floating_point_stack_buffer);
 
-        let dictionary =
-            std::collections::LinkedList::from_iter(STATIC_DICTIONARY.iter().map(|static_entry| {
-                DictionaryEntry {
-                    name: Name::from_ascii(static_entry.name.as_bytes()).unwrap(),
-                    immediate: static_entry.immediate,
-                    body: vec![static_entry.body.clone(), ForthOperation::Next],
-                }
-            }));
-
         let mut result = Environment {
             data_space_manager,
             data_stack,
             return_stack,
             input_buffer,
             input_buffer_head: 0,
-            dictionary,
+            dictionary: Default::default(), /* TODO */
             base: 10,
             currently_compiling: Flag::False as Cell,
             control_flow_stack,
@@ -1600,6 +1636,16 @@ impl<'a> Environment<'a> {
             counted_loop_stack,
             floating_point_stack,
         };
+
+        for static_entry in STATIC_DICTIONARY {
+            result
+                .push_new_dictionary_entry(
+                    Name::from_ascii(static_entry.name.as_bytes()).unwrap(),
+                    static_entry.immediate,
+                    vec![static_entry.body.clone(), ForthOperation::Next],
+                )
+                .unwrap()
+        }
 
         for line in FORTH_RUNTIME_INIT.lines() {
             result.interpret_line(line.as_bytes()).unwrap();
@@ -1626,11 +1672,11 @@ impl<'a> Environment<'a> {
     }
 
     fn latest(&self) -> &DictionaryEntry {
-        self.dictionary.front().unwrap()
+        unsafe { self.dictionary.latest.as_ref() }.unwrap()
     }
 
     fn latest_mut(&mut self) -> &mut DictionaryEntry {
-        self.dictionary.front_mut().unwrap()
+        unsafe { self.dictionary.latest.as_mut() }.unwrap()
     }
 
     fn next_token(&mut self, leading_delimiters: &[Byte], delimiter: Byte) -> &[Byte] {
@@ -1828,12 +1874,45 @@ impl<'a> Environment<'a> {
             _ => Err(Exception::INVALID_FORTH_OPERATION_KIND.into()),
         }
     }
+
+    fn push_new_dictionary_entry(
+        &mut self,
+        name: Name,
+        immediate: bool,
+        body: Vec<ForthOperation>,
+    ) -> Result<(), Exception> {
+        self.data_space_manager
+            .align_to(std::mem::align_of::<DictionaryEntry>())
+            .ok_or(Exception::DICTIONARY_OVERFLOW)?;
+
+        let new_entry = self
+            .data_space_manager
+            .allot(std::mem::size_of::<DictionaryEntry>())
+            .ok_or(Exception::DICTIONARY_OVERFLOW)?
+            .as_ptr() as *mut DictionaryEntry;
+
+        unsafe {
+            std::ptr::write(
+                new_entry,
+                DictionaryEntry {
+                    prev: self.dictionary.latest,
+                    name,
+                    immediate,
+                    body,
+                },
+            );
+        }
+
+        self.dictionary.latest = new_entry;
+
+        Ok(())
+    }
 }
 
 /// Create a static environment
 macro_rules! default_fixed_sized_environment {
     ($name:ident) => {
-        let mut data_space = [0; 10 * 1024];
+        let mut data_space = [0; 100 * 1024]; // TODO: Get back to 10 pages
         let mut $name = Environment::new_default_sized(&mut data_space).unwrap();
     };
 }
