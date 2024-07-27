@@ -402,10 +402,14 @@ false constant FLOORED
   then
 ;
 
+\ TODO: Document
+: do-does r> drop >r ;
+
+\ TODO: Update documentation
 \ Pushes the part that comes after `does>` to the end of the latest word
 \ Use the part before the `does>` to `create` a new word
 \ Kind of like a constructor
-: does>
+: does> ( r: addr:jump-destination-to-append )
   \ Crate an arbitrary jump by replacing the `Next` at the end of the latest word with:
   \ * push data (address) instruction
   \ * call >r instruction
@@ -414,8 +418,7 @@ false constant FLOORED
   \ Moving this address from the return stack also prevents the environment from
   \ executing the rest of the calling word (the stuff after `does>`)
 
-  r> ForthOperation::PushData latest-len 1 - latest!
-  ['] >r ForthOperation::CallEntry latest-push
-  ForthOperation::Next latest-push
+  r> ForthOperation::PushData latest-len 2 - latest!
+  ['] do-does ForthOperation::CallEntry latest-len 1 - latest!
 ;
 
