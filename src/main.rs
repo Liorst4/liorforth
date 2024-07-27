@@ -389,32 +389,6 @@ enum ForthOperation {
     PushFloat(Float),
 }
 
-impl std::fmt::Display for ForthOperation {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let address = self as *const ForthOperation as usize;
-        write!(f, "${:x}:\t", address)?;
-        match self {
-            ForthOperation::PushData(literal) => write!(f, "PUSH-DATA\t{}", literal),
-            ForthOperation::CallEntry(another_entry) => {
-                let another_entry_addr = *another_entry as usize;
-                let name = &unsafe { another_entry.as_ref() }.unwrap().name;
-                write!(
-                    f,
-                    "CALL-ENTRY\t${:x}\t({})",
-                    another_entry_addr,
-                    name.as_str().unwrap()
-                )
-            }
-            ForthOperation::CallPrimitive(primitive) => {
-                let primitive_addr = *primitive as usize;
-                write!(f, "CALL-PRIMITIVE\t${:x}", primitive_addr)
-            }
-            ForthOperation::Next => write!(f, "NEXT"),
-            ForthOperation::PushFloat(float) => write!(f, "PUSH-FLOAT\t{}", float),
-        }
-    }
-}
-
 const NAME_BYTE_COUNT: usize = 31;
 
 #[derive(Default, PartialEq)]
@@ -492,20 +466,6 @@ struct DictionaryEntry {
 
     /// Operations to perform when executing
     body: Vec<ForthOperation>,
-}
-
-impl std::fmt::Display for DictionaryEntry {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, ": {} ", self.name.as_str().unwrap())?;
-        for threaded_word_entry in &self.body {
-            writeln!(f, "\t{}", threaded_word_entry)?
-        }
-        write!(f, ";")?;
-        if self.immediate {
-            write!(f, " immediate")?;
-        }
-        writeln!(f)
-    }
 }
 
 type Dictionary = std::collections::LinkedList<DictionaryEntry>;
@@ -914,7 +874,35 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_primitive!("see", env, {
         let name = env.read_name_from_input_buffer()?;
         let item = search_dictionary(&env.dictionary, &name)?;
-        println!("{}", item);
+        println!(": {} ", item.name.as_str().unwrap());
+        for operation in &item.body {
+            let operation_address = operation as *const ForthOperation as usize;
+            print!("\t${:x}:\t", operation_address);
+            match operation {
+                ForthOperation::PushData(literal) => print!("PUSH-DATA\t{}", literal),
+                ForthOperation::CallEntry(another_entry) => {
+                    let another_entry_addr = *another_entry as usize;
+                    let name = &unsafe { another_entry.as_ref() }.unwrap().name;
+                    print!(
+                        "CALL-ENTRY\t${:x}\t({})",
+                        another_entry_addr,
+                        name.as_str().unwrap()
+                    )
+                }
+                ForthOperation::CallPrimitive(primitive) => {
+                    let primitive_addr = *primitive as usize;
+                    print!("CALL-PRIMITIVE\t${:x}", primitive_addr)
+                }
+                ForthOperation::Next => print!("NEXT"),
+                ForthOperation::PushFloat(float) => print!("PUSH-FLOAT\t{}", float),
+            }
+            println!();
+        }
+        print!(";");
+        if item.immediate {
+            print!(" immediate");
+        }
+        println!()
     }),
     declare_constant!("MAX-CHAR", Byte::MAX),
     declare_constant!("ADDRESS-UNIT-BITS", Cell::BITS),
