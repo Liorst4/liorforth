@@ -460,6 +460,7 @@ impl<'a> DataSpaceManager<'a> {
 }
 
 /// A forth word
+#[repr(C)]
 struct DictionaryEntry {
     prev: *mut DictionaryEntry,
 
@@ -469,7 +470,17 @@ struct DictionaryEntry {
     immediate: bool,
 
     /// Operations to perform when executing
-    body: Vec<ForthOperation>,
+    body_item_count: usize,
+    body_start: [ForthOperation; 0], // TODO: Use DST?
+}
+
+impl DictionaryEntry {
+    unsafe fn body(&self) -> &[ForthOperation] {
+        core::slice::from_raw_parts(self.body_start.as_ptr(), self.body_item_count)
+    }
+    unsafe fn body_mut(&mut self) -> &mut [ForthOperation] {
+        core::slice::from_raw_parts_mut(self.body_start.as_mut_ptr(), self.body_item_count)
+    }
 }
 
 struct Dictionary {
@@ -743,6 +754,9 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.data_stack.push(address as Cell)?;
     }),
     declare_primitive!("allot", env, {
+        // TODO: Remove?
+        debug_assert_eq!(env.currently_compiling, Flag::False as Cell);
+
         let n = env.data_stack.pop()?;
         if n > 0 {
             env.data_space_manager
@@ -879,13 +893,13 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let entry = env.data_stack.pop()?;
         let entry = entry as *const DictionaryEntry;
         let entry = unsafe { entry.as_ref() }.unwrap();
-        env.execute_word(entry.body.first().unwrap())?;
+        env.execute_word(unsafe { entry.body() }.first().unwrap())?;
     }),
     declare_primitive!(">body", env, {
         let entry = env.data_stack.pop()?;
         let entry = entry as *const DictionaryEntry;
         let entry = unsafe { entry.as_ref() }.unwrap();
-        match entry.body.first().unwrap() {
+        match unsafe { entry.body() }.first().unwrap() {
             ForthOperation::PushData(result) => env.data_stack.push(*result)?,
             _ => panic!("Invalid argument given to >body"),
         }
@@ -912,7 +926,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let name = env.read_name_from_input_buffer()?;
         let item = search_dictionary(&env.dictionary, &name)?;
         println!(": {} ", item.name.as_str().unwrap());
-        for operation in &item.body {
+        for operation in unsafe { item.body() } {
             let operation_address = operation as *const ForthOperation as usize;
             print!("\t${:x}:\t", operation_address);
             match operation {
@@ -1010,21 +1024,26 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.data_stack.push(quotient)?;
     }),
     declare_immediate_primitive!(";", env, {
-        env.latest_mut().body.push(ForthOperation::Next);
+        env.append_to_latest_body(ForthOperation::Next);
+
+        // NOTE: For hot-patching for does>
+        // TODO: Think of something more elegant
+        env.append_to_latest_body(ForthOperation::Next);
+
         env.currently_compiling = Flag::False as Cell;
     }),
     declare_primitive!("latest-push", env, {
         let op = env.pop_forth_operation()?;
-        env.latest_mut().body.push(op);
+        env.append_to_latest_body(op);
     }),
     declare_primitive!("latest-len", env, {
         env.data_stack
-            .push(env.latest().body.len() as UCell as Cell)?;
+            .push(env.latest().body_item_count as UCell as Cell)?;
     }),
     declare_primitive!("latest!", env, {
         let index = env.data_stack.pop()? as UCell;
         let op = env.pop_forth_operation()?;
-        *env.latest_mut().body.get_mut(index).unwrap() = op;
+        unsafe { *env.latest_mut().body_mut().get_mut(index).unwrap() = op };
     }),
     declare_primitive!("cf>", env, {
         env.data_stack
@@ -1041,28 +1060,28 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.input_buffer_head = env.input_buffer.len() as Cell;
     }),
     declare_immediate_primitive!("s\"", env, {
-        let string = env.next_token(&[], b'"').to_owned(); // TODO: Possible without copying to heap?
-        let length = string.len();
-
-        // Copy to data space
-        let data_space_string = env.data_space_manager.allot(length).unwrap();
-        data_space_string.copy_from_slice(&string);
-        let data_space_string_address = data_space_string.as_ptr();
-
+        let input_buffer_string = env.next_token(&[], b'"').to_owned(); // TODO: Possible without copying to heap?
         if env.compile_mode() {
-            env.latest_mut().body.append(&mut vec![
-                ForthOperation::PushData(data_space_string_address as Cell),
-                ForthOperation::PushData(length as Cell),
-            ]);
+            let len: Cell = input_buffer_string.len().try_into().unwrap();
+            let addr: Cell = input_buffer_string.leak().as_ptr() as Cell; // TODO: Allocate on data space, embed in latest dictionary entry?
+            env.append_to_latest_body(ForthOperation::PushData(addr));
+            env.append_to_latest_body(ForthOperation::PushData(len));
         } else {
-            env.data_stack.push(data_space_string_address as Cell)?;
-            env.data_stack.push(length as Cell)?;
+            // Simply allocate in data space
+            let data_space_string = env
+                .data_space_manager
+                .allot(input_buffer_string.len())
+                .unwrap();
+            data_space_string.copy_from_slice(&input_buffer_string);
+            env.data_stack.push(data_space_string.as_ptr() as Cell)?;
+            env.data_stack
+                .push(data_space_string.len().try_into().unwrap())?;
         }
     }),
     declare_immediate_primitive!("recurse", env, {
         let latest = env.latest_mut();
         let call_self = ForthOperation::CallEntry(latest);
-        latest.body.push(call_self);
+        env.append_to_latest_body(call_self);
     }),
     declare_primitive!("cl>", env, {
         env.data_stack
@@ -1138,7 +1157,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let counted_loop_stack_backup = env.counted_loop_stack.backup();
         let floating_point_stack_backup = env.floating_point_stack.backup();
 
-        let err = match env.execute_word(entry.body.as_ptr()) {
+        let err = match env.execute_word(unsafe { entry.body() }.as_ptr()) {
             Ok(_) => 0,
             Err(exception) => {
                 env.data_stack.restore(&data_stack_backup);
@@ -1761,11 +1780,11 @@ impl<'a> Environment<'a> {
         {
             if self.compile_mode() && !dict_entry.immediate {
                 let operation = ForthOperation::CallEntry(dict_entry);
-                self.latest_mut().body.push(operation);
+                self.append_to_latest_body(operation);
                 return Ok(());
             }
 
-            let next_word = &dict_entry.body;
+            let next_word = unsafe { dict_entry.body() };
             return self.execute_word(next_word.first().unwrap());
         }
 
@@ -1781,7 +1800,7 @@ impl<'a> Environment<'a> {
     fn handle_number_token(&mut self, data: Cell) -> Result<(), Exception> {
         if self.compile_mode() {
             let literal = ForthOperation::PushData(data);
-            self.latest_mut().body.push(literal);
+            self.append_to_latest_body(literal);
             Ok(())
         } else {
             self.data_stack.push(data)
@@ -1791,7 +1810,7 @@ impl<'a> Environment<'a> {
     fn handle_float_token(&mut self, float: Float) -> Result<(), Exception> {
         if self.compile_mode() {
             let float_literal = ForthOperation::PushFloat(float);
-            self.latest_mut().body.push(float_literal);
+            self.append_to_latest_body(float_literal);
             Ok(())
         } else {
             self.floating_point_stack.push(float)
@@ -1804,7 +1823,8 @@ impl<'a> Environment<'a> {
             match unsafe { instruction_pointer.as_ref() }.unwrap() {
                 ForthOperation::CallEntry(dest) => {
                     let return_address = unsafe { instruction_pointer.add(1) };
-                    let dest_instruction = unsafe { dest.as_ref() }.unwrap().body.first().unwrap();
+                    let dest_instruction =
+                        unsafe { dest.as_ref().unwrap().body() }.first().unwrap();
                     self.return_stack.push(return_address)?;
                     instruction_pointer = dest_instruction;
                     continue 'instruction_loop;
@@ -1898,14 +1918,40 @@ impl<'a> Environment<'a> {
                     prev: self.dictionary.latest,
                     name,
                     immediate,
-                    body,
+                    body_item_count: 0,
+                    body_start: Default::default(),
                 },
             );
         }
 
         self.dictionary.latest = new_entry;
 
+        for op in body {
+            self.append_to_latest_body(op);
+        }
+
         Ok(())
+    }
+
+    fn append_to_latest_body(&mut self, op: ForthOperation) {
+        unsafe {
+            assert_eq!(
+                self.data_space_manager.here() as *const ForthOperation,
+                self.latest()
+                    .body_start
+                    .as_ptr()
+                    .offset(self.latest().body_item_count.try_into().unwrap()),
+            );
+        }
+
+        self.data_space_manager
+            .allot(std::mem::size_of::<ForthOperation>())
+            .unwrap();
+
+        self.latest_mut().body_item_count += 1;
+        unsafe {
+            *self.latest_mut().body_mut().last_mut().unwrap() = op;
+        }
     }
 }
 
@@ -1935,9 +1981,9 @@ fn find_dictionary_entry_from_operation(
     }
 
     return dict.iter().find_map(|entry| {
-        if entry.body.as_ptr() <= operation {
-            let byte_offset = unsafe { operation.byte_offset_from(entry.body.as_ptr()) } as usize;
-            let body_byte_count = entry.body.len() * std::mem::size_of::<ForthOperation>();
+        if unsafe { entry.body() }.as_ptr() <= operation {
+            let byte_offset = unsafe { operation.byte_offset_from(entry.body().as_ptr()) } as usize;
+            let body_byte_count = entry.body_item_count * std::mem::size_of::<ForthOperation>();
             if byte_offset < body_byte_count {
                 let name = entry.name.as_str().ok()?;
                 return Some((name, byte_offset));
