@@ -59,10 +59,6 @@ type DoubleCell = i64;
 /// `Cell` with double the bits
 type DoubleCell = i32;
 
-#[cfg(target_pointer_width = "8")]
-/// `Cell` with double the bits
-type DoubleCell = i16;
-
 #[cfg(target_pointer_width = "64")]
 /// `UCell` with double the bits
 type DoubleUCell = u128;
@@ -74,10 +70,6 @@ type DoubleUCell = u64;
 #[cfg(target_pointer_width = "16")]
 /// `UCell` with double the bits
 type DoubleUCell = u32;
-
-#[cfg(target_pointer_width = "8")]
-/// `UCell` with double the bits
-type DoubleUCell = u16;
 
 const fn double_ucell_to_array(x: DoubleUCell) -> [UCell; 2] {
     let low = x as UCell;
