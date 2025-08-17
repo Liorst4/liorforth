@@ -681,7 +681,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     ),
     declare_primitive!(".s", env, {
         let len = env.data_stack.len();
-        print!("<{}> ", len);
+        print!("<{len}> ");
         for i in &env.data_stack.data[0..len] {
             env.print_number(i);
         }
@@ -791,7 +791,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_primitive!("emit", env, {
         let n = env.data_stack.pop()?;
         let c = (n as u8) as char;
-        print!("{}", c);
+        print!("{c}");
     }),
     declare_primitive!("base", env, {
         let base_address: *mut Cell = &mut env.base;
@@ -928,9 +928,9 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         println!(": {} ", item.name.as_str().unwrap());
         for operation in unsafe { item.body() } {
             let operation_address = operation as *const ForthOperation as usize;
-            print!("\t${:x}:\t", operation_address);
+            print!("\t${operation_address:x}:\t");
             match operation {
-                ForthOperation::PushData(literal) => print!("PUSH-DATA\t{}", literal),
+                ForthOperation::PushData(literal) => print!("PUSH-DATA\t{literal}"),
                 ForthOperation::CallEntry(another_entry) => {
                     let another_entry_addr = *another_entry as usize;
                     let name = &unsafe { another_entry.as_ref() }.unwrap().name;
@@ -942,10 +942,10 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
                 }
                 ForthOperation::CallPrimitive(primitive) => {
                     let primitive_addr = *primitive as usize;
-                    print!("CALL-PRIMITIVE\t${:x}", primitive_addr)
+                    print!("CALL-PRIMITIVE\t${primitive_addr:x}")
                 }
                 ForthOperation::Next => print!("NEXT"),
-                ForthOperation::PushFloat(float) => print!("PUSH-FLOAT\t{}", float),
+                ForthOperation::PushFloat(float) => print!("PUSH-FLOAT\t{float}"),
             }
             println!();
         }
@@ -1126,7 +1126,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_immediate_primitive!(".(", env, {
         let bytes = env.next_token(&[], b')');
         let string = core::str::from_utf8(bytes).unwrap();
-        print!("{}", string);
+        print!("{string}");
     }),
     declare_primitive!(".R", env, {
         let alignment = env.data_stack.pop()?;
@@ -1184,7 +1184,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_primitive!("f.", env, {
         let f = env.floating_point_stack.pop()?;
-        println!("{}", f);
+        println!("{f}");
     }),
     declare_binary_operator_primitive!("f*", mul, floating_point_stack),
     declare_binary_operator_primitive!("f+", add, floating_point_stack),
@@ -1372,7 +1372,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let alignment = env.data_stack.pop()?;
         let d = env.data_stack.pop_double_cell()?;
         let string = env.format_number(d, alignment as usize);
-        print!("{}", string);
+        print!("{string}");
     }),
     declare_primitive!("d2*", env, {
         let d = env.data_stack.pop_double_cell()?;
@@ -1854,9 +1854,9 @@ impl<'a> Environment<'a> {
         alignment: usize,
     ) -> String {
         let mut result = match self.base {
-            2 => format!("{:b}", n),
-            16 => format!("{:x}", n),
-            _ => format!("{}", n),
+            2 => format!("{n:b}"),
+            16 => format!("{n:x}"),
+            _ => format!("{n}"),
         };
 
         if result.len() < alignment {
@@ -2032,7 +2032,7 @@ fn main() {
                 }
             }
             Err(exception) => {
-                eprintln!("{:?} was thrown", exception);
+                eprintln!("{exception:?} was thrown");
                 eprintln!("Stack state at throw:");
                 dump_stack("data", &environment.data_stack);
                 dump_stack("control flow", &environment.control_flow_stack);
