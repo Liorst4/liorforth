@@ -331,7 +331,7 @@ impl<'a, const OVERFLOW_ERROR_CODE: Cell, const UNDERFLOW_ERROR_CODE: Cell>
 
 type Byte = u8;
 
-#[repr(packed(1))]
+#[repr(C, packed(1))]
 struct CountedString {
     len: Byte,
     data: [Byte; 0],
