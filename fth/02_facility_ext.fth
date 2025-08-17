@@ -13,8 +13,7 @@
 \ liorforth. If not, see <https://www.gnu.org/licenses/>.
 
 : begin-structure ( -- struct-size-ptr:addr 0:n )
-  here 0
-  create 0 ,
+  create here 0 , 0
   does> ( -- n:struct-size )
         @
 ;

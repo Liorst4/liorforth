@@ -663,7 +663,7 @@ b";
         )
         .unwrap();
 
-        let after_a_call = b.body.get(1).unwrap();
+        let after_a_call = unsafe { b.body().get(1).unwrap() };
         match *after_a_call {
             ForthOperation::PushData(l) => {
                 assert_eq!(l, 1);
