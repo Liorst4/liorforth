@@ -1,32 +1,29 @@
 1000000 constant upper_limit
-variable prime_candidate
-variable divisor
+: divisible? ( n n -- f ) mod 0= ;
+: one-or-two ( n -- f ) dup 1 = swap 2 = or ;
+: prime? ( n -- f )
+  dup one-or-two if drop true then
 
-
-: prime?
-  true
-  2 divisor !
-  begin
-    prime_candidate @ divisor @ mod 0 = if
-      drop
-      false
-      exit
+  dup 1 - 2 do
+    dup i divisible? if
+       drop
+       false
+       unloop
+       exit
     then
-    1 divisor +!
-    divisor @ prime_candidate @ < invert until
-;
+  loop
 
+  drop
+  true
+;
 : primes
-  1 . cr
-  2 . cr
-  3 . cr
-  5 . cr
-  7 . cr
-  9 prime_candidate !
-  begin
-    prime? if prime_candidate @ . cr then
-    2 prime_candidate +!
-    prime_candidate @ upper_limit > until
+  upper_limit 1 do
+    i dup prime? if
+      . cr
+    else
+      drop
+    then
+  loop
 ;
 
 primes
