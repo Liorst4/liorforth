@@ -492,8 +492,8 @@ struct DictionaryIterator<'a> {
     marker: core::marker::PhantomData<&'a DictionaryEntry>,
 }
 
-impl Dictionary {
-    fn iter(&self) -> DictionaryIterator {
+impl<'a> Dictionary {
+    fn iter(&self) -> DictionaryIterator<'a> {
         DictionaryIterator {
             ptr: self.latest,
             marker: core::marker::PhantomData,
