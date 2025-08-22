@@ -362,7 +362,7 @@ impl CountedString {
 type Primitive = fn(&mut Environment) -> Result<(), Exception>;
 
 /// Instructions for the interpreter
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 enum ForthOperation {
     /// Push the given Cell to the data stack
     PushData(Cell),
