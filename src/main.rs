@@ -1980,7 +1980,7 @@ fn find_dictionary_entry_from_operation(
         return None;
     }
 
-    return dict.iter().find_map(|entry| {
+    dict.iter().find_map(|entry| {
         if unsafe { entry.body() }.as_ptr() <= operation {
             let byte_offset = unsafe { operation.byte_offset_from(entry.body().as_ptr()) } as usize;
             let body_byte_count = entry.body_item_count * std::mem::size_of::<ForthOperation>();
@@ -1989,8 +1989,9 @@ fn find_dictionary_entry_from_operation(
                 return Some((name, byte_offset));
             }
         }
+
         None
-    });
+    })
 }
 
 fn dump_return_stack(
