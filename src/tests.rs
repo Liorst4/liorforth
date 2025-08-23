@@ -6,73 +6,42 @@ mod tests {
         use crate::*;
 
         #[test]
-        fn empty() {
-            let mut buffer: [Cell; 0] = Default::default();
-            let mut stack: Stack<Cell> = Stack::new(&mut buffer);
-            assert_eq!(stack.len(), 0);
-            assert_eq!(stack.as_slice(), []);
-            assert_eq!(
-                stack.push(0).err().unwrap(),
-                Exception::STACK_OVERFLOW.into()
-            );
-            assert_eq!(
-                stack.pop().err().unwrap(),
-                Exception::STACK_UNDERFLOW.into()
-            );
-        }
-
-        #[test]
-        fn one_item_stack() {
-            let mut buffer: [Cell; 1] = Default::default();
-            let mut stack: Stack<Cell> = Stack::new(&mut buffer);
-            assert_eq!(stack.len(), 0);
-            stack.push(1).unwrap();
-            assert_eq!(stack.len(), 1);
-            assert_eq!(stack.as_slice(), [1]);
-            assert_eq!(
-                stack.push(2).err().unwrap(),
-                Exception::STACK_OVERFLOW.into()
-            );
-            assert_eq!(stack.pop().unwrap(), 1);
-            assert_eq!(stack.len(), 0);
-        }
-
-        #[test]
         fn sanity() {
-            let mut buffer = [0, 0, 0, 0, 0];
-            let mut stack: Stack<Cell> = Stack::new(&mut buffer);
+            let mut stack: Stack<Cell> = Default::default();
+            let stack_item_count: Cell = STACK_ITEM_COUNT.try_into().unwrap();
+            let numbers = std::ops::Range::<Cell> {
+                start: 1,
+                end: stack_item_count + 1,
+            };
 
-            stack.push(1).unwrap();
-            stack.push(2).unwrap();
-            stack.push(3).unwrap();
-            stack.push(4).unwrap();
-            stack.push(5).unwrap();
-            assert_eq!(stack.len(), 5);
-            assert_eq!(*stack.last().unwrap(), 5);
-            assert_eq!(stack.as_slice(), [1, 2, 3, 4, 5]);
+            for i in numbers.clone() {
+                stack.push(i).unwrap();
+            }
+
+            assert_eq!(stack.len(), STACK_ITEM_COUNT);
+            assert_eq!(*stack.last().unwrap(), stack_item_count);
+            assert!(numbers.clone().eq(stack.as_slice().iter().map(|x| *x)));
             assert_eq!(
                 stack.push(5).err().unwrap(),
                 Exception::STACK_OVERFLOW.into()
             );
 
-            assert_eq!(stack.pop().unwrap(), 5);
-            assert_eq!(stack.pop().unwrap(), 4);
-            assert_eq!(stack.pop().unwrap(), 3);
-            assert_eq!(stack.pop().unwrap(), 2);
-            assert_eq!(stack.pop().unwrap(), 1);
+            for i in numbers.clone().rev() {
+                assert_eq!(stack.pop().unwrap(), i);
+            }
+
             assert_eq!(stack.len(), 0);
             assert_eq!(
                 stack.pop().err().unwrap(),
                 Exception::STACK_UNDERFLOW.into()
             );
 
-            stack.push(1).unwrap();
-            stack.push(2).unwrap();
-            stack.push(3).unwrap();
-            stack.push(4).unwrap();
-            stack.push(5).unwrap();
-            assert_eq!(stack.len(), 5);
-            assert_eq!(*stack.last().unwrap(), 5);
+            for i in numbers.clone() {
+                stack.push(i).unwrap();
+            }
+
+            assert_eq!(stack.len(), STACK_ITEM_COUNT);
+            assert_eq!(*stack.last().unwrap(), stack_item_count);
             assert_eq!(
                 stack.push(5).err().unwrap(),
                 Exception::STACK_OVERFLOW.into()
@@ -87,8 +56,7 @@ mod tests {
 
         #[test]
         fn empty_stack_backup() {
-            let mut stack_buffer: [Cell; 10] = Default::default();
-            let mut stack: Stack<Cell> = Stack::new(&mut stack_buffer);
+            let mut stack: Stack<Cell> = Default::default();
 
             let x = stack.backup();
             assert_eq!(stack.len(), 0);
@@ -99,8 +67,7 @@ mod tests {
 
         #[test]
         fn full_stack_backup() {
-            let mut buffer = [0, 0, 0, 0, 0];
-            let mut stack: Stack<Cell> = Stack::new(&mut buffer);
+            let mut stack: Stack<Cell> = Default::default();
 
             stack.push(1).unwrap();
             stack.push(2).unwrap();
@@ -121,8 +88,7 @@ mod tests {
 
         #[test]
         fn backup() {
-            let mut stack_buffer: [i32; 6] = Default::default();
-            let mut stack: Stack<i32> = Stack::new(&mut stack_buffer);
+            let mut stack: Stack<i32> = Default::default();
 
             stack.push(1).unwrap();
             stack.push(2).unwrap();
@@ -696,8 +662,7 @@ b";
         for number in numbers {
             assert_eq!(number, double_cell_from_array(double_cell_to_array(number)));
 
-            let mut stack_buffer = [0; 100];
-            let mut stack: Stack<Cell> = Stack::new(&mut stack_buffer);
+            let mut stack: Stack<Cell> = Default::default();
             stack.push_double_cell(number).unwrap();
             let number2 = stack.pop_double_cell().unwrap();
             assert_eq!(number, number2);

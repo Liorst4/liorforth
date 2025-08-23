@@ -221,27 +221,37 @@ declare_system_exception_codes!(
     (-83, DO_LOOPS_STACK_UNDERFLOW),
 );
 
+const STACK_ITEM_COUNT: usize = 100;
+
 struct Stack<
-    'a,
     T,
     const OVERFLOW_ERROR_CODE: Cell = { Exception::STACK_OVERFLOW },
     const UNDERFLOW_ERROR_CODE: Cell = { Exception::STACK_UNDERFLOW },
 > where
-    T: Copy,
+    T: Copy + Default,
 {
     head: usize,
-    data: &'a mut [T],
+    data: [T; STACK_ITEM_COUNT],
 }
 
-impl<'a, T, const OVERFLOW_ERROR_CODE: Cell, const UNDERFLOW_ERROR_CODE: Cell>
-    Stack<'a, T, OVERFLOW_ERROR_CODE, UNDERFLOW_ERROR_CODE>
+impl<T, const OVERFLOW_ERROR_CODE: Cell, const UNDERFLOW_ERROR_CODE: Cell> Default
+    for Stack<T, OVERFLOW_ERROR_CODE, UNDERFLOW_ERROR_CODE>
 where
-    T: Copy,
+    T: Copy + Default,
 {
-    fn new(data: &'a mut [T]) -> Stack<'a, T, OVERFLOW_ERROR_CODE, UNDERFLOW_ERROR_CODE> {
-        Stack { head: 0, data }
+    fn default() -> Self {
+        Self {
+            head: 0,
+            data: [Default::default(); STACK_ITEM_COUNT],
+        }
     }
+}
 
+impl<T, const OVERFLOW_ERROR_CODE: Cell, const UNDERFLOW_ERROR_CODE: Cell>
+    Stack<T, OVERFLOW_ERROR_CODE, UNDERFLOW_ERROR_CODE>
+where
+    T: Copy + Default,
+{
     fn push(&mut self, x: T) -> Result<(), Exception> {
         if self.head >= self.data.len() {
             return Err(Exception::from(OVERFLOW_ERROR_CODE));
@@ -299,8 +309,8 @@ where
     }
 }
 
-impl<'a, const OVERFLOW_ERROR_CODE: Cell, const UNDERFLOW_ERROR_CODE: Cell>
-    Stack<'a, Cell, OVERFLOW_ERROR_CODE, UNDERFLOW_ERROR_CODE>
+impl<const OVERFLOW_ERROR_CODE: Cell, const UNDERFLOW_ERROR_CODE: Cell>
+    Stack<Cell, OVERFLOW_ERROR_CODE, UNDERFLOW_ERROR_CODE>
 {
     fn push_double_cell(&mut self, value: DoubleCell) -> Result<(), Exception> {
         let cells: [Cell; 2] = double_cell_to_array(value);
@@ -548,9 +558,8 @@ impl From<CountedLoopState> for DoubleCell {
 struct Environment<'a> {
     data_space_manager: DataSpaceManager<'a>,
 
-    data_stack: Stack<'a, Cell, { Exception::STACK_OVERFLOW }, { Exception::STACK_UNDERFLOW }>,
+    data_stack: Stack<Cell, { Exception::STACK_OVERFLOW }, { Exception::STACK_UNDERFLOW }>,
     return_stack: Stack<
-        'a,
         *const ForthOperation,
         { Exception::RETURN_STACK_OVERFLOW },
         { Exception::RETURN_STACK_UNDERFLOW },
@@ -565,7 +574,6 @@ struct Environment<'a> {
 
     currently_compiling: Cell,
     control_flow_stack: Stack<
-        'a,
         UCell,
         { Exception::CONTROL_FLOW_STACK_OVERFLOW },
         { Exception::CONTROL_FLOW_STACK_UNDERFLOW },
@@ -574,14 +582,12 @@ struct Environment<'a> {
     parsed_word: &'a mut [Byte],
 
     counted_loop_stack: Stack<
-        'a,
         CountedLoopState,
         { Exception::DO_LOOPS_NESTED_TOO_DEEPLY_DURING_EXECUTION },
         { Exception::DO_LOOPS_STACK_UNDERFLOW },
     >,
 
     floating_point_stack: Stack<
-        'a,
         Float,
         { Exception::FLOATING_POINT_STACK_OVERFLOW },
         { Exception::FLOATING_POINT_STACK_UNDERFLOW },
@@ -1598,62 +1604,24 @@ impl<'a> Environment<'a> {
         data_space: &'a mut [Byte],
         input_buffer_byte_count: usize,
         parsed_word_buffer_byte_count: usize,
-        data_stack_byte_count: usize,
-        return_stack_byte_count: usize,
-        control_flow_stack_byte_count: usize,
-        counted_loop_stack_byte_count: usize,
-        floating_point_stack_byte_count: usize,
     ) -> Option<Environment<'a>> {
         let mut data_space_manager = DataSpaceManager::new(data_space);
         let input_buffer = data_space_manager.allot(input_buffer_byte_count)?;
         let parsed_word = data_space_manager.allot(parsed_word_buffer_byte_count)?;
-        let data_stack_buffer = data_space_manager.allot(data_stack_byte_count)?;
-        let return_stack_buffer = data_space_manager.allot(return_stack_byte_count)?;
-        let control_flow_stack_buffer = data_space_manager.allot(control_flow_stack_byte_count)?;
-        let counted_loop_stack_buffer = data_space_manager.allot(counted_loop_stack_byte_count)?;
-        let floating_point_stack_buffer =
-            data_space_manager.allot(floating_point_stack_byte_count)?;
-
-        fn stack_from_byte_slice<
-            'a,
-            T,
-            const OVERFLOW_ERROR_CODE: Cell,
-            const UNDERFLOW_ERROR_CODE: Cell,
-        >(
-            slice: &'a mut [Byte],
-        ) -> Stack<'a, T, OVERFLOW_ERROR_CODE, UNDERFLOW_ERROR_CODE>
-        where
-            T: Copy,
-        {
-            let x: &'a mut [T] = unsafe {
-                std::slice::from_raw_parts_mut(
-                    slice.as_mut_ptr() as *mut T,
-                    slice.len() / std::mem::size_of::<T>(),
-                )
-            };
-
-            Stack::new(x)
-        }
-
-        let data_stack = stack_from_byte_slice(data_stack_buffer);
-        let return_stack = stack_from_byte_slice(return_stack_buffer);
-        let control_flow_stack = stack_from_byte_slice(control_flow_stack_buffer);
-        let counted_loop_stack = stack_from_byte_slice(counted_loop_stack_buffer);
-        let floating_point_stack = stack_from_byte_slice(floating_point_stack_buffer);
 
         let mut result = Environment {
             data_space_manager,
-            data_stack,
-            return_stack,
+            data_stack: Default::default(),
+            return_stack: Default::default(),
             input_buffer,
             input_buffer_head: 0,
             dictionary: Default::default(), /* TODO */
             base: 10,
             currently_compiling: Flag::False as Cell,
-            control_flow_stack,
+            control_flow_stack: Default::default(),
             parsed_word,
-            counted_loop_stack,
-            floating_point_stack,
+            counted_loop_stack: Default::default(),
+            floating_point_stack: Default::default(),
         };
 
         for static_entry in STATIC_DICTIONARY {
@@ -1674,16 +1642,7 @@ impl<'a> Environment<'a> {
     }
 
     fn new_default_sized(data_space: &'a mut [Byte]) -> Option<Environment<'a>> {
-        Environment::new(
-            data_space,
-            1024,
-            1024,
-            100 * std::mem::size_of::<Cell>(),
-            100 * std::mem::size_of::<*const ForthOperation>(),
-            100 * std::mem::size_of::<UCell>(),
-            100 * std::mem::size_of::<CountedLoopState>(),
-            100 * std::mem::size_of::<Float>(),
-        )
+        Environment::new(data_space, 1024, 1024)
     }
 
     fn compile_mode(&self) -> bool {
@@ -1967,7 +1926,7 @@ fn dump_stack<T, const OVERFLOW_ERROR_CODE: Cell, const UNDERFLOW_ERROR_CODE: Ce
     name: &str,
     s: &Stack<T, OVERFLOW_ERROR_CODE, UNDERFLOW_ERROR_CODE>,
 ) where
-    T: Copy + std::fmt::Debug,
+    T: Copy + Default + std::fmt::Debug,
 {
     eprintln!("\t{}: len={} items: {:?}", name, s.len(), s.as_slice());
 }
