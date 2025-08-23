@@ -2,12 +2,15 @@
 mod tests {
     use crate::*;
 
+    pub type TestStack = Stack<Cell, { Exception::STACK_OVERFLOW }, { Exception::STACK_UNDERFLOW }>;
+
     mod stack {
+        use crate::tests::tests::TestStack;
         use crate::*;
 
         #[test]
         fn sanity() {
-            let mut stack: Stack<Cell> = Default::default();
+            let mut stack: TestStack = Default::default();
             let stack_item_count: Cell = STACK_ITEM_COUNT.try_into().unwrap();
             let numbers = std::ops::Range::<Cell> {
                 start: 1,
@@ -56,7 +59,7 @@ mod tests {
 
         #[test]
         fn empty_stack_backup() {
-            let mut stack: Stack<Cell> = Default::default();
+            let mut stack: TestStack = Default::default();
 
             let x = stack.backup();
             assert_eq!(stack.len(), 0);
@@ -67,7 +70,7 @@ mod tests {
 
         #[test]
         fn full_stack_backup() {
-            let mut stack: Stack<Cell> = Default::default();
+            let mut stack: TestStack = Default::default();
 
             stack.push(1).unwrap();
             stack.push(2).unwrap();
@@ -88,7 +91,7 @@ mod tests {
 
         #[test]
         fn backup() {
-            let mut stack: Stack<i32> = Default::default();
+            let mut stack: TestStack = Default::default();
 
             stack.push(1).unwrap();
             stack.push(2).unwrap();
@@ -662,7 +665,7 @@ b";
         for number in numbers {
             assert_eq!(number, double_cell_from_array(double_cell_to_array(number)));
 
-            let mut stack: Stack<Cell> = Default::default();
+            let mut stack: TestStack = Default::default();
             stack.push_double_cell(number).unwrap();
             let number2 = stack.pop_double_cell().unwrap();
             assert_eq!(number, number2);

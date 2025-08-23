@@ -223,11 +223,8 @@ declare_system_exception_codes!(
 
 const STACK_ITEM_COUNT: usize = 100;
 
-struct Stack<
-    T,
-    const OVERFLOW_ERROR_CODE: Cell = { Exception::STACK_OVERFLOW },
-    const UNDERFLOW_ERROR_CODE: Cell = { Exception::STACK_UNDERFLOW },
-> where
+struct Stack<T, const OVERFLOW_ERROR_CODE: Cell, const UNDERFLOW_ERROR_CODE: Cell>
+where
     T: Copy + Default,
 {
     head: usize,
