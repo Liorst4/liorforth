@@ -588,7 +588,7 @@ struct Environment<'a> {
     >,
 }
 
-const USUAL_LEADING_DELIMITERS_TO_IGNORE: &[Byte] = &[b' ', b'\t'];
+const USUAL_LEADING_DELIMITERS_TO_IGNORE: &[Byte] = b" \t";
 
 struct StaticDictionaryEntry {
     name: &'static str,
