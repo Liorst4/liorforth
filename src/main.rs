@@ -552,12 +552,33 @@ impl From<CountedLoopState> for DoubleCell {
     }
 }
 
+#[derive(Clone, Copy)]
+struct ZeroForthOperationConstPtr(*const ForthOperation);
+
+impl Default for ZeroForthOperationConstPtr {
+    fn default() -> Self {
+        Self(std::ptr::null())
+    }
+}
+
+impl<const OVERFLOW_ERROR_CODE: Cell, const UNDERFLOW_ERROR_CODE: Cell>
+    Stack<ZeroForthOperationConstPtr, OVERFLOW_ERROR_CODE, UNDERFLOW_ERROR_CODE>
+{
+    fn push_ptr(&mut self, x: *const ForthOperation) -> Result<(), Exception> {
+        self.push(ZeroForthOperationConstPtr(x))
+    }
+
+    fn pop_ptr(&mut self) -> Result<*const ForthOperation, Exception> {
+        Ok(self.pop()?.0)
+    }
+}
+
 struct Environment<'a> {
     data_space_manager: DataSpaceManager<'a>,
 
     data_stack: Stack<Cell, { Exception::STACK_OVERFLOW }, { Exception::STACK_UNDERFLOW }>,
     return_stack: Stack<
-        *const ForthOperation,
+        ZeroForthOperationConstPtr,
         { Exception::RETURN_STACK_OVERFLOW },
         { Exception::RETURN_STACK_UNDERFLOW },
     >,
@@ -822,14 +843,14 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     declare_primitive!("r>", env, {
         let calling_word_return_address = env.return_stack.pop()?;
         let from_return_stack = env.return_stack.pop()?;
-        env.data_stack.push(from_return_stack as Cell)?;
+        env.data_stack.push(from_return_stack.0.addr() as Cell)?;
         env.return_stack.push(calling_word_return_address)?;
     }),
     declare_primitive!(">r", env, {
         let calling_word_return_address = env.return_stack.pop()?;
         let from_data_stack = env.data_stack.pop()?;
         env.return_stack
-            .push(from_data_stack as *const ForthOperation)?;
+            .push_ptr(from_data_stack as *const ForthOperation)?;
         env.return_stack.push(calling_word_return_address)?;
     }),
     declare_primitive!("u.", env, {
@@ -1781,7 +1802,7 @@ impl<'a> Environment<'a> {
                     let return_address = unsafe { instruction_pointer.add(1) };
                     let dest_instruction =
                         unsafe { dest.as_ref().unwrap().body() }.first().unwrap();
-                    self.return_stack.push(return_address)?;
+                    self.return_stack.push_ptr(return_address)?;
                     instruction_pointer = dest_instruction;
                     continue 'instruction_loop;
                 }
@@ -1793,7 +1814,7 @@ impl<'a> Environment<'a> {
                         return Ok(());
                     }
                     _ => {
-                        instruction_pointer = self.return_stack.pop()?;
+                        instruction_pointer = self.return_stack.pop_ptr()?;
                         continue 'instruction_loop;
                     }
                 },
@@ -1932,7 +1953,7 @@ fn find_dictionary_entry_from_operation(
     dict: &Dictionary,
     operation: *const ForthOperation,
 ) -> Option<(&str, usize)> {
-    if ((operation as usize) % std::mem::align_of::<ForthOperation>()) != 0 {
+    if (operation.addr() % std::mem::align_of::<ForthOperation>()) != 0 {
         return None;
     }
 
@@ -1952,7 +1973,7 @@ fn find_dictionary_entry_from_operation(
 
 fn dump_return_stack(
     stack: &Stack<
-        *const ForthOperation,
+        ZeroForthOperationConstPtr,
         { Exception::RETURN_STACK_OVERFLOW },
         { Exception::RETURN_STACK_UNDERFLOW },
     >,
@@ -1960,9 +1981,9 @@ fn dump_return_stack(
 ) {
     eprintln!("\treturn stack:");
     for (depth, operation) in stack.as_slice().iter().rev().enumerate() {
-        eprint!("\t\t{}:\t${:x}", depth, *operation as usize);
+        eprint!("\t\t{}:\t${:x}", depth, operation.0.addr());
 
-        if let Some((name, offset)) = find_dictionary_entry_from_operation(dict, *operation) {
+        if let Some((name, offset)) = find_dictionary_entry_from_operation(dict, operation.0) {
             eprint!(
                 "\t({}+({} * {}))",
                 name,

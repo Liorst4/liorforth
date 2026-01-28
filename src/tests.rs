@@ -638,7 +638,7 @@ b";
                 assert_eq!(l, 1);
 
                 let after_a_call: *const ForthOperation = after_a_call;
-                let after_a_call: Cell = after_a_call as Cell;
+                let after_a_call: Cell = after_a_call.addr() as Cell;
                 assert_eq!(
                     something_from_return_stack, after_a_call,
                     "got from stack: ${:x} after_a_call: ${:x}",
