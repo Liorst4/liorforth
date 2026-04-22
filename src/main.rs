@@ -13,7 +13,7 @@
 // liorforth. If not, see <https://www.gnu.org/licenses/>.
 
 use std::io::{IsTerminal, Read, Write};
-use std::ops::{Add, BitAnd, BitOr, BitXor, Mul, Not, Shl, Shr};
+use std::ops::{Add, BitAnd, BitOr, BitXor, Mul, Not, Shl, Shr, Sub};
 use std::str::FromStr;
 
 /// Forth's basic data type. Holds a number
@@ -1212,7 +1212,7 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
     }),
     declare_binary_operator_primitive!("f*", mul, floating_point_stack),
     declare_binary_operator_primitive!("f+", add, floating_point_stack),
-    declare_binary_operator_primitive!("f-", add, floating_point_stack),
+    declare_binary_operator_primitive!("f-", sub, floating_point_stack),
     declare_primitive!("f/", env, {
         let divisor = env.floating_point_stack.pop()?;
         if divisor == 0.0 {
