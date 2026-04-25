@@ -1158,4 +1158,88 @@ TestStruct {test_struct_byte_count} assert-eq
             assert_eq!(result, expected_result);
         }
     }
+
+    #[test]
+    fn test_string_literals() {
+        default_fixed_sized_environment!(environment);
+        let string1_value = "hello world";
+        let string2_value = "how are you doing?";
+
+        let program = format!(
+            "
+s\" {}\"
+
+: my-new-word s\" {}\" ;
+
+see my-new-word
+
+my-new-word
+
+",
+            string1_value, string2_value
+        );
+
+        for line in program.lines() {
+            environment.interpret_line(line.as_bytes()).unwrap();
+        }
+
+        let string2_count = environment.data_stack.pop().unwrap();
+        let string2_addr = environment.data_stack.pop().unwrap();
+
+        let string1_count = environment.data_stack.pop().unwrap();
+        let string1_addr = environment.data_stack.pop().unwrap();
+
+        let resulting_string1 = unsafe {
+            core::slice::from_raw_parts(
+                std::mem::transmute::<Cell, *const u8>(string1_addr),
+                string1_count.try_into().unwrap(),
+            )
+        };
+        let resulting_string2 = unsafe {
+            core::slice::from_raw_parts(
+                std::mem::transmute::<Cell, *const u8>(string2_addr),
+                string2_count.try_into().unwrap(),
+            )
+        };
+
+        assert_eq!(
+            string1_value,
+            std::str::from_utf8(resulting_string1).unwrap()
+        );
+        assert_eq!(
+            string2_value,
+            std::str::from_utf8(resulting_string2).unwrap()
+        );
+
+        let my_new_word = search_dictionary(
+            &environment.dictionary,
+            &Name::from_ascii("my-new-word".as_bytes()).unwrap(),
+        )
+        .unwrap();
+
+        let my_new_word_body = unsafe { my_new_word.body() };
+        assert!(my_new_word_body.len() >= 2);
+
+        let string2_in_word_addr: Cell = match my_new_word_body.get(0).unwrap() {
+            ForthOperation::PushData(l) => *l,
+            _ => panic!(),
+        };
+
+        let string2_in_word_count: Cell = match my_new_word_body.get(1).unwrap() {
+            ForthOperation::PushData(l) => *l,
+            _ => panic!(),
+        };
+
+        let resulting_string2_in_word = unsafe {
+            core::slice::from_raw_parts(
+                std::mem::transmute::<Cell, *const u8>(string2_in_word_addr),
+                string2_in_word_count.try_into().unwrap(),
+            )
+        };
+
+        assert_eq!(
+            string2_value,
+            std::str::from_utf8(resulting_string2_in_word).unwrap()
+        );
+    }
 }
