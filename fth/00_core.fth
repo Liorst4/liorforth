@@ -35,6 +35,14 @@
   latest-push
 ; immediate
 
+: swap ( x:a x:b -- x:b x:a )
+  1 roll
+;
+
+: rot ( x:a x:b x:c -- x:b x:c x:a )
+  2 roll
+;
+
 \ Select between two items in the data stack
 \ When the given condition is true, only "a" remains on top of the stack
 \ When the given condition is false, only "b" remains on top of the stack

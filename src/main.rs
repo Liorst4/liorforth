@@ -304,6 +304,18 @@ where
         self.head = backup.len();
         self.data[0..self.head].copy_from_slice(backup);
     }
+
+    fn roll(&mut self, u: UCell) -> Result<(), Exception> {
+        let amount_of_items_to_rotate = u + 1;
+        let depth = self.len();
+        if depth < amount_of_items_to_rotate {
+            return Err(UNDERFLOW_ERROR_CODE.into());
+        }
+
+        let items_to_rotate = &mut self.data[depth - amount_of_items_to_rotate..depth];
+        items_to_rotate.rotate_left(1);
+        return Ok(());
+    }
 }
 
 impl<const OVERFLOW_ERROR_CODE: Cell, const UNDERFLOW_ERROR_CODE: Cell>
@@ -729,12 +741,6 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         let x = env.data_stack.pop()?;
         env.print_number(x);
     }),
-    declare_primitive!("swap", env, {
-        let a = env.data_stack.pop()?;
-        let b = env.data_stack.pop()?;
-        env.data_stack.push(a)?;
-        env.data_stack.push(b)?;
-    }),
     declare_primitive!("over", env, {
         let a = env.data_stack.pop()?;
         let b = env.data_stack.pop()?;
@@ -742,24 +748,9 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.data_stack.push(a)?;
         env.data_stack.push(b)?;
     }),
-    declare_primitive!("rot", env, {
-        let a = env.data_stack.pop()?;
-        let b = env.data_stack.pop()?;
-        let c = env.data_stack.pop()?;
-        env.data_stack.push(b)?;
-        env.data_stack.push(a)?;
-        env.data_stack.push(c)?;
-    }),
     declare_primitive!("roll", env, {
         let u = env.data_stack.pop()? as UCell;
-        let amount_of_items_to_rotate = u + 1;
-        let depth = env.data_stack.len();
-        if depth < amount_of_items_to_rotate {
-            return Err(Exception::STACK_UNDERFLOW.into());
-        }
-
-        let items_to_rotate = &mut env.data_stack.data[depth - amount_of_items_to_rotate..depth];
-        items_to_rotate.rotate_left(1);
+        return env.data_stack.roll(u);
     }),
     declare_primitive!("/mod", env, {
         let divisor = env.data_stack.pop()?;
@@ -1242,19 +1233,9 @@ const STATIC_DICTIONARY: &[StaticDictionaryEntry] = &[
         env.floating_point_stack.push(a)?;
         env.floating_point_stack.push(b)?;
     }),
-    declare_primitive!("frot", env, {
-        let a = env.floating_point_stack.pop()?;
-        let b = env.floating_point_stack.pop()?;
-        let c = env.floating_point_stack.pop()?;
-        env.floating_point_stack.push(b)?;
-        env.floating_point_stack.push(a)?;
-        env.floating_point_stack.push(c)?;
-    }),
-    declare_primitive!("fswap", env, {
-        let a = env.floating_point_stack.pop()?;
-        let b = env.floating_point_stack.pop()?;
-        env.floating_point_stack.push(a)?;
-        env.floating_point_stack.push(b)?;
+    declare_primitive!("froll", env, {
+        let u = env.data_stack.pop()? as UCell;
+        return env.floating_point_stack.roll(u);
     }),
     declare_primitive!("fdepth", env, {
         env.data_stack

@@ -271,6 +271,7 @@ Implemented words:
 		select-compare (used for min and max)
 		>=
 		<=
+		froll
 
 Core words to implement:
 	fm/mod
