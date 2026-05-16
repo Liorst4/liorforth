@@ -1191,13 +1191,13 @@ my-new-word
 
         let resulting_string1 = unsafe {
             core::slice::from_raw_parts(
-                std::mem::transmute::<Cell, *const u8>(string1_addr),
+                string1_addr as *const u8,
                 string1_count.try_into().unwrap(),
             )
         };
         let resulting_string2 = unsafe {
             core::slice::from_raw_parts(
-                std::mem::transmute::<Cell, *const u8>(string2_addr),
+                string2_addr as *const u8,
                 string2_count.try_into().unwrap(),
             )
         };
@@ -1232,7 +1232,7 @@ my-new-word
 
         let resulting_string2_in_word = unsafe {
             core::slice::from_raw_parts(
-                std::mem::transmute::<Cell, *const u8>(string2_in_word_addr),
+                string2_in_word_addr as *const u8,
                 string2_in_word_count.try_into().unwrap(),
             )
         };
