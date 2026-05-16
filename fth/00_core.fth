@@ -107,7 +107,7 @@
 ; immediate
 
 : until ( cf: n:offset-of-first-instruction-in-loop-body -- )
-  latest-len 2 + cf> swap - ForthOperation::PushData latest-push
+  latest-len 2 + cf> swap - postpone literal
   ['] branch-relative? compile,
 ; immediate
 
