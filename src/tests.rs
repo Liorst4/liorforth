@@ -1092,6 +1092,25 @@ TestStruct {test_struct_byte_count} assert-eq
 8 x_addr TestStruct.d !
 
 9.1011e x_addr TestStruct.e f!
+
+create y
+TestStruct allot
+000 y TestStruct.a !
+111 y TestStruct.a 1 cells + !
+
+222 y TestStruct.b !
+333 y TestStruct.b 1 cells + !
+444 y TestStruct.b 2 cells + !
+555 y TestStruct.b 3 cells + !
+666 y TestStruct.b 4 cells + !
+
+77 y TestStruct.c c!
+
+888 y TestStruct.d !
+
+9.999e y TestStruct.e f!
+
+y
 "
         );
 
@@ -1102,6 +1121,7 @@ TestStruct {test_struct_byte_count} assert-eq
             environment.interpret_line(line.as_bytes()).unwrap();
         }
 
+        let y_addr = environment.data_stack.pop().unwrap();
         assert!(environment.data_stack.is_empty());
 
         assert_eq!(x.a[0], 0);
@@ -1114,6 +1134,20 @@ TestStruct {test_struct_byte_count} assert-eq
         assert_eq!(x.c, 7);
         assert_eq!(x.d, 8);
         assert_eq!(x.e, 9.1011);
+
+        assert_eq!(y_addr % std::mem::align_of::<TestStruct>() as Cell, 0);
+        let y: &TestStruct = unsafe { (y_addr as *const TestStruct).as_ref().unwrap() };
+
+        assert_eq!(y.a[0], 000);
+        assert_eq!(y.a[1], 111);
+        assert_eq!(y.b[0], 222);
+        assert_eq!(y.b[1], 333);
+        assert_eq!(y.b[2], 444);
+        assert_eq!(y.b[3], 555);
+        assert_eq!(y.b[4], 666);
+        assert_eq!(y.c, 77);
+        assert_eq!(y.d, 888);
+        assert_eq!(y.e, 9.999);
     }
 
     #[test]
