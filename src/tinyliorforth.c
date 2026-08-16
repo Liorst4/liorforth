@@ -334,6 +334,19 @@ int main(void)
     DEFINE_CONSTANT(/* c_name_= */ newline, /* forth_name_= */ nl, /* value_= */ '\n');
     DEFINE_CONSTANT(/* c_name_= */ blank, /* forth_name_= */ bl, /* value_= */ ' ');
 
+    DEFINE_WORD(/* name_= */ here, /* flags_= */ 0)
+    {
+        stack_push(&g_vm.data_stack, (cell_t)g_vm.data_space.data + g_vm.data_space.head);
+        NEXT;
+    }
+
+    DEFINE_WORD(/* name_= */ allot, /* flags_= */ 0)
+    {
+        cell_t size = stack_pop(&g_vm.data_stack);
+        g_vm.data_space.head += size;
+        NEXT;
+    }
+
 #undef DEFINE_CONSTANT
 #undef DEFINE_WORD
 #undef DEFINE_WORD_FULL
