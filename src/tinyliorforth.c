@@ -17,6 +17,7 @@
 
 #include <assert.h>
 #include <errno.h>
+#include <stdalign.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -51,7 +52,10 @@ enum {
     FORTH_TRUE = ~FORTH_FALSE,
 };
 
-static char* const BOOT_SCRIPT = "";
+static char* const BOOT_SCRIPT = ": nop ;\n"
+                                 ": 1+ 1 + ;\n"
+                                 ": 1- 1 - ;\n"
+                                 ": nip swap drop ;\n";
 
 static struct {
     struct stack data_stack;
@@ -74,6 +78,9 @@ static struct {
     } data_space;
 
     bool init_is_done;
+
+    cell_t state;
+    struct dict_entry* latest;
 } g_vm;
 
 static void stack_push(struct stack* s, cell_t value)
@@ -102,6 +109,16 @@ static struct dict_entry* search_dict(char const* name)
     return NULL;
 }
 
+static void align_data_space_to(size_t size)
+{
+    if (0 == (g_vm.data_space.head % size)) {
+        return;
+    }
+
+    g_vm.data_space.head += (size - (g_vm.data_space.head % size));
+    assert(0 == (g_vm.data_space.head % size));
+}
+
 int main(void)
 {
     FILE* inputs[2];
@@ -114,6 +131,7 @@ int main(void)
     g_vm.data_space.head = 0;
     g_vm.dict = NULL;
     g_vm.init_is_done = false;
+    g_vm.state = FORTH_FALSE;
 
     /* clang-format off */
 #define NEXT goto **(++g_vm.ip);
@@ -156,8 +174,9 @@ int main(void)
     GADGET(ret)
     {
         if (g_vm.return_stack.head) {
-            void* return_address = (void*)stack_pop(&g_vm.return_stack);
-            goto* return_address;
+            void** return_address = (void**)stack_pop(&g_vm.return_stack);
+            g_vm.ip = return_address;
+            goto** g_vm.ip;
         }
 
         goto back_to_repl;
@@ -171,11 +190,20 @@ int main(void)
         NEXT;
     }
 
-    DEFINE_WORD(/* name_= */ load_literal, /* flags_= */ 0)
+    GADGET(/* name_= */ load_literal)
     {
         cell_t value = *((cell_t*)++g_vm.ip);
         stack_push(&g_vm.data_stack, value);
         NEXT;
+    }
+
+    GADGET(/* name_= */ call_word)
+    {
+        struct dict_entry* target = *(struct dict_entry**)(g_vm.ip + 1);
+        void** return_address = (g_vm.ip + 2);
+        stack_push(&g_vm.return_stack, (cell_t)return_address);
+        g_vm.ip = (void**)target->body;
+        goto** g_vm.ip;
     }
 
     DEFINE_WORD(/* name_= */ swap, /* flags_= */ 0)
@@ -347,6 +375,39 @@ int main(void)
         NEXT;
     }
 
+    DEFINE_CONSTANT(/* c_name_= */ state, /* forth_name=_ */ state, /* value_= */ &g_vm.state);
+
+    DEFINE_WORD_FULL(/* c_name_= */ start_compiling_user_defined_word, /* forth_name_= */ :, /* flags_= */ 0)
+    {
+        align_data_space_to(alignof(struct dict_entry));
+        g_vm.latest = (struct dict_entry*)(g_vm.data_space.data + g_vm.data_space.head);
+        g_vm.data_space.head += sizeof(*g_vm.latest);
+        memset(g_vm.latest, 0, sizeof(*g_vm.latest));
+        char* name = strtok(NULL, " ");
+        assert(name);
+        assert(strlen(name) < sizeof(g_vm.latest->name));
+        strncpy((char*)g_vm.latest->name, name, sizeof(g_vm.latest->name));
+        align_data_space_to(alignof(cell_t*));
+        g_vm.latest->body = (cell_t**)(g_vm.data_space.data + g_vm.data_space.head);
+        g_vm.state = FORTH_TRUE;
+        NEXT;
+    }
+
+    DEFINE_WORD_FULL(/* c_name_= */ end_compiling_user_defined_word, /* forth_name_= */;, /* flags_= */ DICT_FLAG_IMMEDIATE)
+    {
+        /* clang-format off */
+        cell_t r = (cell_t) &&ret;
+        /* clang-format on */
+
+        align_data_space_to(alignof(cell_t));
+        memcpy(g_vm.data_space.data + g_vm.data_space.head, &r, sizeof(r));
+        g_vm.data_space.head += sizeof(r);
+        g_vm.latest->prev = g_vm.dict;
+        g_vm.dict = g_vm.latest;
+        g_vm.state = FORTH_FALSE;
+        NEXT;
+    }
+
 #undef DEFINE_CONSTANT
 #undef DEFINE_WORD
 #undef DEFINE_WORD_FULL
@@ -386,13 +447,40 @@ int main(void)
                 /* Handle token */
                 number = strtol(token, &number_end, g_vm.base);
                 if ((*number_end == '\0') && (errno != ERANGE)) {
-                    stack_push(&g_vm.data_stack, (cell_t)number);
+                    if (g_vm.state == FORTH_TRUE) {
+                        align_data_space_to(alignof(cell_t));
+
+                        /* clang-format off */
+                        cell_t r = (cell_t) &&load_literal;
+                        /* clang-format on */
+                        memcpy(g_vm.data_space.data + g_vm.data_space.head, &r, sizeof(r));
+                        g_vm.data_space.head += sizeof(r);
+
+                        r = number;
+                        memcpy(g_vm.data_space.data + g_vm.data_space.head, &r, sizeof(r));
+                        g_vm.data_space.head += sizeof(r);
+                    } else {
+                        stack_push(&g_vm.data_stack, (cell_t)number);
+                    }
                 } else {
                     struct dict_entry* word = search_dict(token);
                     assert(word);
+                    if ((g_vm.state == FORTH_TRUE) && !(word->flags & DICT_FLAG_IMMEDIATE)) {
+                        align_data_space_to(alignof(cell_t));
 
-                    g_vm.ip = (void**)word->body;
-                    goto** g_vm.ip;
+                        /* clang-format off */
+                        cell_t r = (cell_t) &&call_word;
+                        /* clang-format on */
+                        memcpy(g_vm.data_space.data + g_vm.data_space.head, &r, sizeof(cell_t));
+                        g_vm.data_space.head += sizeof(cell_t);
+
+                        memcpy(g_vm.data_space.data + g_vm.data_space.head, &word, sizeof(cell_t));
+                        g_vm.data_space.head += sizeof(cell_t);
+                    } else {
+                        g_vm.ip = (void**)word->body;
+                        goto** g_vm.ip;
+                    }
+
                 back_to_repl:
                     /* NOP (label at the end of a block was only added in C23) */
                     (void)NULL;
