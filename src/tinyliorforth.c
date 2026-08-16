@@ -137,6 +137,21 @@ int main(void)
 
 #define DEFINE_WORD(name_, flags_) DEFINE_WORD_FULL(name_, name_, flags_)
 
+#define DEFINE_CONSTANT(c_name_, forth_name_, value_)                     \
+    static cell_t* c_name_##_body[3] = {                                  \
+        &&load_literal,                                                   \
+        (cell_t*)(value_),                                                \
+        &&ret,                                                            \
+    };                                                                    \
+    static struct dict_entry c_name_##_dict_entry = (struct dict_entry) { \
+        .prev = NULL,                                                     \
+        .name = #forth_name_,                                             \
+        .flags = 0,                                                       \
+        .body = c_name_##_body,                                           \
+    };                                                                    \
+    c_name_##_dict_entry.prev = g_vm.dict;                                \
+    g_vm.dict = &c_name_##_dict_entry
+
     GADGET(ret)
     {
         if (g_vm.return_stack.head) {
@@ -317,6 +332,12 @@ int main(void)
         NEXT;
     }
 
+    DEFINE_CONSTANT(/* c_name_= */ forth_true, /* forth_name_= */ true, /* value_= */ FORTH_TRUE);
+    DEFINE_CONSTANT(/* c_name_= */ forth_false, /* forth_name_= */ false, /* value_= */ FORTH_FALSE);
+    DEFINE_CONSTANT(/* c_name_= */ newline, /* forth_name_= */ nl, /* value_= */ '\n');
+    DEFINE_CONSTANT(/* c_name_= */ blank, /* forth_name_= */ bl, /* value_= */ ' ');
+
+#undef DEFINE_CONSTANT
 #undef DEFINE_WORD
 #undef DEFINE_WORD_FULL
 #undef GADGET
