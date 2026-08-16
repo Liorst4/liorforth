@@ -162,14 +162,6 @@ int main(void)
         NEXT;
     }
 
-    DEFINE_WORD(/* name_= */ execute, /* flags_= */ 0)
-    {
-        struct dict_entry* target = (struct dict_entry*)(g_vm.ip + 1);
-        cell_t return_address = *(cell_t*)(g_vm.ip + 2);
-        stack_push(&g_vm.return_stack, return_address);
-        goto*(target->body[0]);
-    }
-
     DEFINE_WORD(/* name_= */ swap, /* flags_= */ 0)
     {
         cell_t b = stack_pop(&g_vm.data_stack);
