@@ -140,7 +140,7 @@ int main(void)
 #define DEFINE_CONSTANT(c_name_, forth_name_, value_)                     \
     static cell_t* c_name_##_body[3] = {                                  \
         &&load_literal,                                                   \
-        (cell_t*)(value_),                                                \
+        0,                                                                \
         &&ret,                                                            \
     };                                                                    \
     static struct dict_entry c_name_##_dict_entry = (struct dict_entry) { \
@@ -149,6 +149,7 @@ int main(void)
         .flags = 0,                                                       \
         .body = c_name_##_body,                                           \
     };                                                                    \
+    c_name_##_body[1] = (cell_t*)(cell_t)(value_);                        \
     c_name_##_dict_entry.prev = g_vm.dict;                                \
     g_vm.dict = &c_name_##_dict_entry
 
@@ -232,11 +233,7 @@ int main(void)
         NEXT;
     }
 
-    DEFINE_WORD(/* name_= */ base, /* flags_= */ 0)
-    {
-        stack_push(&g_vm.data_stack, (cell_t)&g_vm.base);
-        NEXT;
-    }
+    DEFINE_CONSTANT(/* c_name_= */ base, /* forth_name=_ */ base, /* value_= */ &g_vm.base);
 
     DEFINE_WORD_FULL(/* c_name_= */ add, /* forth_name_= */ +, /* flags_= */ 0)
     {
