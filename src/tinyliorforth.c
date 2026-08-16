@@ -51,7 +51,7 @@ enum {
     FORTH_TRUE = ~FORTH_FALSE,
 };
 
-static char const* const BOOT_SCRIPT = "";
+static char* const BOOT_SCRIPT = "";
 
 static struct {
     struct stack data_stack;
@@ -104,6 +104,8 @@ static struct dict_entry* search_dict(char const* name)
 
 int main(void)
 {
+    FILE* inputs[2];
+
     /* Init */
     g_vm.data_stack.head = 0;
     g_vm.return_stack.head = 0;
@@ -330,47 +332,53 @@ int main(void)
 
     g_vm.init_is_done = true;
 
-    while (true) {
-        g_vm.input_buffer.head = 0;
-        memset(g_vm.input_buffer.data, 0, sizeof(g_vm.input_buffer.data));
-        if (!fgets((char*)g_vm.input_buffer.data, sizeof(g_vm.input_buffer.data),
-                stdin)) {
-            break;
-        }
+    inputs[0] = fmemopen(BOOT_SCRIPT, strlen(BOOT_SCRIPT), "rb");
+    assert(inputs[0]);
+    inputs[1] = stdin;
 
-        /* Check that the input wasn't truncated */
-        assert(g_vm.input_buffer.data[sizeof(g_vm.input_buffer.data) - 1] == 0);
-        assert(g_vm.input_buffer
-                   .data[strlen((char const*)g_vm.input_buffer.data) - 1]
-            == '\n');
-
-        /* Remove trailing newline */
-        g_vm.input_buffer.data[strlen((char const*)g_vm.input_buffer.data) - 1] = 0;
-
-        char* token = strtok((char*)g_vm.input_buffer.data, " ");
-        g_vm.input_buffer.head = (uintptr_t)token - (uintptr_t)g_vm.input_buffer.data;
-        while (token) {
-            long long number;
-            char* number_end;
-
-            /* Handle token */
-            number = strtol(token, &number_end, g_vm.base);
-            if ((*number_end == '\0') && (errno != ERANGE)) {
-                stack_push(&g_vm.data_stack, (cell_t)number);
-            } else {
-                struct dict_entry* word = search_dict(token);
-                assert(word);
-
-                g_vm.ip = (void**)word->body;
-                goto** g_vm.ip;
-            back_to_repl:
-                /* NOP (label at the end of a block was only added in C23) */
-                (void)NULL;
+    for (unsigned int i = 0; i < ARRAY_SIZE(inputs); ++i) {
+        while (true) {
+            g_vm.input_buffer.head = 0;
+            memset(g_vm.input_buffer.data, 0, sizeof(g_vm.input_buffer.data));
+            if (!fgets((char*)g_vm.input_buffer.data, sizeof(g_vm.input_buffer.data),
+                    inputs[i])) {
+                break;
             }
 
-            /* Next token */
-            token = strtok(NULL, " ");
+            /* Check that the input wasn't truncated */
+            assert(g_vm.input_buffer.data[sizeof(g_vm.input_buffer.data) - 1] == 0);
+            assert(g_vm.input_buffer
+                       .data[strlen((char const*)g_vm.input_buffer.data) - 1]
+                == '\n');
+
+            /* Remove trailing newline */
+            g_vm.input_buffer.data[strlen((char const*)g_vm.input_buffer.data) - 1] = 0;
+
+            char* token = strtok((char*)g_vm.input_buffer.data, " ");
             g_vm.input_buffer.head = (uintptr_t)token - (uintptr_t)g_vm.input_buffer.data;
+            while (token) {
+                long long number;
+                char* number_end;
+
+                /* Handle token */
+                number = strtol(token, &number_end, g_vm.base);
+                if ((*number_end == '\0') && (errno != ERANGE)) {
+                    stack_push(&g_vm.data_stack, (cell_t)number);
+                } else {
+                    struct dict_entry* word = search_dict(token);
+                    assert(word);
+
+                    g_vm.ip = (void**)word->body;
+                    goto** g_vm.ip;
+                back_to_repl:
+                    /* NOP (label at the end of a block was only added in C23) */
+                    (void)NULL;
+                }
+
+                /* Next token */
+                token = strtok(NULL, " ");
+                g_vm.input_buffer.head = (uintptr_t)token - (uintptr_t)g_vm.input_buffer.data;
+            }
         }
     }
 
