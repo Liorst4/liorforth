@@ -421,6 +421,32 @@ int main(void)
         NEXT;
     }
 
+    DEFINE_WORD_FULL(/* c_name_= */ push_to_return_stack,
+        /* clang-format off */
+        /* forth_name_= */ >r,
+        /* clang-format on */
+        /* flags_= */ 0)
+    {
+        cell_t value = stack_pop(&g_vm.data_stack);
+        cell_t calling_word_address = stack_pop(&g_vm.return_stack);
+        stack_push(&g_vm.return_stack, value);
+        stack_push(&g_vm.return_stack, calling_word_address);
+        NEXT;
+    }
+
+    DEFINE_WORD_FULL(/* c_name_= */ pop_from_return_stack,
+        /* clang-format off */
+        /* forth_name_= */ r>,
+        /* clang-format on */
+        /* flags_= */ 0)
+    {
+        cell_t calling_word_address = stack_pop(&g_vm.return_stack);
+        cell_t value = stack_pop(&g_vm.return_stack);
+        stack_push(&g_vm.data_stack, value);
+        stack_push(&g_vm.return_stack, calling_word_address);
+        NEXT;
+    }
+
 #undef DEFINE_CONSTANT
 #undef DEFINE_WORD
 #undef DEFINE_WORD_FULL
