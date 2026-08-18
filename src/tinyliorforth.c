@@ -44,7 +44,7 @@ struct dict_entry {
     struct dict_entry* prev;
     byte_t name[31];
     cell_t flags;
-    cell_t** body;
+    cell_t body[0];
 };
 
 enum {
@@ -141,35 +141,39 @@ int main(void)
     if (g_vm.init_is_done) \
     name_:
 
-#define DEFINE_WORD_FULL(c_name_, forth_name_, flags_)                    \
-    static cell_t* c_name_##_body[2] = { &&c_name_, &&ret };              \
-    static struct dict_entry c_name_##_dict_entry = (struct dict_entry) { \
-        .prev = NULL,                                                     \
-        .name = #forth_name_,                                             \
-        .flags = (flags_),                                                \
-        .body = c_name_##_body,                                           \
-    };                                                                    \
-    c_name_##_dict_entry.prev = g_vm.dict;                                \
-    g_vm.dict = &c_name_##_dict_entry;                                    \
+#define DEFINE_WORD_FULL(c_name_, forth_name_, flags_)                 \
+    static struct {                                                    \
+        struct dict_entry header;                                      \
+        cell_t body[2];                                                \
+    } c_name_##_dict_entry;                                            \
+    _Static_assert(offsetof(typeof(c_name_##_dict_entry), header.body) \
+            == offsetof(typeof(c_name_##_dict_entry), body),           \
+        "unexpected alignment");                                       \
+    c_name_##_dict_entry.header.prev = g_vm.dict;                      \
+    strcpy((char*)&c_name_##_dict_entry.header.name, #forth_name_);    \
+    c_name_##_dict_entry.header.flags = (flags_);                      \
+    c_name_##_dict_entry.body[0] = (cell_t)(&&c_name_);                \
+    c_name_##_dict_entry.body[1] = (cell_t)(&&ret);                    \
+    g_vm.dict = &c_name_##_dict_entry.header;                          \
     GADGET(c_name_)
 
 #define DEFINE_WORD(name_, flags_) DEFINE_WORD_FULL(name_, name_, flags_)
 
-#define DEFINE_CONSTANT(c_name_, forth_name_, value_)                     \
-    static cell_t* c_name_##_body[3] = {                                  \
-        &&load_literal,                                                   \
-        0,                                                                \
-        &&ret,                                                            \
-    };                                                                    \
-    static struct dict_entry c_name_##_dict_entry = (struct dict_entry) { \
-        .prev = NULL,                                                     \
-        .name = #forth_name_,                                             \
-        .flags = 0,                                                       \
-        .body = c_name_##_body,                                           \
-    };                                                                    \
-    c_name_##_body[1] = (cell_t*)(cell_t)(value_);                        \
-    c_name_##_dict_entry.prev = g_vm.dict;                                \
-    g_vm.dict = &c_name_##_dict_entry
+#define DEFINE_CONSTANT(c_name_, forth_name_, value_)                  \
+    static struct {                                                    \
+        struct dict_entry header;                                      \
+        cell_t body[3];                                                \
+    } c_name_##_dict_entry;                                            \
+    _Static_assert(offsetof(typeof(c_name_##_dict_entry), header.body) \
+            == offsetof(typeof(c_name_##_dict_entry), body),           \
+        "unexpected alignment");                                       \
+    c_name_##_dict_entry.header.prev = g_vm.dict;                      \
+    strcpy((char*)&c_name_##_dict_entry.header.name, #forth_name_);    \
+    c_name_##_dict_entry.header.flags = 0;                             \
+    c_name_##_dict_entry.body[0] = (cell_t)(&&load_literal);           \
+    c_name_##_dict_entry.body[1] = (cell_t)(value_);                   \
+    c_name_##_dict_entry.body[2] = (cell_t)(&&ret);                    \
+    g_vm.dict = &c_name_##_dict_entry.header;
 
     GADGET(ret)
     {
@@ -387,8 +391,6 @@ int main(void)
         assert(name);
         assert(strlen(name) < sizeof(g_vm.latest->name));
         strncpy((char*)g_vm.latest->name, name, sizeof(g_vm.latest->name));
-        align_data_space_to(alignof(cell_t*));
-        g_vm.latest->body = (cell_t**)(g_vm.data_space.data + g_vm.data_space.head);
         g_vm.state = FORTH_TRUE;
         NEXT;
     }
