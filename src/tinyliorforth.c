@@ -235,7 +235,18 @@ int main(void)
         /* flags_= */ 0)
     {
         cell_t a = stack_pop(&g_vm.data_stack);
-        fprintf(stdout, "%lld\n", (long long int)a);
+        assert((2 != g_vm.base) && "Not supported yet"); /* TODO */
+        switch (g_vm.base) {
+        case 8:
+            fprintf(stdout, "%llo\n", (unsigned long long)a);
+            break;
+        case 16:
+            fprintf(stdout, "%#llx\n", (unsigned long long)a);
+            break;
+        default:
+            fprintf(stdout, "%lld\n", (unsigned long long)a);
+            break;
+        }
         fflush(stdout);
         NEXT;
     }
@@ -447,6 +458,7 @@ int main(void)
                 char* number_end;
 
                 /* Handle token */
+                assert((2 != g_vm.base) && "Not supported yet"); /* TODO */
                 number = strtol(token, &number_end, g_vm.base);
                 if ((*number_end == '\0') && (errno != ERANGE)) {
                     if (g_vm.state == FORTH_TRUE) {
