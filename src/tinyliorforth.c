@@ -55,6 +55,8 @@ enum {
 static char* const BOOT_SCRIPT = ": nop ;\n"
                                  ": 1+ 1 + ;\n"
                                  ": 1- 1 - ;\n"
+                                 ": swap 1 roll ;\n"
+                                 ": rot 2 roll ;\n"
                                  ": nip swap drop ;\n";
 
 static struct {
@@ -228,23 +230,22 @@ int main(void)
         goto** g_vm.ip;
     }
 
-    DEFINE_WORD(/* name_= */ swap, /* flags_= */ 0)
+    DEFINE_WORD(/* name_= */ roll, /* flags_= */ 0)
     {
-        cell_t b = stack_pop(&g_vm.data_stack);
-        cell_t a = stack_pop(&g_vm.data_stack);
-        stack_push(&g_vm.data_stack, b);
-        stack_push(&g_vm.data_stack, a);
-        NEXT;
-    }
+        cell_t amount;
+        cell_t* first;
+        cell_t* last;
+        cell_t tmp;
 
-    DEFINE_WORD(/* name_= */ rot, /* flags_= */ 0)
-    {
-        cell_t c = stack_pop(&g_vm.data_stack);
-        cell_t b = stack_pop(&g_vm.data_stack);
-        cell_t a = stack_pop(&g_vm.data_stack);
-        stack_push(&g_vm.data_stack, b);
-        stack_push(&g_vm.data_stack, c);
-        stack_push(&g_vm.data_stack, a);
+        amount = stack_pop(&g_vm.data_stack);
+
+        last = &g_vm.data_stack.data[g_vm.data_stack.head - 1];
+        first = &g_vm.data_stack.data[g_vm.data_stack.head - 1 - amount];
+
+        tmp = *first;
+        memmove(first, first + 1, amount * sizeof(cell_t));
+        *last = tmp;
+
         NEXT;
     }
 
