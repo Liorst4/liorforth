@@ -57,7 +57,8 @@ static char* const BOOT_SCRIPT = ": nop ;\n"
                                  ": 1- 1 - ;\n"
                                  ": swap 1 roll ;\n"
                                  ": rot 2 roll ;\n"
-                                 ": nip swap drop ;\n";
+                                 ": nip swap drop ;\n"
+                                 ": cr nl emit ;\n";
 
 static struct {
     struct stack data_stack;
