@@ -119,6 +119,24 @@ static void align_data_space_to(size_t size)
     assert(0 == (g_vm.data_space.head % size));
 }
 
+static void print_number(FILE* stream, cell_t number)
+{
+    unsigned long long n;
+    assert((2 != g_vm.base) && "Not supported yet"); /* TODO */
+    n = number;
+    switch (g_vm.base) {
+    case 8:
+        fprintf(stdout, "%llo", n);
+        break;
+    case 16:
+        fprintf(stdout, "%#llx", n);
+        break;
+    default:
+        fprintf(stdout, "%lld", n);
+        break;
+    }
+}
+
 int main(void)
 {
     FILE* inputs[2];
@@ -235,18 +253,7 @@ int main(void)
         /* flags_= */ 0)
     {
         cell_t a = stack_pop(&g_vm.data_stack);
-        assert((2 != g_vm.base) && "Not supported yet"); /* TODO */
-        switch (g_vm.base) {
-        case 8:
-            fprintf(stdout, "%llo\n", (unsigned long long)a);
-            break;
-        case 16:
-            fprintf(stdout, "%#llx\n", (unsigned long long)a);
-            break;
-        default:
-            fprintf(stdout, "%lld\n", (unsigned long long)a);
-            break;
-        }
+        print_number(stdout, a);
         fflush(stdout);
         NEXT;
     }
@@ -444,6 +451,20 @@ int main(void)
         cell_t value = stack_pop(&g_vm.return_stack);
         stack_push(&g_vm.data_stack, value);
         stack_push(&g_vm.return_stack, calling_word_address);
+        NEXT;
+    }
+
+    DEFINE_WORD_FULL(/* c_name_= */ show_stack, /* forth_name_= */ .s, /* flags_= */ 0)
+    {
+        fputc('<', stdout);
+        print_number(stdout, g_vm.data_stack.head);
+        fputs("> ", stdout);
+        for (unsigned int i = 0; i < g_vm.data_stack.head; ++i) {
+            print_number(stdout, g_vm.data_stack.data[i]);
+            fputc(' ', stdout);
+        }
+
+        fflush(stdout);
         NEXT;
     }
 
