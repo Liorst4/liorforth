@@ -58,7 +58,11 @@ static char* const BOOT_SCRIPT = ": nop ;\n"
                                  ": swap 1 roll ;\n"
                                  ": rot 2 roll ;\n"
                                  ": nip swap drop ;\n"
-                                 ": cr nl emit ;\n";
+                                 ": cr nl emit ;\n"
+                                 ": cells sizeof_cell * ;\n"
+                                 ": select invert 1 and roll drop ;\n"
+                                 ": branch-relative cells r> + >r ;\n"
+                                 ": branch-relative? 0 swap cells rot select r> + >r ;\n";
 
 static struct {
     struct stack data_stack;
@@ -469,6 +473,8 @@ int main(void)
         fflush(stdout);
         NEXT;
     }
+
+    DEFINE_CONSTANT(/* c_name_= */ sizeof_cell, /* forth_name_= */ sizeof_cell, /* value_= */ sizeof(cell_t));
 
 #undef DEFINE_CONSTANT
 #undef DEFINE_WORD
