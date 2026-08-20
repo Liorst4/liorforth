@@ -175,16 +175,16 @@ int main(void)
             == offsetof(typeof(c_name_##_dict_entry), body),           \
         "unexpected alignment");                                       \
     c_name_##_dict_entry.header.prev = g_vm.dict;                      \
-    strcpy((char*)&c_name_##_dict_entry.header.name, #forth_name_);    \
+    strcpy((char*)&c_name_##_dict_entry.header.name, forth_name_);     \
     c_name_##_dict_entry.header.flags = (flags_);                      \
     c_name_##_dict_entry.body[0] = (cell_t)(&&c_name_);                \
     c_name_##_dict_entry.body[1] = (cell_t)(&&ret);                    \
     g_vm.dict = &c_name_##_dict_entry.header;                          \
     GADGET(c_name_)
 
-#define DEFINE_WORD(name_, flags_) DEFINE_WORD_FULL(name_, name_, flags_)
+#define DEFINE_WORD(name_, flags_) DEFINE_WORD_FULL(name_, #name_, flags_)
 
-#define DEFINE_CONSTANT(c_name_, forth_name_, value_)                  \
+#define DEFINE_CONSTANT_FULL(c_name_, forth_name_, value_)             \
     static struct {                                                    \
         struct dict_entry header;                                      \
         cell_t body[3];                                                \
@@ -193,12 +193,14 @@ int main(void)
             == offsetof(typeof(c_name_##_dict_entry), body),           \
         "unexpected alignment");                                       \
     c_name_##_dict_entry.header.prev = g_vm.dict;                      \
-    strcpy((char*)&c_name_##_dict_entry.header.name, #forth_name_);    \
+    strcpy((char*)&c_name_##_dict_entry.header.name, forth_name_);     \
     c_name_##_dict_entry.header.flags = 0;                             \
     c_name_##_dict_entry.body[0] = (cell_t)(&&load_literal);           \
     c_name_##_dict_entry.body[1] = (cell_t)(value_);                   \
     c_name_##_dict_entry.body[2] = (cell_t)(&&ret);                    \
     g_vm.dict = &c_name_##_dict_entry.header;
+
+#define DEFINE_CONSTANT(name_, value_) DEFINE_CONSTANT_FULL(name_, #name_, value_)
 
     GADGET(ret)
     {
@@ -255,7 +257,7 @@ int main(void)
     }
 
     DEFINE_WORD_FULL(/* c_name_= */ display,
-        /* forth_name_= */ .,
+        /* forth_name_= */ ".",
         /* flags_= */ 0)
     {
         cell_t a = stack_pop(&g_vm.data_stack);
@@ -272,7 +274,7 @@ int main(void)
         NEXT;
     }
 
-    DEFINE_WORD_FULL(/* c_name_= */ peek, /* forth_name_= */ @, /* flags_= */ 0)
+    DEFINE_WORD_FULL(/* c_name_= */ peek, /* forth_name_= */ "@", /* flags_= */ 0)
     {
         cell_t address = stack_pop(&g_vm.data_stack);
         cell_t value;
@@ -281,7 +283,7 @@ int main(void)
         NEXT;
     }
 
-    DEFINE_WORD_FULL(/* c_name_= */ poke, /* forth_name_= */ !, /* flags_= */ 0)
+    DEFINE_WORD_FULL(/* c_name_= */ poke, /* forth_name_= */ "!", /* flags_= */ 0)
     {
         cell_t address = stack_pop(&g_vm.data_stack);
         cell_t data = stack_pop(&g_vm.data_stack);
@@ -289,9 +291,9 @@ int main(void)
         NEXT;
     }
 
-    DEFINE_CONSTANT(/* c_name_= */ base, /* forth_name=_ */ base, /* value_= */ &g_vm.base);
+    DEFINE_CONSTANT(/* name_= */ base, /* value_= */ &g_vm.base);
 
-    DEFINE_WORD_FULL(/* c_name_= */ add, /* forth_name_= */ +, /* flags_= */ 0)
+    DEFINE_WORD_FULL(/* c_name_= */ add, /* forth_name_= */ "+", /* flags_= */ 0)
     {
         cell_t b = stack_pop(&g_vm.data_stack);
         cell_t a = stack_pop(&g_vm.data_stack);
@@ -299,7 +301,7 @@ int main(void)
         NEXT;
     }
 
-    DEFINE_WORD_FULL(/* c_name_= */ sub, /* forth_name_= */ -, /* flags_= */ 0)
+    DEFINE_WORD_FULL(/* c_name_= */ sub, /* forth_name_= */ "-", /* flags_= */ 0)
     {
         cell_t b = stack_pop(&g_vm.data_stack);
         cell_t a = stack_pop(&g_vm.data_stack);
@@ -307,7 +309,7 @@ int main(void)
         NEXT;
     }
 
-    DEFINE_WORD_FULL(/* c_name_= */ mul, /* forth_name_= */*, /* flags_= */ 0)
+    DEFINE_WORD_FULL(/* c_name_= */ mul, /* forth_name_= */ "*", /* flags_= */ 0)
     {
         cell_t b = stack_pop(&g_vm.data_stack);
         cell_t a = stack_pop(&g_vm.data_stack);
@@ -315,7 +317,7 @@ int main(void)
         NEXT;
     }
 
-    DEFINE_WORD_FULL(/* c_name_= */ div, /* forth_name_= */ /, /* flags_= */ 0)
+    DEFINE_WORD_FULL(/* c_name_= */ div, /* forth_name_= */ "/", /* flags_= */ 0)
     {
         cell_t b = stack_pop(&g_vm.data_stack);
         cell_t a = stack_pop(&g_vm.data_stack);
@@ -385,10 +387,10 @@ int main(void)
         NEXT;
     }
 
-    DEFINE_CONSTANT(/* c_name_= */ forth_true, /* forth_name_= */ true, /* value_= */ FORTH_TRUE);
-    DEFINE_CONSTANT(/* c_name_= */ forth_false, /* forth_name_= */ false, /* value_= */ FORTH_FALSE);
-    DEFINE_CONSTANT(/* c_name_= */ newline, /* forth_name_= */ nl, /* value_= */ '\n');
-    DEFINE_CONSTANT(/* c_name_= */ blank, /* forth_name_= */ bl, /* value_= */ ' ');
+    DEFINE_CONSTANT_FULL(/* c_name_= */ forth_true, /* forth_name_= */ "true", /* value_= */ FORTH_TRUE);
+    DEFINE_CONSTANT_FULL(/* c_name_= */ forth_false, /* forth_name_= */ "false", /* value_= */ FORTH_FALSE);
+    DEFINE_CONSTANT_FULL(/* c_name_= */ newline, /* forth_name_= */ "nl", /* value_= */ '\n');
+    DEFINE_CONSTANT_FULL(/* c_name_= */ blank, /* forth_name_= */ "bl", /* value_= */ ' ');
 
     DEFINE_WORD(/* name_= */ here, /* flags_= */ 0)
     {
@@ -403,9 +405,9 @@ int main(void)
         NEXT;
     }
 
-    DEFINE_CONSTANT(/* c_name_= */ state, /* forth_name=_ */ state, /* value_= */ &g_vm.state);
+    DEFINE_CONSTANT(/* name_= */ state, /* value_= */ &g_vm.state);
 
-    DEFINE_WORD_FULL(/* c_name_= */ start_compiling_user_defined_word, /* forth_name_= */ :, /* flags_= */ 0)
+    DEFINE_WORD_FULL(/* c_name_= */ start_compiling_user_defined_word, /* forth_name_= */ ":", /* flags_= */ 0)
     {
         align_data_space_to(alignof(struct dict_entry));
         g_vm.latest = (struct dict_entry*)(g_vm.data_space.data + g_vm.data_space.head);
@@ -419,7 +421,7 @@ int main(void)
         NEXT;
     }
 
-    DEFINE_WORD_FULL(/* c_name_= */ end_compiling_user_defined_word, /* forth_name_= */;, /* flags_= */ DICT_FLAG_IMMEDIATE)
+    DEFINE_WORD_FULL(/* c_name_= */ end_compiling_user_defined_word, /* forth_name_= */ ";", /* flags_= */ DICT_FLAG_IMMEDIATE)
     {
         /* clang-format off */
         cell_t r = (cell_t) &&ret;
@@ -435,9 +437,7 @@ int main(void)
     }
 
     DEFINE_WORD_FULL(/* c_name_= */ push_to_return_stack,
-        /* clang-format off */
-        /* forth_name_= */ >r,
-        /* clang-format on */
+        /* forth_name_= */ ">r",
         /* flags_= */ 0)
     {
         cell_t value = stack_pop(&g_vm.data_stack);
@@ -448,9 +448,7 @@ int main(void)
     }
 
     DEFINE_WORD_FULL(/* c_name_= */ pop_from_return_stack,
-        /* clang-format off */
-        /* forth_name_= */ r>,
-        /* clang-format on */
+        /* forth_name_= */ "r>",
         /* flags_= */ 0)
     {
         cell_t calling_word_address = stack_pop(&g_vm.return_stack);
@@ -460,7 +458,7 @@ int main(void)
         NEXT;
     }
 
-    DEFINE_WORD_FULL(/* c_name_= */ show_stack, /* forth_name_= */ .s, /* flags_= */ 0)
+    DEFINE_WORD_FULL(/* c_name_= */ show_stack, /* forth_name_= */ ".s", /* flags_= */ 0)
     {
         fputc('<', stdout);
         print_number(stdout, g_vm.data_stack.head);
@@ -474,7 +472,7 @@ int main(void)
         NEXT;
     }
 
-    DEFINE_CONSTANT(/* c_name_= */ sizeof_cell, /* forth_name_= */ sizeof_cell, /* value_= */ sizeof(cell_t));
+    DEFINE_CONSTANT(/* name_= */ sizeof_cell, /* value_= */ sizeof(cell_t));
 
 #undef DEFINE_CONSTANT
 #undef DEFINE_WORD
