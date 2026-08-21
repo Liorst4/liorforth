@@ -64,7 +64,9 @@ static char* const BOOT_SCRIPT = ": nop ;\n"
                                  ": branch-relative cells r> + >r ;\n"
                                  ": branch-relative? 0 swap cells rot select r> + >r ;\n"
                                  ": postpone ' compile, ; immediate\n"
-                                 ": ['] ' postpone literal ; immediate\n";
+                                 ": ['] ' postpone literal ; immediate\n"
+                                 ": [ false state ! ; immediate\n"
+                                 ": ] true state ! ;\n";
 
 static struct {
     struct stack data_stack;
