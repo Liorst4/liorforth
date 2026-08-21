@@ -540,6 +540,14 @@ int main(void)
         NEXT;
     }
 
+    DEFINE_WORD(/* name_= */ dup, /* flags_= */ 0)
+    {
+        cell_t x = stack_pop(&g_vm.data_stack);
+        stack_push(&g_vm.data_stack, x);
+        stack_push(&g_vm.data_stack, x);
+        NEXT;
+    }
+
 #undef DEFINE_CONSTANT
 #undef DEFINE_WORD
 #undef DEFINE_WORD_FULL
