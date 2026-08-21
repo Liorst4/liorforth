@@ -118,12 +118,40 @@ static struct dict_entry* search_dict(char const* name)
 
 static void align_data_space_to(size_t size)
 {
+    cell_t size_to_add;
+
     if (0 == (g_vm.data_space.head % size)) {
         return;
     }
 
-    g_vm.data_space.head += (size - (g_vm.data_space.head % size));
+    size_to_add = (size - (g_vm.data_space.head % size));
+    assert((g_vm.data_space.head + size_to_add) < sizeof(g_vm.data_space.data));
+    g_vm.data_space.head += size_to_add;
     assert(0 == (g_vm.data_space.head % size));
+}
+
+static void* allot_data(cell_t byte_count, cell_t alignment)
+{
+    void* result;
+
+    align_data_space_to(alignment);
+
+    result = &g_vm.data_space.data[g_vm.data_space.head];
+
+    assert((g_vm.data_space.head + byte_count) < sizeof(g_vm.data_space.data));
+    g_vm.data_space.head += byte_count;
+
+    return result;
+}
+
+static cell_t* allot_cell(void)
+{
+    return allot_data(sizeof(cell_t), alignof(cell_t));
+}
+
+static struct dict_entry* allot_dict_header(void)
+{
+    return allot_data(sizeof(struct dict_entry), alignof(struct dict_entry));
 }
 
 static void print_number(FILE* stream, cell_t number)
@@ -401,7 +429,7 @@ int main(void)
     DEFINE_WORD(/* name_= */ allot, /* flags_= */ 0)
     {
         cell_t size = stack_pop(&g_vm.data_stack);
-        g_vm.data_space.head += size;
+        (void)allot_data(size, /* alignment= */ 1);
         NEXT;
     }
 
@@ -409,9 +437,7 @@ int main(void)
 
     DEFINE_WORD_FULL(/* c_name_= */ start_compiling_user_defined_word, /* forth_name_= */ ":", /* flags_= */ 0)
     {
-        align_data_space_to(alignof(struct dict_entry));
-        g_vm.latest = (struct dict_entry*)(g_vm.data_space.data + g_vm.data_space.head);
-        g_vm.data_space.head += sizeof(*g_vm.latest);
+        g_vm.latest = allot_dict_header();
         memset(g_vm.latest, 0, sizeof(*g_vm.latest));
         char* name = strtok(NULL, " ");
         assert(name);
@@ -424,12 +450,9 @@ int main(void)
     DEFINE_WORD_FULL(/* c_name_= */ end_compiling_user_defined_word, /* forth_name_= */ ";", /* flags_= */ DICT_FLAG_IMMEDIATE)
     {
         /* clang-format off */
-        cell_t r = (cell_t) &&ret;
+        *allot_cell() = (cell_t)&&ret;
         /* clang-format on */
 
-        align_data_space_to(alignof(cell_t));
-        memcpy(g_vm.data_space.data + g_vm.data_space.head, &r, sizeof(r));
-        g_vm.data_space.head += sizeof(r);
         g_vm.latest->prev = g_vm.dict;
         g_vm.dict = g_vm.latest;
         g_vm.state = FORTH_FALSE;
@@ -515,17 +538,10 @@ int main(void)
                 number = strtol(token, &number_end, g_vm.base);
                 if ((*number_end == '\0') && (errno != ERANGE)) {
                     if (g_vm.state == FORTH_TRUE) {
-                        align_data_space_to(alignof(cell_t));
-
                         /* clang-format off */
-                        cell_t r = (cell_t) &&load_literal;
+                        *allot_cell() = (cell_t)&&load_literal;
                         /* clang-format on */
-                        memcpy(g_vm.data_space.data + g_vm.data_space.head, &r, sizeof(r));
-                        g_vm.data_space.head += sizeof(r);
-
-                        r = number;
-                        memcpy(g_vm.data_space.data + g_vm.data_space.head, &r, sizeof(r));
-                        g_vm.data_space.head += sizeof(r);
+                        *allot_cell() = number;
                     } else {
                         stack_push(&g_vm.data_stack, (cell_t)number);
                     }
@@ -533,16 +549,10 @@ int main(void)
                     struct dict_entry* word = search_dict(token);
                     assert(word);
                     if ((g_vm.state == FORTH_TRUE) && !(word->flags & DICT_FLAG_IMMEDIATE)) {
-                        align_data_space_to(alignof(cell_t));
-
                         /* clang-format off */
-                        cell_t r = (cell_t) &&call_word;
+                        *allot_cell() = (cell_t)&&call_word;
                         /* clang-format on */
-                        memcpy(g_vm.data_space.data + g_vm.data_space.head, &r, sizeof(cell_t));
-                        g_vm.data_space.head += sizeof(cell_t);
-
-                        memcpy(g_vm.data_space.data + g_vm.data_space.head, &word, sizeof(cell_t));
-                        g_vm.data_space.head += sizeof(cell_t);
+                        *allot_cell() = (cell_t)word;
                     } else {
                         g_vm.ip = (void**)word->body;
                         goto** g_vm.ip;
