@@ -507,6 +507,12 @@ int main(void)
         NEXT;
     }
 
+    DEFINE_WORD(/* name_ */ immediate, /* flags_= */ 0)
+    {
+        g_vm.latest->flags |= DICT_FLAG_IMMEDIATE;
+        NEXT;
+    }
+
 #undef DEFINE_CONSTANT
 #undef DEFINE_WORD
 #undef DEFINE_WORD_FULL
