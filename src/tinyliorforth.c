@@ -497,6 +497,16 @@ int main(void)
 
     DEFINE_CONSTANT(/* name_= */ sizeof_cell, /* value_= */ sizeof(cell_t));
 
+    DEFINE_WORD(/* name_= */ literal, /* flags_= */ DICT_FLAG_IMMEDIATE)
+    {
+        cell_t number = stack_pop(&g_vm.data_stack);
+        /* clang-format off */
+        *allot_cell() = (cell_t)&&load_literal;
+        /* clang-format on */
+        *allot_cell() = number;
+        NEXT;
+    }
+
 #undef DEFINE_CONSTANT
 #undef DEFINE_WORD
 #undef DEFINE_WORD_FULL
