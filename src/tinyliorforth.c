@@ -172,6 +172,13 @@ static void print_number(FILE* stream, cell_t number)
     }
 }
 
+static char* next_token(bool first_word_in_line)
+{
+    char* token = strtok(first_word_in_line ? (char*)g_vm.input_buffer.data : NULL, " ");
+    g_vm.input_buffer.head = (cell_t)token - (cell_t)g_vm.input_buffer.data;
+    return token;
+}
+
 int main(void)
 {
     FILE* inputs[2];
@@ -439,8 +446,7 @@ int main(void)
     {
         g_vm.latest = allot_dict_header();
         memset(g_vm.latest, 0, sizeof(*g_vm.latest));
-        char* name = strtok(NULL, " ");
-        assert(name);
+        char* name = next_token(/* first_word_in_line= */ false);
         assert(strlen(name) < sizeof(g_vm.latest->name));
         strncpy((char*)g_vm.latest->name, name, sizeof(g_vm.latest->name));
         g_vm.state = FORTH_TRUE;
@@ -513,6 +519,15 @@ int main(void)
         NEXT;
     }
 
+    DEFINE_WORD_FULL(/* c_name_= */ forth_search_dict, /* forth_name_= */ "'", /* flags_= */ 0)
+    {
+        char* name = next_token(/* first_word_in_line= */ false);
+        struct dict_entry* search_result = search_dict(name);
+        assert(search_result);
+        stack_push(&g_vm.data_stack, (cell_t)search_result);
+        NEXT;
+    }
+
 #undef DEFINE_CONSTANT
 #undef DEFINE_WORD
 #undef DEFINE_WORD_FULL
@@ -543,8 +558,7 @@ int main(void)
             /* Remove trailing newline */
             g_vm.input_buffer.data[strlen((char const*)g_vm.input_buffer.data) - 1] = 0;
 
-            char* token = strtok((char*)g_vm.input_buffer.data, " ");
-            g_vm.input_buffer.head = (uintptr_t)token - (uintptr_t)g_vm.input_buffer.data;
+            char* token = next_token(/* first_word_in_line= */ true);
             while (token) {
                 long long number;
                 char* number_end;
@@ -580,8 +594,7 @@ int main(void)
                 }
 
                 /* Next token */
-                token = strtok(NULL, " ");
-                g_vm.input_buffer.head = (uintptr_t)token - (uintptr_t)g_vm.input_buffer.data;
+                token = next_token(/* first_word_in_line= */ false);
             }
         }
     }
