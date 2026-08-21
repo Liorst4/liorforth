@@ -62,7 +62,9 @@ static char* const BOOT_SCRIPT = ": nop ;\n"
                                  ": cells sizeof_cell * ;\n"
                                  ": select invert 1 and roll drop ;\n"
                                  ": branch-relative cells r> + >r ;\n"
-                                 ": branch-relative? 0 swap cells rot select r> + >r ;\n";
+                                 ": branch-relative? 0 swap cells rot select r> + >r ;\n"
+                                 ": postpone ' compile, ; immediate\n"
+                                 ": ['] ' postpone literal ; immediate\n";
 
 static struct {
     struct stack data_stack;
@@ -525,6 +527,16 @@ int main(void)
         struct dict_entry* search_result = search_dict(name);
         assert(search_result);
         stack_push(&g_vm.data_stack, (cell_t)search_result);
+        NEXT;
+    }
+
+    DEFINE_WORD_FULL(/* c_name_= */ append_dict_call, /* forth_name= */ "compile,", /* flags= */ 0)
+    {
+        struct dict_entry* xt = (struct dict_entry*)stack_pop(&g_vm.data_stack);
+        /* clang-format off */
+        *allot_cell() = (cell_t)&&call_word;
+        /* clang-format on */
+        *allot_cell() = (cell_t)xt;
         NEXT;
     }
 
