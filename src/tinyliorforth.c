@@ -634,8 +634,10 @@ int main(void)
                 break;
             } else if (*iter == (cell_t)(&&load_literal)) {
                 unsigned long long value = *(iter + 1);
-                printf(" ( %#llx %#llx ) %lld\n",
-                    (unsigned long long)(*iter), value, value);
+                printf(" ( %#llx %#llx ) ",
+                    (unsigned long long)(*iter), value);
+                print_number(stdout, value);
+                fputc('\n', stdout);
                 iter += 2;
             } else if (*iter == (cell_t)(&&call_word)) {
                 struct dict_entry* target = (struct dict_entry*)(*(iter + 1));
