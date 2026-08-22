@@ -61,8 +61,24 @@ static char* const BOOT_SCRIPT = ": nop ;\n"
                                  ": cr nl emit ;\n"
                                  ": cells sizeof_cell * ;\n"
                                  ": select invert 1 and roll drop ;\n"
+
+                                 /*
+                                  * ( n:offset -- )
+                                  *
+                                  * Jumps to the offset given relative to the
+                                  * return address of this word
+                                  */
                                  ": branch-relative cells r> + >r ;\n"
+
+                                 /*
+                                  * ( f:condition n:offset -- )
+                                  *
+                                  * Jumps to the offset given relative to the
+                                  * return address of this word of the given
+                                  * condition is "false"
+                                  */
                                  ": branch-relative? 0 swap cells rot select r> + >r ;\n"
+
                                  ": postpone ' compile, ; immediate\n"
                                  ": ['] ' postpone literal ; immediate\n"
                                  ": [ false state ! ; immediate\n"
@@ -92,7 +108,30 @@ static char* const BOOT_SCRIPT = ": nop ;\n"
                                   * after the "if" and before the "then" when
                                   * "branch-relative?" is called with "false"
                                   */
-                                 ": then dup here swap - sizeof_cell / swap 3 cells - ! ; immediate\n";
+                                 ": then dup here swap - sizeof_cell / swap 3 cells - ! ; immediate\n"
+
+                                 /*
+                                  * ( -- n:address-of-begin-loop )
+                                  *
+                                  * Push to the stack the position of the
+                                  * start of the loop.
+                                  * Close the loop scope by using "until"
+                                  */
+                                 ": begin here ; immediate\n"
+
+                                 /*
+                                  * ( n:address-of-begin-loop -- )
+                                  *
+                                  * Jump back to the position of "begin" when
+                                  * the condition is false.
+                                  *
+                                  * the "4 cells +" is so the jump will be
+                                  * relative to the return address of
+                                  * "branch-relative?"
+                                  */
+                                 ": until here 4 cells + - sizeof_cell / postpone literal ['] branch-relative? postpone compile, ; immediate\n"
+
+    ;
 
 static struct {
     struct stack data_stack;
