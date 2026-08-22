@@ -459,10 +459,7 @@ int main(void)
 
     DEFINE_WORD_FULL(/* c_name_= */ end_compiling_user_defined_word, /* forth_name_= */ ";", /* flags_= */ DICT_FLAG_IMMEDIATE)
     {
-        /* clang-format off */
-        *allot_cell() = (cell_t)&&ret;
-        /* clang-format on */
-
+        *allot_cell() = (cell_t)(&&ret);
         g_vm.latest->prev = g_vm.dict;
         g_vm.dict = g_vm.latest;
         g_vm.state = FORTH_FALSE;
@@ -510,9 +507,7 @@ int main(void)
     DEFINE_WORD(/* name_= */ literal, /* flags_= */ DICT_FLAG_IMMEDIATE)
     {
         cell_t number = stack_pop(&g_vm.data_stack);
-        /* clang-format off */
-        *allot_cell() = (cell_t)&&load_literal;
-        /* clang-format on */
+        *allot_cell() = (cell_t)(&&load_literal);
         *allot_cell() = number;
         NEXT;
     }
@@ -535,9 +530,7 @@ int main(void)
     DEFINE_WORD_FULL(/* c_name_= */ append_dict_call, /* forth_name= */ "compile,", /* flags= */ 0)
     {
         struct dict_entry* xt = (struct dict_entry*)stack_pop(&g_vm.data_stack);
-        /* clang-format off */
-        *allot_cell() = (cell_t)&&call_word;
-        /* clang-format on */
+        *allot_cell() = (cell_t)(&&call_word);
         *allot_cell() = (cell_t)xt;
         NEXT;
     }
@@ -653,9 +646,7 @@ int main(void)
                 number = strtol(token, &number_end, g_vm.base);
                 if ((*number_end == '\0') && (errno != ERANGE)) {
                     if (g_vm.state == FORTH_TRUE) {
-                        /* clang-format off */
-                        *allot_cell() = (cell_t)&&load_literal;
-                        /* clang-format on */
+		      *allot_cell() = (cell_t)(&&load_literal);
                         *allot_cell() = number;
                     } else {
                         stack_push(&g_vm.data_stack, (cell_t)number);
@@ -664,9 +655,7 @@ int main(void)
                     struct dict_entry* word = search_dict(token);
                     assert(word);
                     if ((g_vm.state == FORTH_TRUE) && !(word->flags & DICT_FLAG_IMMEDIATE)) {
-                        /* clang-format off */
-                        *allot_cell() = (cell_t)&&call_word;
-                        /* clang-format on */
+		      *allot_cell() = (cell_t)(&&call_word);
                         *allot_cell() = (cell_t)word;
                     } else {
                         g_vm.ip = (void**)word->body;
