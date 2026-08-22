@@ -632,6 +632,30 @@ int main(void)
         NEXT;
     }
 
+    DEFINE_WORD_FULL(/* c_name= */ forth_cmp, /* forth_name= */ "=", /* flags= */ 0)
+    {
+        cell_t b = stack_pop(&g_vm.data_stack);
+        cell_t a = stack_pop(&g_vm.data_stack);
+        stack_push(&g_vm.data_stack, (a == b) ? FORTH_TRUE : FORTH_FALSE);
+        NEXT;
+    }
+
+    DEFINE_WORD_FULL(/* c_name= */ forth_lt, /* forth_name= */ "<", /* flags= */ 0)
+    {
+        cell_t b = stack_pop(&g_vm.data_stack);
+        cell_t a = stack_pop(&g_vm.data_stack);
+        stack_push(&g_vm.data_stack, (a < b) ? FORTH_TRUE : FORTH_FALSE);
+        NEXT;
+    }
+
+    DEFINE_WORD_FULL(/* c_name= */ forth_gt, /* forth_name= */ ">", /* flags= */ 0)
+    {
+        cell_t b = stack_pop(&g_vm.data_stack);
+        cell_t a = stack_pop(&g_vm.data_stack);
+        stack_push(&g_vm.data_stack, (a > b) ? FORTH_TRUE : FORTH_FALSE);
+        NEXT;
+    }
+
 #undef DEFINE_CONSTANT
 #undef DEFINE_WORD
 #undef DEFINE_WORD_FULL
@@ -672,7 +696,7 @@ int main(void)
                 number = strtol(token, &number_end, g_vm.base);
                 if ((*number_end == '\0') && (errno != ERANGE)) {
                     if (g_vm.state == FORTH_TRUE) {
-		      *allot_cell() = (cell_t)(&&load_literal);
+                        *allot_cell() = (cell_t)(&&load_literal);
                         *allot_cell() = number;
                     } else {
                         stack_push(&g_vm.data_stack, (cell_t)number);
@@ -681,7 +705,7 @@ int main(void)
                     struct dict_entry* word = search_dict(token);
                     assert(word);
                     if ((g_vm.state == FORTH_TRUE) && !(word->flags & DICT_FLAG_IMMEDIATE)) {
-		      *allot_cell() = (cell_t)(&&call_word);
+                        *allot_cell() = (cell_t)(&&call_word);
                         *allot_cell() = (cell_t)word;
                     } else {
                         g_vm.ip = (void**)word->body;
