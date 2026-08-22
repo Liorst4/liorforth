@@ -550,6 +550,15 @@ int main(void)
         NEXT;
     }
 
+    DEFINE_WORD(/* name_= */ move, /* flags_= */ 0)
+    {
+        cell_t count = stack_pop(&g_vm.data_stack);
+        cell_t dst = stack_pop(&g_vm.data_stack);
+        cell_t src = stack_pop(&g_vm.data_stack);
+        memmove((void*)dst, (void*)src, count);
+        NEXT;
+    }
+
 #undef DEFINE_CONSTANT
 #undef DEFINE_WORD
 #undef DEFINE_WORD_FULL
