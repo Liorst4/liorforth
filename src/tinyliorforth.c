@@ -559,6 +559,60 @@ int main(void)
         NEXT;
     }
 
+    DEFINE_WORD(/* name_= */ see, /* flags_= */ 0)
+    {
+        char* name = next_token(/* first_word_in_line= */ false);
+        struct dict_entry* search_result = search_dict(name);
+        assert(search_result);
+
+        printf(": %s ( %p )\n", search_result->name, search_result);
+        cell_t* iter = search_result->body;
+        while (true) {
+            printf(" ( %p: ) ", iter);
+            if (*iter == (cell_t)(&&ret)) {
+                printf(" ( %#llx ) ( goto ret )\n",
+                    (unsigned long long)*iter);
+                ++iter;
+                break;
+            } else if (*iter == (cell_t)(&&load_literal)) {
+                unsigned long long value = *(iter + 1);
+                printf(" ( %#llx %#llx ) %lld\n",
+                    (unsigned long long)(*iter), value, value);
+                iter += 2;
+            } else if (*iter == (cell_t)(&&call_word)) {
+                struct dict_entry* target = (struct dict_entry*)(*(iter + 1));
+                printf(" ( %#llx %p ) %s \n",
+                    (unsigned long long)(*iter),
+                    target,
+                    target->name);
+                iter += 2;
+            } else {
+                printf(" ( %#llx ) ( goto %#llx )\n",
+                    (unsigned long long)*iter,
+                    (unsigned long long)*iter);
+                ++iter;
+            }
+        }
+
+        printf(";");
+        if (search_result->flags & DICT_FLAG_IMMEDIATE) {
+            printf(" immediate");
+        }
+
+        printf(" ( body cell count: %lld )", (unsigned long long)(iter - search_result->body));
+        printf("\n");
+        NEXT;
+    }
+
+    DEFINE_WORD(/* name_= */ words, /* flags_= */ 0)
+    {
+        for (struct dict_entry* iter = g_vm.latest; iter; iter = iter->prev) {
+            printf("%s\n", iter->name);
+        }
+
+        NEXT;
+    }
+
 #undef DEFINE_CONSTANT
 #undef DEFINE_WORD
 #undef DEFINE_WORD_FULL
