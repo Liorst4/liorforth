@@ -66,7 +66,33 @@ static char* const BOOT_SCRIPT = ": nop ;\n"
                                  ": postpone ' compile, ; immediate\n"
                                  ": ['] ' postpone literal ; immediate\n"
                                  ": [ false state ! ; immediate\n"
-                                 ": ] true state ! ;\n";
+                                 ": ] true state ! ;\n"
+
+                                 /*
+                                  * ( -- n:branch-relative-return-address )
+                                  *
+                                  * Appends a literal and a call to
+                                  * "branch-relative?" to the currently
+                                  * compiling word Use "then" to set the branch
+                                  * destination (close the scope)
+                                  *
+                                  * -6 was chosen as the temporary value so that
+                                  * if someone forgets to put a "then" after the
+                                  * "if", it will result in an infinite loop.
+                                  */
+                                 ": if -6 postpone literal ['] branch-relative? postpone compile, here ; immediate\n"
+
+                                 /*
+                                  * ( n:branch-relative-return-address -- )
+                                  *
+                                  * Calculate the offset between the destination
+                                  * of the "branch-relative?" from the "if"
+                                  * call, override the literal before the
+                                  * "branch-relative?" to skip the instructions
+                                  * after the "if" and before the "then" when
+                                  * "branch-relative?" is called with "false"
+                                  */
+                                 ": then dup here swap - sizeof_cell / swap 3 cells - ! ; immediate\n";
 
 static struct {
     struct stack data_stack;
